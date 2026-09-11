@@ -1,0 +1,213 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/geist';
+
+/* Light only for the MVP. A future dark theme populates the same tokens under [data-theme="dark"]. */
+@custom-variant dark (&:is(.dark *));
+
+/* ------------------------------------------------------------------ */
+/* Aimious brand tokens (plan.md 8.1, 8.2, 8.3). Utilities such as      */
+/* bg-surface, text-ink-muted, border-line, rounded-card, shadow-card,  */
+/* ease-brand and text-h1 come from this block.                         */
+/* ------------------------------------------------------------------ */
+@theme {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-heading: var(--font-sans);
+
+  /* Surfaces and lines */
+  --color-bg: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-surface-2: #edeff3;
+  --color-surface-3: #e2e5eb;
+  --color-line: #dce0e7;
+  --color-line-strong: #b8bec9;
+
+  /* Text */
+  --color-ink: #0e1013;
+  --color-ink-muted: #4e5562;
+  --color-ink-subtle: #5c6371;
+
+  /* Signal orange */
+  --color-primary: #c24a17;
+  --color-primary-hover: #a03c12;
+  --color-primary-soft: #fce9e0;
+
+  /* Semantics */
+  --color-success: #1f7a4d;
+  --color-success-soft: #e3f3ea;
+  --color-warning: #b7791f;
+  --color-warning-soft: #fbf1dc;
+  --color-danger: #b42318;
+  --color-danger-soft: #fce8e6;
+  --color-info: #1d4ed8;
+  --color-info-soft: #e4ecfb;
+
+  /* Radii */
+  --radius-card: 10px;
+  --radius-control: 6px;
+  --radius-pill: 999px;
+
+  /* Elevation */
+  --shadow-card: 0 1px 2px rgb(14 16 19 / 0.04), 0 8px 24px -16px rgb(14 16 19 / 0.12);
+  --shadow-card-hover:
+    0 1px 2px rgb(14 16 19 / 0.04), 0 8px 24px -16px rgb(14 16 19 / 0.12),
+    0 16px 32px -20px rgb(14 16 19 / 0.18);
+  --shadow-popover: 0 12px 32px -12px rgb(14 16 19 / 0.24);
+
+  /* Motion */
+  --ease-brand: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Type scale (size / line-height / weight / tracking) */
+  --text-display: 28px;
+  --text-display--line-height: 34px;
+  --text-display--font-weight: 500;
+  --text-display--letter-spacing: -0.02em;
+  --text-h1: 24px;
+  --text-h1--line-height: 30px;
+  --text-h1--font-weight: 500;
+  --text-h1--letter-spacing: -0.02em;
+  --text-h2: 20px;
+  --text-h2--line-height: 28px;
+  --text-h2--font-weight: 500;
+  --text-h2--letter-spacing: -0.015em;
+  --text-h3: 16px;
+  --text-h3--line-height: 24px;
+  --text-h3--font-weight: 500;
+  --text-h3--letter-spacing: -0.01em;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-body--font-weight: 400;
+  --text-small: 13px;
+  --text-small--line-height: 18px;
+  --text-small--font-weight: 400;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption--font-weight: 450;
+  --text-caption--letter-spacing: 0.01em;
+  --text-metric: 30px;
+  --text-metric--line-height: 36px;
+  --text-metric--font-weight: 500;
+  --text-metric--letter-spacing: -0.02em;
+}
+
+/* ------------------------------------------------------------------ */
+/* shadcn semantic variables mapped onto the brand tokens so every     */
+/* copied component picks up the palette without edits.                */
+/* ------------------------------------------------------------------ */
+:root {
+  --background: var(--color-bg);
+  --foreground: var(--color-ink);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-ink);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-primary);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-surface-2);
+  --secondary-foreground: var(--color-ink);
+  --muted: var(--color-surface-2);
+  --muted-foreground: var(--color-ink-muted);
+  --accent: var(--color-surface-2);
+  --accent-foreground: var(--color-ink);
+  --destructive: var(--color-danger);
+  --border: var(--color-line);
+  --input: var(--color-line);
+  --ring: var(--color-primary);
+  --chart-1: var(--color-primary);
+  --chart-2: #d9773f;
+  --chart-3: #e9a278;
+  --chart-4: #f3c9b1;
+  --chart-5: var(--color-primary-soft);
+  /* Control radius; cards use --radius-xl below. */
+  --radius: 6px;
+  --sidebar: var(--color-surface);
+  --sidebar-foreground: var(--color-ink);
+  --sidebar-primary: var(--color-primary);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--color-primary-soft);
+  --sidebar-accent-foreground: var(--color-primary);
+  --sidebar-border: var(--color-line);
+  --sidebar-ring: var(--color-primary);
+
+  /* Durations (plan.md 8.3) */
+  --duration-hover: 150ms;
+  --duration-dialog: 250ms;
+  --duration-page: 400ms;
+}
+
+@theme inline {
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  /* --color-primary is the brand token above; shadcn's `bg-primary` resolves to it directly. */
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  /* shadcn radius scale: controls (rounded-lg) 6px, cards and dialogs (rounded-xl) 10px. */
+  --radius-sm: 4px;
+  --radius-md: 5px;
+  --radius-lg: var(--radius);
+  --radius-xl: var(--radius-card);
+  --radius-2xl: 14px;
+  --radius-3xl: 18px;
+  --radius-4xl: 24px;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-bg text-body text-ink;
+  }
+  /* 2px primary ring at 2px offset for anything that does not bring its own ring. */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--color-primary-soft);
+    color: var(--color-ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

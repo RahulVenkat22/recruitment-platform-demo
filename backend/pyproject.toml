@@ -1,0 +1,132 @@
+# Tooling configuration for the Django backend (plan.md sections 4 and 11).
+# Runtime dependencies are pinned in requirements.txt / requirements-dev.txt.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["*/migrations/*", ".venv", "staticfiles"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+  "config",
+  "common",
+  "accounts",
+  "jobs",
+  "candidates",
+  "pipeline",
+  "sourcing",
+  "matching",
+  "activity",
+  "notifications",
+  "audit",
+  "dashboard",
+  "seed",
+  "tests",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+
+[tool.coverage.run]
+source = [
+  "common",
+  "accounts",
+  "jobs",
+  "candidates",
+  "pipeline",
+  "sourcing",
+  "matching",
+  "activity",
+  "notifications",
+  "audit",
+  "dashboard",
+  "seed",
+]
+omit = ["*/migrations/*", "*/apps.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+# ---------------------------------------------------------------------------
+# Architecture rule from plan.md section 4, checked by `lint-imports` in
+# `make lint`:
+#
+#     api views / serializers  ->  services  ->  repositories / providers / engines  ->  models
+#
+# Every app package is a container; each layer is the module (or subpackage)
+# of that name inside the app. Layers wrapped in parentheses are optional, so
+# the contract passes for apps that have not grown a layer yet and tightens
+# automatically as modules appear. Modules in the same layer separated by ":"
+# may import each other; a higher layer may import a lower one, never the
+# reverse. Cross-app imports must also respect the ordering (e.g.
+# pipeline.services may use candidates.repositories, but candidates.models may
+# not import pipeline.services).
+# ---------------------------------------------------------------------------
+[tool.importlinter]
+root_packages = [
+  "config",
+  "common",
+  "accounts",
+  "jobs",
+  "candidates",
+  "pipeline",
+  "sourcing",
+  "matching",
+  "activity",
+  "notifications",
+  "audit",
+  "dashboard",
+  "seed",
+]
+include_external_packages = false
+
+[[tool.importlinter.contracts]]
+name = "Layering: views/serializers -> services -> repositories/providers/engines -> models"
+type = "layers"
+containers = [
+  "common",
+  "accounts",
+  "jobs",
+  "candidates",
+  "pipeline",
+  "sourcing",
+  "matching",
+  "activity",
+  "notifications",
+  "audit",
+  "dashboard",
+  "seed",
+]
+layers = [
+  "(urls) : (views) : (serializers) : (filters) : (admin) : (management)",
+  "(services)",
+  "(repositories) : (providers) : (engines) : (engine) : (adapters) : (registry) : (middleware)",
+  "(models) : (managers) : (enums) : (dtos) : (permissions) : (pagination) : (exceptions)",
+]
+
+[[tool.importlinter.contracts]]
+name = "Apps never import the project package (config)"
+type = "forbidden"
+source_modules = [
+  "common",
+  "accounts",
+  "jobs",
+  "candidates",
+  "pipeline",
+  "sourcing",
+  "matching",
+  "activity",
+  "notifications",
+  "audit",
+  "dashboard",
+  "seed",
+]
+forbidden_modules = ["config"]

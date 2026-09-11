@@ -1,0 +1,13 @@
+# Runtime dependencies (plan.md section 3.1). Exact pins checked against PyPI on 2026-09-11.
+Django==5.2.17
+djangorestframework==3.18.1
+djangorestframework-simplejwt==5.5.1
+django-filter==26.1
+drf-spectacular==0.30.0
+django-cors-headers==4.9.0
+django-environ==0.14.0
+psycopg[binary]==3.3.5
+argon2-cffi==25.1.0
+Faker==40.38.0
+gunicorn==26.2.0
+whitenoise==6.12.0
