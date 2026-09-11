@@ -42,6 +42,7 @@ from pipeline.models import (
     Onboarding,
     SearchRun,
 )
+from seed.models import SeedMarker
 
 pytestmark = pytest.mark.django_db
 
@@ -775,7 +776,11 @@ def test_str_methods_mention_the_human_facing_names(world, jd, candidate):
 # ---------------------------------------------------------------------- admin
 
 
-@pytest.mark.parametrize("model", [User, *ALL_MODELS])
+# SeedMarker is internal bookkeeping (not in plan.md 6.3) but still gets a read-only admin.
+ADMIN_MODELS = [User, *ALL_MODELS, SeedMarker]
+
+
+@pytest.mark.parametrize("model", ADMIN_MODELS)
 def test_every_model_is_registered_in_the_admin_with_list_display_and_search(model):
     assert admin.site.is_registered(model), model.__name__
     model_admin = admin.site._registry[model]
@@ -783,7 +788,7 @@ def test_every_model_is_registered_in_the_admin_with_list_display_and_search(mod
     assert model_admin.search_fields, model.__name__
 
 
-@pytest.mark.parametrize("model", [User, *ALL_MODELS])
+@pytest.mark.parametrize("model", ADMIN_MODELS)
 def test_admin_changelist_renders_for_every_model(client, world, user_factory, model):
     admin_user = user_factory(is_superuser=True, email="admin@aimious.demo")
     client.force_login(admin_user)
@@ -792,3 +797,33 @@ def test_admin_changelist_renders_for_every_model(client, world, user_factory, m
     response = client.get(url)
 
     assert response.status_code == 200, url
+
+
+@pytest.mark.django_db
+def test_seed_marker_admin_is_read_only(client, user_factory):
+    marker = SeedMarker.objects.create(version=1, counts={"Candidates": 180, "Job descriptions": 6})
+    model_admin = admin.site._registry[SeedMarker]
+    assert model_admin.candidate_count(marker) == 180
+    assert model_admin.job_count(marker) == 6
+    client.force_login(user_factory(is_superuser=True, email="admin2@aimious.demo"))
+    assert client.get(reverse("admin:seed_seedmarker_add")).status_code == 403
+    change_url = reverse("admin:seed_seedmarker_change", args=[marker.pk])
+    assert client.get(change_url).status_code == 200  # view permission only
+
+
+# ----------------------------------------------------- candidate email casing
+
+
+@pytest.mark.django_db
+def test_candidate_email_is_unique_case_insensitively_even_when_save_is_bypassed():
+    """plan.md 6.3: email is unique and lowercase. save() lowercases, but bulk_create
+    skips save(), so the database enforces uniqueness on Lower(email)."""
+    Candidate.objects.bulk_create([Candidate(full_name="Asha Rao", email="asha.rao@example.com")])
+    with pytest.raises(IntegrityError), transaction.atomic():
+        Candidate.objects.bulk_create(
+            [Candidate(full_name="Asha Rao", email="Asha.Rao@Example.com")]
+        )
+    assert Candidate.objects.filter(email__iexact="asha.rao@example.com").count() == 1
+    assert "candidates_candidate_email_ci_unique" in {
+        constraint.name for constraint in Candidate._meta.constraints
+    }

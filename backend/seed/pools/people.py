@@ -12,11 +12,10 @@ from typing import NamedTuple
 # ``jobs.JobSpec.role_family``, ``JOB_TITLES_BY_FAMILY`` and the text templates.
 ROLE_FAMILIES: tuple[str, ...] = ("backend", "frontend", "ai_ml", "data_science", "devops", "qa")
 
-SENIORITY_LEVELS: tuple[str, ...] = ("junior", "mid", "senior", "lead")
-
 
 def seniority_for(total_experience_years: float) -> str:
-    """Bucket total experience into a seniority level used to pick job titles."""
+    """Bucket total experience into a ``JOB_TITLES_BY_FAMILY`` level ("junior", "mid",
+    "senior" or "lead") used to pick job titles."""
     if total_experience_years < 2:
         return "junior"
     if total_experience_years < 5:
@@ -153,10 +152,6 @@ COMPANIES: tuple[Company, ...] = (
     Company("TripNest", "startup", "travel", "Bengaluru"),
 )
 
-COMPANIES_BY_TIER: dict[str, tuple[Company, ...]] = {
-    tier: tuple(company for company in COMPANIES if company.tier == tier) for tier in COMPANY_TIERS
-}
-
 COMPANIES_BY_NAME: dict[str, Company] = {company.name: company for company in COMPANIES}
 
 # ------------------------------------------------------------------------ titles
@@ -206,7 +201,19 @@ JOB_TITLES_BY_FAMILY: dict[str, dict[str, tuple[str, ...]]] = {
 
 # --------------------------------------------------------------------- education
 
-DEGREES: tuple[str, ...] = ("B.Tech", "B.E", "M.Tech", "MCA", "B.Sc", "M.Sc", "MBA", "PhD")
+# Degree -> nominal duration in years; the generator walks back from the career start.
+DEGREE_YEARS: dict[str, int] = {
+    "B.Tech": 4,
+    "B.E": 4,
+    "B.Sc": 3,
+    "M.Tech": 2,
+    "M.Sc": 2,
+    "MCA": 3,
+    "MBA": 2,
+    "PhD": 5,
+}
+
+DEGREES: tuple[str, ...] = tuple(DEGREE_YEARS)
 
 # Level used by the education component of the match engine (plan.md 6.6).
 DEGREE_LEVELS: dict[str, str] = {
@@ -220,19 +227,60 @@ DEGREE_LEVELS: dict[str, str] = {
     "PhD": "phd",
 }
 
-FIELDS_OF_STUDY: tuple[str, ...] = (
-    "Computer Science and Engineering",
-    "Information Technology",
-    "Electronics and Communication Engineering",
-    "Electrical and Electronics Engineering",
-    "Mechanical Engineering",
-    "Data Science",
-    "Artificial Intelligence",
-    "Statistics",
-    "Mathematics",
-    "Computer Applications",
-    "Software Engineering",
-    "Business Administration",
+# Field of study depends on the degree and on the candidate's track: "quantitative"
+# for the AI/ML and data science families, "engineering" for everything else.
+# Professional degrees have one field, science degrees pick uniformly and the
+# engineering degrees (B.Tech, B.E, M.Tech, PhD) draw from a weighted pool.
+STUDY_TRACKS: tuple[str, ...] = ("engineering", "quantitative")
+
+FIXED_FIELDS: dict[str, str] = {
+    "MBA": "Business Administration",
+    "MCA": "Computer Applications",
+}
+
+SCIENCE_DEGREES: frozenset[str] = frozenset({"B.Sc", "M.Sc"})
+
+SCIENCE_FIELDS_BY_TRACK: dict[str, tuple[str, ...]] = {
+    "engineering": (
+        "Computer Science and Engineering",
+        "Mathematics",
+        "Information Technology",
+    ),
+    "quantitative": (
+        "Statistics",
+        "Mathematics",
+        "Data Science",
+        "Computer Science and Engineering",
+    ),
+}
+
+ENGINEERING_FIELD_WEIGHTS_BY_TRACK: dict[str, dict[str, int]] = {
+    "engineering": {
+        "Computer Science and Engineering": 45,
+        "Information Technology": 25,
+        "Electronics and Communication Engineering": 14,
+        "Electrical and Electronics Engineering": 6,
+        "Software Engineering": 6,
+        "Mechanical Engineering": 4,
+    },
+    "quantitative": {
+        "Computer Science and Engineering": 30,
+        "Data Science": 18,
+        "Artificial Intelligence": 15,
+        "Information Technology": 12,
+        "Electronics and Communication Engineering": 10,
+        "Statistics": 8,
+        "Mathematics": 7,
+    },
+}
+
+# Every field a generated candidate can hold, for tests and the matching phase.
+FIELDS_OF_STUDY: tuple[str, ...] = tuple(
+    sorted(
+        set(FIXED_FIELDS.values())
+        .union(*SCIENCE_FIELDS_BY_TRACK.values())
+        .union(*ENGINEERING_FIELD_WEIGHTS_BY_TRACK.values())
+    )
 )
 
 INSTITUTIONS: tuple[str, ...] = (

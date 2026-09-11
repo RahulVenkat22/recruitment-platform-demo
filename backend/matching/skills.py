@@ -10,11 +10,15 @@ Pipeline for ``normalize_skill``:
 2. synonym lookup on the raw form (catches ``ci/cd``, ``node.js``, ``s3`` before
    punctuation and version stripping would mangle them)
 3. replace punctuation other than ``+`` and ``#`` with spaces and collapse again
-4. strip a trailing version number (``python 3.11`` -> ``python``, ``html5`` -> ``html``)
+4. strip a trailing version number (``python 3.11`` -> ``python``, ``vue 3`` -> ``vue``)
 5. synonym lookup on the cleaned form
 
+A version is only recognised after whitespace: digits glued to letters are part of
+the name (``d3``, ``web3``, ``es6``, ``s3``), so the common glued forms that *are*
+versions (``python3``, ``html5``, ``css3``) live in ``SYNONYMS`` instead.
+
 Every value in ``SYNONYMS`` is a fixed point of the function, so normalising twice
-equals normalising once.
+equals normalising once, and no entry maps a key to itself.
 """
 
 from __future__ import annotations
@@ -25,8 +29,8 @@ from collections.abc import Iterable
 _WHITESPACE = re.compile(r"\s+")
 _PUNCTUATION = re.compile(r"[^\w\s+#]", re.UNICODE)
 _UNDERSCORE = re.compile(r"_+")
-# A trailing version: optional whitespace, digits with optional dotted parts, at end.
-_TRAILING_VERSION = re.compile(r"\s*\d+(?:\.\d+)*$")
+# A trailing version: whitespace, then digits with optional dotted parts, at the end.
+_TRAILING_VERSION = re.compile(r"\s+\d+(?:\.\d+)*$")
 
 SYNONYMS: dict[str, str] = {
     # languages
@@ -70,8 +74,10 @@ SYNONYMS: dict[str, str] = {
     "expressjs": "express",
     "express.js": "express",
     "express js": "express",
-    "spring boot": "spring boot",
     "springboot": "spring boot",
+    "d3.js": "d3",
+    "d3 js": "d3",
+    "d3js": "d3",
     # data stores
     "postgres": "postgresql",
     "postgre": "postgresql",
@@ -99,7 +105,6 @@ SYNONYMS: dict[str, str] = {
     "continuous integration": "cicd",
     "continuous delivery": "cicd",
     "tf": "tensorflow",
-    "terraform": "terraform",
     # apis
     "restful": "rest",
     "rest api": "rest",
@@ -138,8 +143,10 @@ DISPLAY: dict[str, str] = {
     "typescript": "TypeScript",
     "nodejs": "Node.js",
     "nextjs": "Next.js",
-    "vue": "Vue",
+    "vue": "Vue.js",
     "react": "React",
+    "langchain": "LangChain",
+    "d3": "D3.js",
     "django rest framework": "Django REST Framework",
     "fastapi": "FastAPI",
     "aws": "AWS",
@@ -151,7 +158,7 @@ DISPLAY: dict[str, str] = {
     "grpc": "gRPC",
     "machine learning": "Machine Learning",
     "nlp": "NLP",
-    "llm": "LLM",
+    "llm": "LLMs",
     "generative ai": "Generative AI",
     "artificial intelligence": "Artificial Intelligence",
     "sql": "SQL",
@@ -185,6 +192,12 @@ DISPLAY: dict[str, str] = {
     "mlops": "MLOps",
     "etl": "ETL",
     "tdd": "TDD",
+    "dbt": "dbt",
+    "bigquery": "BigQuery",
+    "power bi": "Power BI",
+    "testng": "TestNG",
+    "jmeter": "JMeter",
+    "api testing": "API Testing",
 }
 
 
@@ -193,9 +206,8 @@ def _collapse(value: str) -> str:
 
 
 def _strip_version(value: str) -> str:
-    """Drop a trailing dotted version number unless that would leave nothing."""
-    stripped = _TRAILING_VERSION.sub("", value)
-    return stripped or value
+    """Drop a whitespace-separated trailing version number (``python 3.11`` -> ``python``)."""
+    return _TRAILING_VERSION.sub("", value)
 
 
 def normalize_skill(name: str) -> str:

@@ -12,6 +12,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models.functions import Lower
 from django.utils import timezone
 
 from common import enums
@@ -20,7 +21,8 @@ from common.models import UUIDTimestampedModel
 
 class Candidate(UUIDTimestampedModel):
     full_name = models.CharField(max_length=160)
-    # Stored lowercase (see save()); the dedupe key across sources.
+    # Stored lowercase (see save() and the Lower("email") constraint); the dedupe key
+    # across sources.
     email = models.EmailField(max_length=254, unique=True)
     phone = models.CharField(max_length=32, blank=True)
     location = models.CharField(max_length=160, blank=True)
@@ -47,6 +49,10 @@ class Candidate(UUIDTimestampedModel):
 
     class Meta:
         ordering = ["full_name"]
+        constraints = [
+            # save() lowercases, but bulk_create/update bypass it; the database enforces it.
+            models.UniqueConstraint(Lower("email"), name="candidates_candidate_email_ci_unique"),
+        ]
 
     def __str__(self) -> str:
         return self.full_name

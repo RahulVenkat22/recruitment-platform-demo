@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import re
 import string
 import sys
@@ -13,7 +14,9 @@ from pathlib import Path
 
 import pytest
 
+import seed.pools as pools_package
 from common import enums
+from matching.skills import display_name, normalize_skill
 from seed.pools import jobs, journey, people, skills, text, users
 
 PORTRAIT_RE = re.compile(r"^https://randomuser\.me/api/portraits/(men|women)/(\d{1,2})\.jpg$")
@@ -41,16 +44,31 @@ def _imported_modules(module) -> set[str]:
     return names
 
 
-@pytest.mark.parametrize("module", [users, jobs, skills, people, text, journey])
+@pytest.mark.parametrize("module", [pools_package, users, jobs, skills, people, text, journey])
 def test_pools_do_not_import_django(module):
+    """Pools import only the standard library, each other and the pure-Python skill
+    normaliser (``matching.skills`` is the one dictionary for skill keys and spellings)."""
     imported = _imported_modules(module)
     assert imported, module.__name__
     for name in imported:
         top = name.split(".")[0]
         assert top != "django", f"{module.__name__} must stay Django-free"
-        assert top in {"seed", *sys.stdlib_module_names}, f"{module.__name__} imports {name}"
+        assert top in {"seed", "matching", *sys.stdlib_module_names}, (
+            f"{module.__name__} imports {name}"
+        )
         if top == "seed":
-            assert name.startswith("seed.pools."), f"{module.__name__} imports {name}"
+            assert name == "seed.pools" or name.startswith("seed.pools."), (
+                f"{module.__name__} imports {name}"
+            )
+        if top == "matching":
+            assert name == "matching.skills", f"{module.__name__} imports {name}"
+
+
+def test_package_exports_every_pool_module():
+    assert pools_package.__all__ == ["jobs", "journey", "people", "skills", "text", "users"]
+    for name in pools_package.__all__:
+        module = getattr(pools_package, name)
+        assert module.__name__ == f"seed.pools.{name}"
 
 
 # -------------------------------------------------------------------- users
@@ -187,9 +205,7 @@ def test_job_participants_reference_demo_users_with_one_owner(job):
 
 
 def test_participants_follow_plan_table():
-    by_title = {
-        job.title: {(p.email, p.role) for p in job.participants} for job in jobs.JOBS
-    }
+    by_title = {job.title: {(p.email, p.role) for p in job.participants} for job in jobs.JOBS}
     assert by_title["Senior Python Developer"] == {
         (users.RAHUL, "owner"),
         (users.PRIYA, "recruiter"),
@@ -207,7 +223,10 @@ def test_participants_follow_plan_table():
         (users.ANITHA, "recruiter"),
         (users.SURESH, "hiring_manager"),
     }
-    assert by_title["Data Scientist"] == {(users.KARTHIK, "owner"), (users.SURESH, "hiring_manager")}
+    assert by_title["Data Scientist"] == {
+        (users.KARTHIK, "owner"),
+        (users.SURESH, "hiring_manager"),
+    }
     assert by_title["DevOps Engineer"] == {
         (users.ANITHA, "owner"),
         (users.NISHA, "hiring_manager"),
@@ -255,10 +274,51 @@ def test_senior_python_versions_match_the_jd_detail_example():
     )
 
 
+def test_senior_python_snapshot_matches_plan_9_6():
+    """The JD detail mock in plan.md 9.6 pins salary, openings and the three versions."""
+    job = jobs.JOBS_BY_TITLE["Senior Python Developer"]
+    assert (job.salary_min, job.salary_max) == (1_800_000, 2_800_000)
+    assert job.openings == 1
+    assert job.employment_type == "full_time"
+    assert job.education_requirements.startswith("B.Tech / B.E")
+    # v1 09:30, v2 11:40, v3 14:10 on the creation day
+    assert [version.offset_minutes for version in job.versions] == [0, 130, 280]
+    assert [version.change_summary for version in job.versions] == [
+        "Created",
+        "Added AWS to preferred skills",
+        "Raised experience to 4–8 yrs",
+    ]
+
+
 # ------------------------------------------------------------------- skills
 
 
+def test_skill_keys_are_fixed_points_of_the_matching_normaliser():
+    """plan.md 6.6: one normaliser for JD, candidate and seed skills, so every key the
+    pools store must survive ``matching.skills.normalize_skill`` unchanged."""
+    for key, display in skills.SKILL_DISPLAY.items():
+        assert normalize_skill(display) == key, display
+        assert normalize_skill(key) == key, key
+    for title, pool in skills.ROLE_SKILL_POOLS.items():
+        for entry in pool:
+            assert normalize_skill(entry.display) == entry.key, (title, entry.display)
+    for job in jobs.JOBS:
+        for key in (*job.required_skills, *job.preferred_skills):
+            assert normalize_skill(key) == key, (job.title, key)
+        for version in job.versions:
+            for field in ("required_skills", "preferred_skills"):
+                for key in version.overrides.get(field, ()):
+                    assert normalize_skill(key) == key, (job.title, version.version, key)
+    for cert in skills.CERTIFICATIONS:
+        for key in cert.related_skills:
+            assert normalize_skill(key) == key, (cert.name, key)
+    for skill in journey.JOHN_DOE.skills:
+        assert normalize_skill(skill.display) == skill.key
+
+
 def test_skill_display_keys_are_normalised():
+    assert len(set(skills.SKILL_KEYS)) == len(skills.SKILL_KEYS)
+    assert set(skills.SKILL_DISPLAY) == set(skills.SKILL_KEYS)
     assert skills.SKILL_DISPLAY["python"] == "Python"
     assert skills.SKILL_DISPLAY["postgresql"] == "PostgreSQL"
     for key, display in skills.SKILL_DISPLAY.items():
@@ -266,9 +326,20 @@ def test_skill_display_keys_are_normalised():
         assert not re.search(r"[./+#]", key), f"{key!r} should not carry punctuation"
         assert display.strip()
         assert skills.skill_key(display) == key
-    for alias, canonical in skills.SYNONYMS.items():
-        assert canonical in skills.SKILL_DISPLAY, alias
-        assert skills.skill_key(alias) == canonical
+
+
+def test_skill_display_is_the_matching_display_name():
+    """plan.md 6.6: one dictionary. JD skills are stored as keys and rendered through
+    ``matching.skills.display_name``, so candidate chips must use the same spelling."""
+    for key, display in skills.SKILL_DISPLAY.items():
+        assert display == display_name(key), key
+    for curated in ("Vue.js", "LLMs", "LangChain", "dbt", "BigQuery", "Power BI", "TestNG"):
+        assert curated in skills.SKILL_DISPLAY.values(), curated
+
+
+def test_skill_key_is_the_project_normaliser():
+    for raw in ("Node.js", "Postgres", "CI/CD", "Python 3", "k8s", "Vue.js"):
+        assert skills.skill_key(raw) == normalize_skill(raw), raw
 
 
 def test_role_skill_pools_cover_every_jd_and_all_three_tiers():
@@ -276,7 +347,7 @@ def test_role_skill_pools_cover_every_jd_and_all_three_tiers():
     for title, pool in skills.ROLE_SKILL_POOLS.items():
         assert len(pool) >= 20, title
         tiers = {entry.tier for entry in pool}
-        assert tiers == set(skills.TIERS)
+        assert tiers == {"core", "adjacent", "stray"}
         displays = [entry.display for entry in pool]
         assert len(set(displays)) == len(displays), f"duplicate skill in {title} pool"
         for entry in pool:
@@ -394,8 +465,8 @@ def test_companies_by_tier_include_the_named_employers_and_startups():
     ):
         assert expected in names
     assert len(names) == len(people.COMPANIES)
-    assert set(people.COMPANIES_BY_TIER) == set(people.COMPANY_TIERS)
-    assert len(people.COMPANIES_BY_TIER["startup"]) >= 15
+    assert {company.tier for company in people.COMPANIES} == set(people.COMPANY_TIERS)
+    assert sum(company.tier == "startup" for company in people.COMPANIES) >= 15
     city_names = {city.name for city in people.CITIES}
     for company in people.COMPANIES:
         assert company.tier in people.COMPANY_TIERS
@@ -406,10 +477,12 @@ def test_companies_by_tier_include_the_named_employers_and_startups():
 def test_job_titles_by_seniority_cover_every_role_family():
     assert set(people.JOB_TITLES_BY_FAMILY) == set(people.ROLE_FAMILIES)
     assert {job.role_family for job in jobs.JOBS} == set(people.ROLE_FAMILIES)
+    levels = {"junior", "mid", "senior", "lead"}
     for family, by_level in people.JOB_TITLES_BY_FAMILY.items():
-        assert set(by_level) == set(people.SENIORITY_LEVELS), family
+        assert set(by_level) == levels, family
         for titles in by_level.values():
             assert len(titles) >= 2
+    assert {people.seniority_for(years) for years in range(0, 20)} == levels
     assert people.seniority_for(1) == "junior"
     assert people.seniority_for(3.5) == "mid"
     assert people.seniority_for(6) == "senior"
@@ -419,8 +492,22 @@ def test_job_titles_by_seniority_cover_every_role_family():
 def test_education_pools():
     assert set(people.DEGREES) == {"B.Tech", "B.E", "M.Tech", "MCA", "B.Sc", "M.Sc", "MBA", "PhD"}
     assert set(people.DEGREE_LEVELS) == set(people.DEGREES)
+    assert set(people.DEGREE_YEARS) == set(people.DEGREES)
+    assert all(1 <= years <= 6 for years in people.DEGREE_YEARS.values())
     assert set(people.DEGREE_LEVELS.values()) == {"bachelor", "master", "phd"}
+    # Every degree resolves to a field on both study tracks.
+    assert set(people.SCIENCE_FIELDS_BY_TRACK) == set(people.STUDY_TRACKS)
+    assert set(people.ENGINEERING_FIELD_WEIGHTS_BY_TRACK) == set(people.STUDY_TRACKS)
+    assert set(people.FIXED_FIELDS) == {"MBA", "MCA"}
+    assert people.SCIENCE_DEGREES == {"B.Sc", "M.Sc"}
+    for track in people.STUDY_TRACKS:
+        assert len(people.SCIENCE_FIELDS_BY_TRACK[track]) >= 3
+        weights = people.ENGINEERING_FIELD_WEIGHTS_BY_TRACK[track]
+        assert len(weights) >= 5 and all(weight > 0 for weight in weights.values())
+        assert set(people.SCIENCE_FIELDS_BY_TRACK[track]) <= set(people.FIELDS_OF_STUDY)
+        assert set(weights) <= set(people.FIELDS_OF_STUDY)
     assert len(people.FIELDS_OF_STUDY) >= 8
+    assert list(people.FIELDS_OF_STUDY) == sorted(set(people.FIELDS_OF_STUDY))
     institutions = " ".join(people.INSTITUTIONS)
     for expected in ("IIT", "NIT", "Anna University", "VIT", "BITS", "SRM", "PSG", "Amrita"):
         assert expected in institutions
@@ -449,14 +536,24 @@ def test_candidate_text_templates_per_role_family(family):
         assert family in pool
         assert len(pool[family]) >= 2
     for template in text.SUMMARY_TEMPLATES[family]:
-        assert _placeholders(template) <= text.CANDIDATE_PLACEHOLDERS
-        assert {"years", "skills"} <= _placeholders(template)
+        placeholders = _placeholders(template)
+        assert placeholders <= text.CANDIDATE_PLACEHOLDERS
+        assert "years" in placeholders
+        assert placeholders & {"skills", "other_skills"}
+        # {years} renders as "6 years" / "1 year"; templates must not add the unit.
+        assert "{years} years" not in template and "{years} yrs" not in template
+        if "{primary_skill}" in template:
+            assert "{skills}" not in template, "primary would be repeated in the list"
     for template in text.RESUME_TEMPLATES[family]:
         assert _placeholders(template) <= text.RESUME_PLACEHOLDERS
         assert {"experience_section", "education_section", "skills"} <= _placeholders(template)
     for template in text.EXPERIENCE_TEMPLATES[family]:
         assert _placeholders(template) <= text.EXPERIENCE_PLACEHOLDERS
         assert "company" in _placeholders(template) or "domain" in _placeholders(template)
+        if "{primary_skill}" in template:
+            assert "{skills}" not in template
+    for template in text.RESUME_TEMPLATES[family]:
+        assert "{years} years" not in template
 
 
 def test_communication_templates_cover_every_outcome():
@@ -518,7 +615,133 @@ def test_jd_activity_descriptions_cover_the_jd_event_types():
     assert rendered == "Rahul created the Job Description."
 
 
+# Event types grouped by category, copied from plan.md 6.4.
+PLAN_6_4_EVENT_TYPES: dict[str, set[str]] = {
+    "job_description": {
+        "jd.created",
+        "jd.updated",
+        "jd.published",
+        "jd.status_changed",
+        "jd.participant_added",
+        "jd.participant_removed",
+        "jd.duplicated",
+        "jd.archived",
+    },
+    "candidate_search": {"search.completed", "application.added_manually"},
+    "candidate_shortlisted": {
+        "application.ai_shortlisted",
+        "application.shortlisted",
+        "application.status_changed",
+    },
+    "candidate_contact": {"communication.logged", "application.status_changed"},
+    "interview": {
+        "interview.scheduled",
+        "interview.rescheduled",
+        "interview.cancelled",
+        "application.status_changed",
+    },
+    "interview_feedback": {"interview.feedback_submitted"},
+    "candidate_selected": {"application.status_changed"},
+    "offer": {"offer.created", "offer.sent", "offer.accepted", "offer.declined", "offer.withdrawn"},
+    "onboarding": {"onboarding.started", "onboarding.checklist_updated", "onboarding.completed"},
+    "decision": {
+        "application.rejected",
+        "application.withdrawn",
+        "application.on_hold",
+        "application.resumed",
+    },
+}
+
+
+def test_event_type_categories_cover_plan_6_4():
+    every_type = set().union(*PLAN_6_4_EVENT_TYPES.values())
+    fixed = {
+        event_type: category
+        for category, event_types in PLAN_6_4_EVENT_TYPES.items()
+        for event_type in event_types
+        if event_type not in text.STATUS_DEPENDENT_EVENT_TYPES
+    }
+    assert text.STATUS_DEPENDENT_EVENT_TYPES == {"application.status_changed"}
+    assert set(text.EVENT_TYPE_CATEGORIES) | text.STATUS_DEPENDENT_EVENT_TYPES == every_type
+    assert not set(text.EVENT_TYPE_CATEGORIES) & text.STATUS_DEPENDENT_EVENT_TYPES
+    for event_type, category in text.EVENT_TYPE_CATEGORIES.items():
+        assert category == fixed[event_type], event_type
+        assert category in enums.ActivityCategory.values
+    for event in journey.JOURNEY_EVENTS:
+        if event.event_type in text.STATUS_DEPENDENT_EVENT_TYPES:
+            assert event.category == enums.STATUS_ENTRY_CATEGORY[event.status_after], event.key
+        else:
+            assert event.category == text.EVENT_TYPE_CATEGORIES[event.event_type], event.key
+
+
+def test_application_activity_descriptions_cover_the_candidate_level_event_types():
+    every_type = set().union(*PLAN_6_4_EVENT_TYPES.values())
+    jd_types = set(text.JD_ACTIVITY_DESCRIPTIONS)
+    app_types = set(text.APPLICATION_ACTIVITY_DESCRIPTIONS)
+    assert jd_types | app_types == every_type
+    assert not jd_types & app_types
+    for event_type, activity in text.APPLICATION_ACTIVITY_DESCRIPTIONS.items():
+        assert 0 < len(activity.title) <= 200, event_type
+        if event_type != "search.completed":  # "Priya searched for candidates."
+            assert {"candidate", "names", "count"} & _placeholders(activity.title), event_type
+        assert _placeholders(activity.title) <= text.APPLICATION_ACTIVITY_PLACEHOLDERS
+        assert _placeholders(activity.description) <= text.APPLICATION_ACTIVITY_PLACEHOLDERS
+    contacted = text.APPLICATION_ACTIVITY_DESCRIPTIONS["communication.logged"]
+    assert contacted.title.format(actor="Priya", candidate="John Doe") == (
+        journey.JOURNEY_EVENTS_BY_KEY["contacted"].title
+    )
+    feedback = text.APPLICATION_ACTIVITY_DESCRIPTIONS["interview.feedback_submitted"]
+    assert feedback.title.format(actor="Arun", candidate="John Doe") == (
+        journey.JOURNEY_EVENTS_BY_KEY["feedback_submitted"].title
+    )
+    scheduled = text.APPLICATION_ACTIVITY_DESCRIPTIONS["interview.scheduled"]
+    assert scheduled.title.format(round="Technical Interview", candidate="John Doe") == (
+        journey.JOURNEY_EVENTS_BY_KEY["interview_scheduled"].title
+    )
+    assert set(text.STATUS_ENTRY_TITLES) <= set(enums.ApplicationStatus.values)
+    assert text.STATUS_ENTRY_TITLES["selected"].format(candidate="John Doe") == (
+        journey.JOURNEY_EVENTS_BY_KEY["selected"].title
+    )
+    assert text.STATUS_ENTRY_TITLES["onboarded"].format(candidate="John Doe") == (
+        journey.JOURNEY_EVENTS_BY_KEY["onboarded"].title
+    )
+
+
+def test_decision_reason_pools_cover_the_tray_statuses():
+    assert set(text.DECISION_REASONS) == set(enums.ApplicationStatus.TRAY)
+    assert text.DECISION_REASONS["rejected"] is text.REJECTION_REASONS
+    assert text.DECISION_REASONS["withdrawn"] is text.WITHDRAWAL_REASONS
+    assert text.DECISION_REASONS["on_hold"] is text.HOLD_REASONS
+    for status, reasons in text.DECISION_REASONS.items():
+        assert len(reasons) >= 4, status
+        assert len(set(reasons)) == len(reasons), status
+        assert all(reason.strip() and len(reason) <= 200 for reason in reasons), status
+
+
 # ------------------------------------------------------------------ journey
+
+
+def test_journey_activity_metadata_is_json_safe_and_keeps_offsets_in_metadata():
+    for event in journey.JOURNEY_EVENTS:
+        json.dumps(event.activity_metadata)  # what goes into Activity.metadata (jsonb)
+        offsets = {key for key, value in event.metadata.items() if isinstance(value, timedelta)}
+        assert set(event.activity_metadata) == set(event.metadata) - offsets, event.key
+    contacted = journey.JOURNEY_EVENTS_BY_KEY["contacted"]
+    interview = journey.JOURNEY_EVENTS_BY_KEY["interview_scheduled"]
+    assert contacted.metadata["next_action_offset"] == interview.offset
+    assert interview.metadata["scheduled_offset"] == interview.offset
+    assert "next_action_offset" not in contacted.activity_metadata
+    assert contacted.activity_metadata["outcome"] == "connected"
+
+
+def test_ranked_examples_carry_a_gender_for_portraits():
+    by_name = {example.full_name: example for example in journey.RANKED_EXAMPLES}
+    assert by_name["Jane Smith"].gender == "female"
+    assert by_name["John Doe"].gender == journey.JOHN_DOE.gender == "male"
+    for example in journey.RANKED_EXAMPLES:
+        assert example.gender in {"male", "female"}
+        assert 0 < example.match_pct <= 100
+        assert example.experience_years > 0
 
 
 def test_journey_events_are_chronological_and_end_on_the_anchor():
@@ -541,7 +764,9 @@ def test_journey_events_are_chronological_and_end_on_the_anchor():
 
 
 def test_journey_reproduces_the_prompt_timeline_example():
-    example = [(e.event_type, e.offset, e.actor_email) for e in journey.JOURNEY_EVENTS if e.from_prompt]
+    example = [
+        (e.event_type, e.offset, e.actor_email) for e in journey.JOURNEY_EVENTS if e.from_prompt
+    ]
     assert len(example) == 9
     prompt_day_zero = date(2026, 9, 11)
     by_type = {e.event_type: e for e in journey.JOURNEY_EVENTS if e.from_prompt}

@@ -1,168 +1,142 @@
 """Skill dictionary, per-role weighted skill pools, domains and certifications.
 
-Skill *keys* are the normalised form plan.md 6.6 describes (lowercase, no
-punctuation or versions, synonyms folded): they are what ``matching.skills``
-should produce for the display name, and what JD ``required_skills`` and
-``CandidateSkill.skill`` store. ``SKILL_DISPLAY`` maps key -> display name.
+Skill *keys* are the canonical form plan.md 6.6 describes: exactly what
+``matching.skills.normalize_skill`` returns, so they are what JD
+``required_skills`` and ``CandidateSkill.skill`` store. ``SKILL_KEYS`` lists
+every skill the pools know about; ``SKILL_DISPLAY`` maps each key to its display
+name and is derived from ``matching.skills.display_name`` so the seed data and
+the UI never disagree on spelling. ``matching.skills`` is pure Python, so this
+package stays Django-free.
 """
 
 from __future__ import annotations
 
-import re
 from typing import NamedTuple
+
+from matching.skills import display_name, normalize_skill
 
 # ----------------------------------------------------------------- dictionary
 
-SKILL_DISPLAY: dict[str, str] = {
+SKILL_KEYS: tuple[str, ...] = (
     # Languages
-    "python": "Python",
-    "java": "Java",
-    "javascript": "JavaScript",
-    "typescript": "TypeScript",
-    "go": "Go",
-    "php": "PHP",
-    "r": "R",
-    "bash": "Bash",
-    "sql": "SQL",
-    "html": "HTML",
-    "css": "CSS",
-    "sass": "Sass",
+    "python",
+    "java",
+    "javascript",
+    "typescript",
+    "go",
+    "php",
+    "r",
+    "bash",
+    "sql",
+    "html",
+    "css",
+    "sass",
     # Backend frameworks and data stores
-    "django": "Django",
-    "fastapi": "FastAPI",
-    "flask": "Flask",
-    "nodejs": "Node.js",
-    "spring boot": "Spring Boot",
-    "rest": "REST",
-    "graphql": "GraphQL",
-    "postgresql": "PostgreSQL",
-    "mysql": "MySQL",
-    "mongodb": "MongoDB",
-    "redis": "Redis",
-    "elasticsearch": "Elasticsearch",
-    "celery": "Celery",
-    "rabbitmq": "RabbitMQ",
-    "kafka": "Kafka",
-    "nginx": "Nginx",
+    "django",
+    "fastapi",
+    "flask",
+    "nodejs",
+    "spring boot",
+    "rest",
+    "graphql",
+    "postgresql",
+    "mysql",
+    "mongodb",
+    "redis",
+    "elasticsearch",
+    "celery",
+    "rabbitmq",
+    "kafka",
+    "nginx",
     # Frontend
-    "react": "React",
-    "nextjs": "Next.js",
-    "redux": "Redux",
-    "tailwind css": "Tailwind CSS",
-    "jest": "Jest",
-    "webpack": "Webpack",
-    "vite": "Vite",
-    "storybook": "Storybook",
-    "figma": "Figma",
-    "react native": "React Native",
-    "angular": "Angular",
-    "vuejs": "Vue.js",
-    "android": "Android",
+    "react",
+    "nextjs",
+    "redux",
+    "tailwind css",
+    "jest",
+    "webpack",
+    "vite",
+    "storybook",
+    "figma",
+    "react native",
+    "angular",
+    "vue",
+    "android",
     # AI and data
-    "machine learning": "Machine Learning",
-    "deep learning": "Deep Learning",
-    "nlp": "NLP",
-    "computer vision": "Computer Vision",
-    "llm": "LLMs",
-    "mlops": "MLOps",
-    "pytorch": "PyTorch",
-    "tensorflow": "TensorFlow",
-    "langchain": "LangChain",
-    "hugging face": "Hugging Face",
-    "vector databases": "Vector Databases",
-    "scikitlearn": "scikit-learn",
-    "pandas": "Pandas",
-    "numpy": "NumPy",
-    "statistics": "Statistics",
-    "data visualization": "Data Visualization",
-    "spark": "Spark",
-    "airflow": "Airflow",
-    "dbt": "dbt",
-    "snowflake": "Snowflake",
-    "bigquery": "BigQuery",
-    "tableau": "Tableau",
-    "power bi": "Power BI",
-    "excel": "Excel",
+    "machine learning",
+    "deep learning",
+    "nlp",
+    "computer vision",
+    "llm",
+    "mlops",
+    "pytorch",
+    "tensorflow",
+    "langchain",
+    "hugging face",
+    "vector databases",
+    "scikit-learn",
+    "pandas",
+    "numpy",
+    "statistics",
+    "data visualization",
+    "spark",
+    "airflow",
+    "dbt",
+    "snowflake",
+    "bigquery",
+    "tableau",
+    "power bi",
+    "excel",
     # Cloud and operations
-    "aws": "AWS",
-    "azure": "Azure",
-    "google cloud": "Google Cloud",
-    "docker": "Docker",
-    "kubernetes": "Kubernetes",
-    "helm": "Helm",
-    "terraform": "Terraform",
-    "ansible": "Ansible",
-    "cicd": "CI/CD",
-    "jenkins": "Jenkins",
-    "github actions": "GitHub Actions",
-    "linux": "Linux",
-    "networking": "Networking",
-    "prometheus": "Prometheus",
-    "grafana": "Grafana",
-    "git": "Git",
+    "aws",
+    "azure",
+    "google cloud",
+    "docker",
+    "kubernetes",
+    "helm",
+    "terraform",
+    "ansible",
+    "cicd",
+    "jenkins",
+    "github actions",
+    "linux",
+    "networking",
+    "prometheus",
+    "grafana",
+    "git",
     # Quality
-    "selenium": "Selenium",
-    "playwright": "Playwright",
-    "cypress": "Cypress",
-    "appium": "Appium",
-    "cucumber": "Cucumber",
-    "testng": "TestNG",
-    "postman": "Postman",
-    "jmeter": "JMeter",
-    "test automation": "Test Automation",
-    "api testing": "API Testing",
-    "manual testing": "Manual Testing",
-    "jira": "Jira",
+    "selenium",
+    "playwright",
+    "cypress",
+    "appium",
+    "cucumber",
+    "testng",
+    "postman",
+    "jmeter",
+    "test automation",
+    "api testing",
+    "manual testing",
+    "jira",
     # Ways of working
-    "agile": "Agile",
-    "scrum": "Scrum",
-    "project management": "Project Management",
-}
+    "agile",
+    "scrum",
+    "project management",
+)
 
-# Synonym map from plan.md 6.6: alias -> canonical key.
-SYNONYMS: dict[str, str] = {
-    "postgres": "postgresql",
-    "js": "javascript",
-    "reactjs": "react",
-    "node": "nodejs",
-    "k8s": "kubernetes",
-    "ml": "machine learning",
-    "gcp": "google cloud",
-    "ts": "typescript",
-    "tf": "tensorflow",
-    "ci/cd": "cicd",
-    "restful": "rest",
-}
-
-_DISPLAY_TO_KEY: dict[str, str] = {display.lower(): key for key, display in SKILL_DISPLAY.items()}
-_PUNCTUATION = re.compile(r"[^a-z0-9 ]+")
-_VERSION_SUFFIX = re.compile(r"\s*\d+(\.\d+)*$")
+SKILL_DISPLAY: dict[str, str] = {key: display_name(key) for key in SKILL_KEYS}
 
 
 def skill_key(name: str) -> str:
-    """Normalised key for a display name or alias, consistent with plan.md 6.6.
-
-    Known display names and synonyms resolve exactly; anything else is
-    lowercased, stripped of a trailing version and punctuation, and
-    whitespace-collapsed ("Python 3" -> "python", "Node.js" -> "nodejs").
-    """
-    lowered = name.strip().lower()
-    if lowered in SYNONYMS:
-        return SYNONYMS[lowered]
-    if lowered in _DISPLAY_TO_KEY:
-        return _DISPLAY_TO_KEY[lowered]
-    stripped = _VERSION_SUFFIX.sub("", lowered)
-    stripped = _PUNCTUATION.sub("", stripped)
-    return " ".join(stripped.split())
+    """Canonical key for a display name or alias: the project-wide normaliser."""
+    return normalize_skill(name)
 
 
 # ------------------------------------------------------------------ role pools
 
-TIERS: tuple[str, ...] = ("core", "adjacent", "stray")
-
 
 class SkillWeight(NamedTuple):
-    """One entry in a role pool. Weight is a sampling weight, tier says why it is there."""
+    """One entry in a role pool. Weight is a sampling weight; tier ("core", "adjacent"
+    or "stray") says why it is there."""
 
     display: str
     weight: int
@@ -333,5 +307,3 @@ CERTIFICATIONS: tuple[Certification, ...] = (
     ),
     Certification("Certified Scrum Master", "Scrum Alliance", ("scrum", "agile")),
 )
-
-CERTIFICATIONS_BY_NAME: dict[str, Certification] = {cert.name: cert for cert in CERTIFICATIONS}

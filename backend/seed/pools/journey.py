@@ -51,7 +51,17 @@ class JourneyEvent:
     description: str
     status_after: str | None  # John's application status after this event; None for JD events
     from_prompt: bool  # True for the nine events shown in the prompt's example
+    # Extra detail for the child rows (communication, interview, offer, onboarding).
+    # Values may be ``timedelta`` offsets relative to ``journey_end(anchor)``; use
+    # ``activity_metadata`` for the JSON-safe subset that goes on the Activity row.
     metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def activity_metadata(self) -> dict[str, Any]:
+        """``metadata`` minus the timedelta offsets: safe for ``Activity.metadata`` (jsonb)."""
+        return {
+            key: value for key, value in self.metadata.items() if not isinstance(value, timedelta)
+        }
 
 
 JOURNEY_EVENTS: tuple[JourneyEvent, ...] = (
@@ -256,7 +266,11 @@ def event_time(event: JourneyEvent, anchor: date, tz: str = TIMEZONE) -> datetim
 
 
 def schedule(anchor: date, tz: str = TIMEZONE) -> list[tuple[datetime, JourneyEvent]]:
-    """Every journey event with its absolute time, in chronological order."""
+    """Every journey event with its absolute time, in chronological order.
+
+    Consumed by the seed history generator (plan.md 12, phases 5 and 7: applications,
+    then interviews, communications, offers and onboardings) and by the pool tests.
+    """
     end = journey_end(anchor, tz)
     return [(end + event.offset, event) for event in JOURNEY_EVENTS]
 
@@ -310,8 +324,7 @@ class JourneyCandidate:
     phone: str
     gender: str
     location: str
-    headline: str
-    current_company: str
+    current_company: str  # the stored headline is "{current_title} at {current_company}"
     current_title: str
     total_experience_years: float
     summary: str
@@ -321,7 +334,7 @@ class JourneyCandidate:
     notice_period_days: int
     current_ctc: int
     expected_ctc: int
-    sources: tuple[str, ...]  # CandidateSource keys
+    sources: tuple[str, ...]  # CandidateSource keys; the generator builds the rows from these
     skills: tuple[JourneySkill, ...]
     experiences: tuple[JourneyExperience, ...]
     education: tuple[JourneyEducation, ...]
@@ -336,7 +349,6 @@ JOHN_DOE = JourneyCandidate(
     phone="+91 98410 20456",
     gender="male",
     location="Chennai, Tamil Nadu",
-    headline="Senior Backend Engineer at Freshworks",
     current_company="Freshworks",
     current_title="Senior Backend Engineer",
     total_experience_years=6,
@@ -419,27 +431,24 @@ JOHN_DOE = JourneyCandidate(
 )
 
 
+@dataclass(frozen=True)
 class RankedExample:
-    """A row of the prompt's ranking table (section 19)."""
+    """A row of the prompt's ranking table (section 19). ``gender`` picks the portrait."""
 
-    __slots__ = ("full_name", "match_pct", "experience_years", "source", "status")
-
-    def __init__(
-        self, full_name: str, match_pct: int, experience_years: int, source: str, status: str
-    ) -> None:
-        self.full_name = full_name
-        self.match_pct = match_pct
-        self.experience_years = experience_years
-        self.source = source
-        self.status = status
+    full_name: str
+    match_pct: int
+    experience_years: int
+    source: str  # CandidateSource key that surfaced the candidate
+    status: str  # ApplicationStatus key shown in the table
+    gender: str  # "male" | "female"
 
 
 # The prompt's ranking example. John's row describes him at search time; the
 # journey then carries him to onboarded. The other three stay where the table
 # puts them so the ranked list on the JD looks like the prompt.
 RANKED_EXAMPLES: tuple[RankedExample, ...] = (
-    RankedExample("John Doe", 95, 6, "linkedin", "ai_shortlisted"),
-    RankedExample("Jane Smith", 92, 5, "naukri", "new"),
-    RankedExample("Alex Kumar", 89, 7, "referral", "contacted"),
-    RankedExample("David Raj", 85, 4, "internal", "new"),
+    RankedExample("John Doe", 95, 6, "linkedin", "ai_shortlisted", JOHN_DOE.gender),
+    RankedExample("Jane Smith", 92, 5, "naukri", "new", "female"),
+    RankedExample("Alex Kumar", 89, 7, "referral", "contacted", "male"),
+    RankedExample("David Raj", 85, 4, "internal", "new", "male"),
 )

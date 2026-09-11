@@ -192,7 +192,7 @@ SENIOR_PYTHON_DEVELOPER = JobSpec(
     ),
     domain="fintech",
     status="open",
-    openings=2,
+    openings=1,
     created_by=RAHUL,
     participants=(
         Participant(RAHUL, "owner"),
@@ -435,7 +435,7 @@ DATA_SCIENTIST = JobSpec(
         "pandas",
         "data visualization",
     ),
-    preferred_skills=("spark", "tableau", "scikitlearn", "airflow"),
+    preferred_skills=("spark", "tableau", "scikit-learn", "airflow"),
     education_requirements=(
         "Bachelor's or Master's degree in Statistics, Mathematics, Computer Science or a related "
         "quantitative field"
@@ -502,7 +502,7 @@ DATA_SCIENTIST = JobSpec(
             "Created",
             KARTHIK,
             0,
-            {"preferred_skills": ("spark", "tableau", "scikitlearn"), "experience_min_years": 3},
+            {"preferred_skills": ("spark", "tableau", "scikit-learn"), "experience_min_years": 3},
         ),
         VersionSpec(
             2,

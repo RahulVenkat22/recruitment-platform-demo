@@ -24,3 +24,5 @@ Vite + React 19 + TypeScript 5.9, Tailwind CSS v4 and shadcn/ui (Radix). See `..
 - `public/brand/` Aimious marks
 
 Copy `.env.example` to `.env` if the API is not on the same origin.
+
+The dev proxy targets `http://127.0.0.1:8200` rather than `localhost` on purpose: `make api` binds IPv4 only and Node may resolve `localhost` to `::1`.

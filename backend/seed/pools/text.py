@@ -1,6 +1,7 @@
-"""Text templates for generated candidates, communications, interview feedback
-and JD activities. Render with ``template.format(**values)``; each pool documents
-its placeholder set so generators (and tests) know what to supply.
+"""Text templates for generated candidates, communications, interview feedback,
+timeline activities (JD-level and candidate-level) and decision reasons. Render
+with ``template.format(**values)``; each pool documents its placeholder set so
+generators (and tests) know what to supply.
 """
 
 from __future__ import annotations
@@ -13,8 +14,9 @@ from typing import NamedTuple
 CANDIDATE_PLACEHOLDERS: frozenset[str] = frozenset(
     {
         "name",
-        "years",
-        "skills",  # comma-separated display names
+        "years",  # "6 years", "1 year", "1.5 years"
+        "skills",  # comma-separated display names, primary skill first
+        "other_skills",  # the same list without the primary skill, for use next to it
         "primary_skill",
         "company",  # current company
         "domain",
@@ -36,60 +38,62 @@ RESUME_PLACEHOLDERS: frozenset[str] = CANDIDATE_PLACEHOLDERS | {
 }
 
 EXPERIENCE_PLACEHOLDERS: frozenset[str] = frozenset(
-    {"company", "domain", "skills", "primary_skill", "title", "years"}
+    {"company", "domain", "skills", "other_skills", "primary_skill", "title", "years"}
 )
 
 SUMMARY_TEMPLATES: dict[str, tuple[str, ...]] = {
     "backend": (
-        "Backend engineer with {years} years of experience building APIs and services in "
+        "Backend engineer with {years} of experience building APIs and services in "
         "{skills}. Currently {title} at {company}, working on {domain} systems where "
         "correctness and throughput both matter.",
-        "{years} years of server-side development, most recently at {company}. Strong in "
-        "{primary_skill} with hands-on experience in {skills}; comfortable owning a service from "
+        "{years} of server-side development, most recently at {company}. Strong in "
+        "{primary_skill} with hands-on experience in {other_skills}; comfortable owning a service "
+        "from "
         "design through production support.",
-        "Product-minded backend developer ({years} yrs) who has shipped {domain} platforms at "
+        "Product-minded backend developer ({years}) who has shipped {domain} platforms at "
         "{company}. Day-to-day stack: {skills}. Enjoys performance work, clean data models and "
         "mentoring.",
     ),
     "frontend": (
-        "Frontend engineer with {years} years of experience crafting fast, accessible web "
+        "Frontend engineer with {years} of experience crafting fast, accessible web "
         "interfaces in {skills}. {title} at {company}, building {domain} experiences used by "
         "millions of users.",
-        "{years} years of UI development centred on {primary_skill}. At {company} I own "
-        "component libraries and performance budgets; toolset includes {skills}.",
-        "Design-aware frontend developer ({years} yrs) who turns Figma into production React. "
+        "{years} of UI development centred on {primary_skill}. At {company} I own "
+        "component libraries and performance budgets; toolset includes {other_skills}.",
+        "Design-aware frontend developer ({years}) who turns Figma into production React. "
         "Currently {title} at {company}; strengths: {skills}.",
     ),
     "ai_ml": (
-        "Machine learning engineer with {years} years taking models from notebook to production "
+        "Machine learning engineer with {years} taking models from notebook to production "
         "using {skills}. {title} at {company}, applying ML to {domain} problems.",
-        "{years} years across applied ML and MLOps, currently at {company}. Deep experience in "
-        "{primary_skill}; recent work on {skills}.",
-        "Applied AI practitioner ({years} yrs) who cares about evaluation and safety as much as "
+        "{years} across applied ML and MLOps, currently at {company}. Deep experience in "
+        "{primary_skill}; recent work on {other_skills}.",
+        "Applied AI practitioner ({years}) who cares about evaluation and safety as much as "
         "accuracy. Ships {domain} models at {company} with {skills}.",
     ),
     "data_science": (
-        "Data scientist with {years} years turning messy {domain} data into decisions using "
-        "{skills}. {title} at {company}; strongest in {primary_skill} and experiment design.",
-        "{years} years in analytics and data science at {company} and earlier. Comfortable across "
+        "Data scientist with {years} turning messy {domain} data into decisions using "
+        "{other_skills}. {title} at {company}; strongest in {primary_skill} and experiment design.",
+        "{years} in analytics and data science at {company} and earlier. Comfortable across "
         "the stack: {skills}. Known for clear narratives and metrics people trust.",
-        "Analytical generalist ({years} yrs) with production models and dashboards behind me. "
+        "Analytical generalist ({years}) with production models and dashboards behind me. "
         "Current focus at {company}: churn, retention and pricing, built with {skills}.",
     ),
     "devops": (
-        "DevOps engineer with {years} years running cloud infrastructure and delivery pipelines "
+        "DevOps engineer with {years} running cloud infrastructure and delivery pipelines "
         "built on {skills}. {title} at {company}, keeping {domain} platforms reliable.",
-        "{years} years of platform and reliability work, currently at {company}. Strong in "
-        "{primary_skill}; daily tools include {skills}. Automates the second time, every time.",
-        "Infrastructure engineer ({years} yrs) who treats infra as a product. Runs Kubernetes and "
-        "CI/CD for {domain} teams at {company} with {skills}.",
+        "{years} of platform and reliability work, currently at {company}. Strong in "
+        "{primary_skill}; daily tools include {other_skills}. Automates the second time, every "
+        "time.",
+        "Infrastructure engineer ({years}) who treats infra as a product. Runs the platform "
+        "for {domain} teams at {company} with {skills}.",
     ),
     "qa": (
-        "QA automation engineer with {years} years building test frameworks in {skills}. "
+        "QA automation engineer with {years} building test frameworks in {skills}. "
         "{title} at {company}, guarding daily releases for {domain} products.",
-        "{years} years across manual and automated testing, most recently at {company}. Strong in "
-        "{primary_skill} with working knowledge of {skills}.",
-        "Quality engineer ({years} yrs) who partners with developers early and hunts flaky "
+        "{years} across manual and automated testing, most recently at {company}. Strong in "
+        "{primary_skill} with working knowledge of {other_skills}.",
+        "Quality engineer ({years}) who partners with developers early and hunts flaky "
         "tests to root cause. Stack at {company}: {skills}.",
     ),
 }
@@ -103,7 +107,7 @@ RESUME_TEMPLATES: dict[str, tuple[str, ...]] = {
         "EDUCATION\n{education_section}\n\n"
         "CERTIFICATIONS\n{certifications_section}",
         "{name} - {title}\n{city} | {email} | {phone}\n\n"
-        "PROFILE\n{years} years of backend engineering with {primary_skill} at the centre. "
+        "PROFILE\n{years} of backend engineering with {primary_skill} at the centre. "
         "{summary}\n\n"
         "TECHNICAL SKILLS\n{skills}\n\n"
         "WORK HISTORY\n{experience_section}\n\n"
@@ -118,7 +122,7 @@ RESUME_TEMPLATES: dict[str, tuple[str, ...]] = {
         "EDUCATION\n{education_section}\n\n"
         "CERTIFICATIONS\n{certifications_section}",
         "{name} - {title}\n{city} | {email} | {phone}\n\n"
-        "PROFILE\nFrontend engineer, {years} years, specialising in {primary_skill}. {summary}\n\n"
+        "PROFILE\nFrontend engineer, {years}, specialising in {primary_skill}. {summary}\n\n"
         "TOOLS AND FRAMEWORKS\n{skills}\n\n"
         "WORK HISTORY\n{experience_section}\n\n"
         "EDUCATION\n{education_section}\n\n"
@@ -132,7 +136,7 @@ RESUME_TEMPLATES: dict[str, tuple[str, ...]] = {
         "EDUCATION\n{education_section}\n\n"
         "CERTIFICATIONS\n{certifications_section}",
         "{name} - {title}\n{city} | {email} | {phone}\n\n"
-        "PROFILE\nApplied ML engineer with {years} years; core strength {primary_skill}. "
+        "PROFILE\nApplied ML engineer with {years}; core strength {primary_skill}. "
         "{summary}\n\n"
         "TECHNICAL SKILLS\n{skills}\n\n"
         "SELECTED WORK\n{experience_section}\n\n"
@@ -147,7 +151,7 @@ RESUME_TEMPLATES: dict[str, tuple[str, ...]] = {
         "EDUCATION\n{education_section}\n\n"
         "CERTIFICATIONS\n{certifications_section}",
         "{name} - {title}\n{city} | {email} | {phone}\n\n"
-        "PROFILE\nData scientist, {years} years, strongest in {primary_skill}. {summary}\n\n"
+        "PROFILE\nData scientist, {years}, strongest in {primary_skill}. {summary}\n\n"
         "TOOLKIT\n{skills}\n\n"
         "EXPERIENCE\n{experience_section}\n\n"
         "EDUCATION\n{education_section}\n\n"
@@ -161,7 +165,7 @@ RESUME_TEMPLATES: dict[str, tuple[str, ...]] = {
         "EDUCATION\n{education_section}\n\n"
         "CERTIFICATIONS\n{certifications_section}",
         "{name} - {title}\n{city} | {email} | {phone}\n\n"
-        "PROFILE\nPlatform and DevOps engineer, {years} years, deepest in {primary_skill}. "
+        "PROFILE\nPlatform and DevOps engineer, {years}, deepest in {primary_skill}. "
         "{summary}\n\n"
         "INFRASTRUCTURE SKILLS\n{skills}\n\n"
         "EXPERIENCE\n{experience_section}\n\n"
@@ -176,7 +180,7 @@ RESUME_TEMPLATES: dict[str, tuple[str, ...]] = {
         "EDUCATION\n{education_section}\n\n"
         "CERTIFICATIONS\n{certifications_section}",
         "{name} - {title}\n{city} | {email} | {phone}\n\n"
-        "PROFILE\nQuality engineer, {years} years, automation-first with {primary_skill}. "
+        "PROFILE\nQuality engineer, {years}, automation-first with {primary_skill}. "
         "{summary}\n\n"
         "TESTING SKILLS\n{skills}\n\n"
         "EXPERIENCE\n{experience_section}\n\n"
@@ -190,7 +194,7 @@ EXPERIENCE_TEMPLATES: dict[str, tuple[str, ...]] = {
         "Built and maintained {domain} services at {company} using {skills}; owned API design, "
         "data modelling and production support.",
         "Led migration of a monolith into {primary_skill} services at {company}, cutting p95 "
-        "latency and simplifying deployments with {skills}.",
+        "latency and simplifying deployments with {other_skills}.",
         "Delivered payment, order and ledger features for {company}'s {domain} platform; wrote "
         "tests first and instrumented services end to end.",
         "Worked as {title} in a squad of six at {company}, reviewing code, mentoring juniors and "
@@ -210,7 +214,7 @@ EXPERIENCE_TEMPLATES: dict[str, tuple[str, ...]] = {
         "Trained, evaluated and deployed {domain} models at {company} with {skills}; owned "
         "monitoring and retraining.",
         "Built retrieval-augmented and fine-tuned language model pipelines at {company} using "
-        "{primary_skill} and {skills}.",
+        "{primary_skill} and {other_skills}.",
         "Worked as {title} at {company} turning research prototypes into production services "
         "for {domain} customers.",
         "Set up MLOps foundations at {company}: experiment tracking, model registry and CI for "
@@ -503,4 +507,211 @@ JD_ACTIVITY_DESCRIPTIONS: dict[str, ActivityText] = {
         "{actor} archived the Job Description.",
         "{title} no longer accepts candidates.",
     ),
+}
+
+
+# ---------------------------------------------------- candidate-level activities
+
+# Event types whose timeline category depends on the status entered rather than
+# on the type itself; look the category up with ``common.enums.STATUS_ENTRY_CATEGORY``.
+STATUS_DEPENDENT_EVENT_TYPES: frozenset[str] = frozenset({"application.status_changed"})
+
+# Every other event type from plan.md 6.4 with its fixed timeline category.
+EVENT_TYPE_CATEGORIES: dict[str, str] = {
+    "jd.created": "job_description",
+    "jd.updated": "job_description",
+    "jd.published": "job_description",
+    "jd.status_changed": "job_description",
+    "jd.participant_added": "job_description",
+    "jd.participant_removed": "job_description",
+    "jd.duplicated": "job_description",
+    "jd.archived": "job_description",
+    "search.completed": "candidate_search",
+    "application.added_manually": "candidate_search",
+    "application.ai_shortlisted": "candidate_shortlisted",
+    "application.shortlisted": "candidate_shortlisted",
+    "communication.logged": "candidate_contact",
+    "interview.scheduled": "interview",
+    "interview.rescheduled": "interview",
+    "interview.cancelled": "interview",
+    "interview.feedback_submitted": "interview_feedback",
+    "offer.created": "offer",
+    "offer.sent": "offer",
+    "offer.accepted": "offer",
+    "offer.declined": "offer",
+    "offer.withdrawn": "offer",
+    "onboarding.started": "onboarding",
+    "onboarding.checklist_updated": "onboarding",
+    "onboarding.completed": "onboarding",
+    "application.rejected": "decision",
+    "application.withdrawn": "decision",
+    "application.on_hold": "decision",
+    "application.resumed": "decision",
+}
+
+APPLICATION_ACTIVITY_PLACEHOLDERS: frozenset[str] = frozenset(
+    {
+        "actor",  # actor's first name
+        "candidate",  # candidate full name
+        "names",  # "John Doe, Jane Smith and Alex Kumar"
+        "count",
+        "sources",  # "Naukri and LinkedIn"
+        "shortlisted",
+        "source",  # single source label
+        "from_status",  # status labels, not keys
+        "to_status",
+        "outcome",  # communication outcome label
+        "next_action",
+        "round",  # "Technical Interview"
+        "interviewer",  # interviewer first name
+        "duration",  # minutes
+        "mode",  # interview mode label
+        "score",
+        "recommendation",  # recommendation label
+        "designation",
+        "ctc",  # formatted, e.g. "₹26,00,000"
+        "start_date",  # formatted date
+        "buddy",
+        "item",  # onboarding checklist label
+        "reason",
+    }
+)
+
+# Keyed by the candidate-level event types from plan.md 6.4; the JD-level ones
+# live in JD_ACTIVITY_DESCRIPTIONS. Titles reproduce the prompt's phrasing
+# ("Priya contacted John Doe.", "Arun submitted interview feedback for John Doe.").
+APPLICATION_ACTIVITY_DESCRIPTIONS: dict[str, ActivityText] = {
+    "search.completed": ActivityText(
+        "{actor} searched for candidates.",
+        "{count} candidates found across {sources}; {shortlisted} AI shortlisted.",
+    ),
+    "application.added_manually": ActivityText(
+        "{actor} added {candidate} manually.",
+        "Added from {source} and placed in New.",
+    ),
+    "application.ai_shortlisted": ActivityText(
+        "AI shortlisted {count} candidates.",
+        "{names} scored at or above the shortlist threshold.",
+    ),
+    "application.shortlisted": ActivityText(
+        "{actor} shortlisted {names}.",
+        "Moved to HR Review for recruiter outreach.",
+    ),
+    "application.status_changed": ActivityText(
+        "{actor} moved {candidate} from {from_status} to {to_status}.",
+        "{candidate} is now in {to_status}.",
+    ),
+    "communication.logged": ActivityText(
+        "{actor} contacted {candidate}.",
+        "Status: {outcome}. Next: {next_action}.",
+    ),
+    "interview.scheduled": ActivityText(
+        "{round} scheduled for {candidate}.",
+        "Interviewer: {interviewer}. {duration} minutes over {mode}.",
+    ),
+    "interview.rescheduled": ActivityText(
+        "{round} for {candidate} rescheduled.",
+        "Interviewer: {interviewer}. New slot confirmed with the candidate.",
+    ),
+    "interview.cancelled": ActivityText(
+        "{round} for {candidate} cancelled.",
+        "Reason: {reason}",
+    ),
+    "interview.feedback_submitted": ActivityText(
+        "{actor} submitted interview feedback for {candidate}.",
+        "Score {score}/10. Recommendation: {recommendation}.",
+    ),
+    "offer.created": ActivityText(
+        "{actor} drafted an offer for {candidate}.",
+        "{designation}, {ctc} per year.",
+    ),
+    "offer.sent": ActivityText(
+        "Offer sent to {candidate}.",
+        "{designation}, {ctc} per year, joining on {start_date}.",
+    ),
+    "offer.accepted": ActivityText(
+        "{candidate} accepted the offer.",
+        "Signed offer letter received.",
+    ),
+    "offer.declined": ActivityText(
+        "{candidate} declined the offer.",
+        "Reason: {reason}",
+    ),
+    "offer.withdrawn": ActivityText(
+        "{actor} withdrew the offer to {candidate}.",
+        "Reason: {reason}",
+    ),
+    "onboarding.started": ActivityText(
+        "Onboarding started for {candidate}.",
+        "Start date {start_date}; buddy {buddy}.",
+    ),
+    "onboarding.checklist_updated": ActivityText(
+        '{actor} completed "{item}" for {candidate}.',
+        "Onboarding checklist updated.",
+    ),
+    "onboarding.completed": ActivityText(
+        "{candidate} successfully onboarded.",
+        "All checklist items complete; day-one orientation done.",
+    ),
+    "application.rejected": ActivityText(
+        "{actor} rejected {candidate}.",
+        "Reason: {reason}",
+    ),
+    "application.withdrawn": ActivityText(
+        "{candidate} withdrew from the process.",
+        "Reason: {reason}",
+    ),
+    "application.on_hold": ActivityText(
+        "{actor} put {candidate} on hold.",
+        "Reason: {reason}",
+    ),
+    "application.resumed": ActivityText(
+        "{actor} resumed {candidate}.",
+        "Back to {to_status}.",
+    ),
+}
+
+# Status changes whose title the prompt spells out; fall back to the generic
+# ``application.status_changed`` title for every other status.
+STATUS_ENTRY_TITLES: dict[str, str] = {
+    "selected": "{candidate} selected for the position.",
+    "onboarded": "{candidate} successfully onboarded.",
+}
+
+# ------------------------------------------------------------ decision reasons
+
+# Reasons required when an application enters rejected / withdrawn / on_hold
+# (plan.md 6.5); also used as the second line of the matching timeline event.
+
+REJECTION_REASONS: tuple[str, ...] = (
+    "Did not clear the technical round; gaps in core fundamentals",
+    "Experience below the minimum required for the role",
+    "Compensation expectations well above the approved band",
+    "Weak communication during the screening call",
+    "Limited hands-on depth in the primary required skill",
+    "Position filled by a stronger candidate",
+    "Unable to relocate to the office location",
+    "Did not turn up for the scheduled interview",
+)
+
+WITHDRAWAL_REASONS: tuple[str, ...] = (
+    "Accepted another offer",
+    "Received a counter-offer from current employer",
+    "Offer declined",
+    "Personal reasons; not looking to change right now",
+    "Preferred a fully remote role",
+)
+
+HOLD_REASONS: tuple[str, ...] = (
+    "Hiring freeze on the team until next quarter",
+    "Waiting for the candidate's notice period clarification",
+    "Awaiting hiring manager availability for the next round",
+    "Candidate travelling; asked to reconnect in two weeks",
+    "Budget approval pending for an additional opening",
+)
+
+DECISION_REASONS: dict[str, tuple[str, ...]] = {
+    "rejected": REJECTION_REASONS,
+    "withdrawn": WITHDRAWAL_REASONS,
+    "on_hold": HOLD_REASONS,
 }

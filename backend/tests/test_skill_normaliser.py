@@ -30,10 +30,28 @@ def test_lowercase_trim_and_collapse_whitespace(raw: str, expected: str) -> None
         ("CSS3", "css"),
         ("Vue 3", "vue"),
         ("Angular 17", "angular"),
+        ("Java 17", "java"),
+        ("Vue.js 3", "vue"),
         ("3", "3"),
     ],
 )
 def test_trailing_version_numbers_are_stripped(raw: str, expected: str) -> None:
+    assert normalize_skill(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("d3", "d3"),
+        ("D3.js", "d3"),
+        ("D3js", "d3"),
+        ("web3", "web3"),
+        ("Web3", "web3"),
+        ("es6", "es6"),
+        ("log4j", "log4j"),
+    ],
+)
+def test_digits_glued_to_letters_are_part_of_the_name(raw: str, expected: str) -> None:
     assert normalize_skill(raw) == expected
 
 
@@ -106,6 +124,10 @@ def test_all_synonym_keys_map_to_a_fixed_point() -> None:
         assert normalize_skill(value) == value, value
 
 
+def test_synonyms_have_no_identity_entries() -> None:
+    assert [key for key, value in SYNONYMS.items() if key == value] == []
+
+
 @pytest.mark.parametrize(
     "raw",
     ["Python 3", "Node.js", "C++", "C#", "CI/CD", "Scikit-Learn", "MS SQL", "  Machine  Learning "],
@@ -139,7 +161,7 @@ def test_normalize_skills_accepts_any_iterable() -> None:
         ("graphql", "GraphQL"),
         ("machine learning", "Machine Learning"),
         ("nlp", "NLP"),
-        ("llm", "LLM"),
+        ("llm", "LLMs"),
         ("sql", "SQL"),
         ("nosql", "NoSQL"),
         ("html", "HTML"),
@@ -151,6 +173,16 @@ def test_normalize_skills_accepts_any_iterable() -> None:
         ("scikit-learn", "scikit-learn"),
         ("django", "Django"),
         ("some unknown skill", "Some Unknown Skill"),
+        # curated spellings Title Case would get wrong (shared with the seed pools)
+        ("vue", "Vue.js"),
+        ("langchain", "LangChain"),
+        ("dbt", "dbt"),
+        ("bigquery", "BigQuery"),
+        ("power bi", "Power BI"),
+        ("testng", "TestNG"),
+        ("jmeter", "JMeter"),
+        ("api testing", "API Testing"),
+        ("d3", "D3.js"),
     ],
 )
 def test_display_name(key: str, expected: str) -> None:

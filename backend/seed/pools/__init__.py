@@ -13,3 +13,7 @@ Modules
 ``text``     text templates for summaries, resumes, communications, feedback, activities
 ``journey``  the scripted John Doe journey that reproduces the prompt's sample timeline
 """
+
+from seed.pools import jobs, journey, people, skills, text, users
+
+__all__ = ["jobs", "journey", "people", "skills", "text", "users"]
