@@ -1,4 +1,4 @@
-import { differenceInSeconds, format, isValid } from 'date-fns'
+import { differenceInSeconds, format, isToday, isTomorrow, isValid, isYesterday } from 'date-fns'
 
 export type DateInput = string | number | Date | null | undefined
 
@@ -22,6 +22,29 @@ export function formatDate(value: DateInput): string {
 export function formatDateTime(value: DateInput): string {
   const date = toDate(value)
   return date ? format(date, 'd MMM yyyy, hh:mm a') : ''
+}
+
+/** "Thu, 11 Sep 2026", the day header of a timeline. */
+export function formatDayHeading(value: DateInput): string {
+  const date = toDate(value)
+  return date ? format(date, 'EEE, d MMM yyyy') : ''
+}
+
+/** "Today 3:00 PM", "Tomorrow 11:00 AM", "Yesterday 5:00 PM", else "10 Sep 5:00 PM". */
+export function formatWhen(value: DateInput): string {
+  const date = toDate(value)
+  if (!date) return ''
+  const time = format(date, 'h:mm a')
+  if (isToday(date)) return `Today ${time}`
+  if (isTomorrow(date)) return `Tomorrow ${time}`
+  if (isYesterday(date)) return `Yesterday ${time}`
+  return `${format(date, 'd MMM')} ${time}`
+}
+
+/** "09:30 AM" */
+export function formatTime(value: DateInput): string {
+  const date = toDate(value)
+  return date ? format(date, 'hh:mm a') : ''
 }
 
 /**

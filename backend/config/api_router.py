@@ -27,5 +27,11 @@ from django.urls import include, path
 
 urlpatterns = [
     path("", include("common.urls")),
+    path("", include("accounts.urls")),
+    path("", include("jobs.urls")),
+    path("", include("activity.urls")),
+    path("", include("pipeline.urls")),
+    path("", include("candidates.urls")),
+    path("", include("notifications.urls")),
     path("", include("dashboard.urls")),
 ]

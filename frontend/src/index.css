@@ -28,15 +28,30 @@
   --color-ink-muted: #4e5562;
   --color-ink-subtle: #5c6371;
 
-  /* Signal orange */
-  --color-primary: #c24a17;
+  /* Signal orange. #b84515 is the website orange darkened ~3% so it reads at 4.5:1 on primary-soft (WCAG AA). */
+  --color-primary: #b84515;
   --color-primary-hover: #a03c12;
   --color-primary-soft: #fce9e0;
+
+  /* Graphite: the login showcase and mobile header band (plan.md 9.1) */
+  --color-graphite: #0b0c0f;
+  --color-graphite-2: #111318;
+
+  /* Avatar initials fallback: 8 muted hues hashed from the name (plan.md 8.4 Avatar) */
+  --color-avatar-slate: #5b6472;
+  --color-avatar-indigo: #4f55b8;
+  --color-avatar-violet: #7248b0;
+  --color-avatar-sky: #2e6fa8;
+  --color-avatar-teal: #1f7f7a;
+  --color-avatar-emerald: #2f7d57;
+  --color-avatar-amber: #a3661a;
+  --color-avatar-rose: #b04a5a;
 
   /* Semantics */
   --color-success: #1f7a4d;
   --color-success-soft: #e3f3ea;
-  --color-warning: #b7791f;
+  /* Amber text at 5:1 on warning-soft; the lighter #b7791f failed AA for small text. */
+  --color-warning: #8f5d12;
   --color-warning-soft: #fbf1dc;
   --color-danger: #b42318;
   --color-danger-soft: #fce8e6;
@@ -57,6 +72,26 @@
 
   /* Motion */
   --ease-brand: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Gentle horizontal shake for a rejected form (plan.md 9.1); reduced motion shortens it to nothing. */
+  --animate-shake: shake 400ms var(--ease-brand);
+  @keyframes shake {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    20% {
+      transform: translateX(-6px);
+    }
+    40% {
+      transform: translateX(6px);
+    }
+    60% {
+      transform: translateX(-4px);
+    }
+    80% {
+      transform: translateX(4px);
+    }
+  }
 
   /* Type scale (size / line-height / weight / tracking) */
   --text-display: 28px;
@@ -176,6 +211,17 @@
   --radius-2xl: 14px;
   --radius-3xl: 18px;
   --radius-4xl: 24px;
+}
+
+/* Login showcase panel (plan.md 9.1): graphite gradient with a faint dot grid on top. */
+@utility graphite-dots {
+  background-color: var(--color-graphite);
+  background-image:
+    radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px),
+    linear-gradient(160deg, var(--color-graphite) 0%, var(--color-graphite-2) 100%);
+  background-size:
+    22px 22px,
+    100% 100%;
 }
 
 @layer base {

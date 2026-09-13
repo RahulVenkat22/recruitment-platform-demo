@@ -1,13 +1,14 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { render, type RenderOptions } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, type InitialEntry } from 'react-router'
 import { CoreProviders } from '@/app/providers'
 import { AppRoutes } from '@/app/router'
 import { createQueryClient } from '@/lib/query-client'
 
 interface ProviderRenderOptions extends Omit<RenderOptions, 'wrapper'> {
-  route?: string
+  /** Path string or a location object (e.g. with `state`). */
+  route?: InitialEntry
   client?: QueryClient
 }
 

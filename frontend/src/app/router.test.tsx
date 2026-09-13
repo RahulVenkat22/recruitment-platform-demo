@@ -4,13 +4,14 @@ import { NAV_ITEMS } from '@/app/layout/nav'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/lib/auth-store'
 import { UI_STORAGE_KEY, useUiStore } from '@/lib/ui-store'
+import { makeUser } from '@/test/fixtures'
 import { renderApp } from '@/test/render'
 
 describe('app shell routing', () => {
   beforeEach(() => {
     localStorage.clear()
     useUiStore.setState({ sidebarCollapsed: false, breadcrumbs: [] })
-    useAuthStore.setState({ user: null, accessToken: null, status: 'unknown' })
+    useAuthStore.setState({ user: makeUser(), accessToken: 'tok', status: 'authed' })
     vi.spyOn(api, 'get').mockRejectedValue(new Error('offline in tests'))
   })
 
@@ -18,11 +19,13 @@ describe('app shell routing', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders the dashboard placeholder with every sidebar item at /dashboard', async () => {
+  it('renders the dashboard with every sidebar item at /dashboard', async () => {
     renderApp('/dashboard')
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument()
-    expect(screen.getByText('Coming in phase 9.')).toBeInTheDocument()
+    // First lookup in the file pays for the lazy dashboard chunk; allow for a loaded CI box.
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Dashboard' }, { timeout: 10_000 }),
+    ).toBeInTheDocument()
 
     const nav = screen.getByRole('navigation', { name: 'Primary' })
     for (const item of NAV_ITEMS) {
@@ -81,10 +84,52 @@ describe('app shell routing', () => {
   })
 
   it('sends anonymous visitors to the login page', async () => {
-    useAuthStore.setState({ status: 'anon' })
+    useAuthStore.setState({ user: null, accessToken: null, status: 'anon' })
     renderApp('/dashboard')
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Welcome back' }),
     ).toBeInTheDocument()
+  })
+
+  it('shows the signed-in user in the sidebar and top bar', async () => {
+    renderApp('/dashboard')
+    await screen.findByRole('heading', { level: 1, name: 'Dashboard' })
+
+    const sidebar = screen.getByRole('complementary')
+    expect(within(sidebar).getByText('Rahul Venkat')).toBeInTheDocument()
+    expect(within(sidebar).getByText('HR Manager')).toBeInTheDocument()
+    // The top bar is the first header in the document; PageHeader renders a second one inside main.
+    const [banner] = screen.getAllByRole('banner')
+    expect(within(banner).getByRole('img', { name: 'Rahul Venkat' })).toBeInTheDocument()
+    expect(within(banner).getByRole('link', { name: 'Notifications, 0 unread' })).toHaveAttribute(
+      'href',
+      '/notifications',
+    )
+  })
+
+  it('derives breadcrumbs from the route before a page publishes its own', async () => {
+    renderApp('/jobs/abc/edit')
+    await screen.findByRole('heading', { level: 1, name: 'Edit Job Description' })
+    const nav = screen.getByRole('navigation', { name: 'breadcrumb' })
+    expect(within(nav).getByRole('link', { name: 'Job Descriptions' })).toHaveAttribute(
+      'href',
+      '/jobs',
+    )
+  })
+
+  it('signs out through the API, clears the session and lands on the login page', async () => {
+    const user = userEvent.setup()
+    const post = vi.spyOn(api, 'post').mockResolvedValue({ data: null, status: 204 })
+    renderApp('/dashboard')
+    await screen.findByRole('heading', { level: 1, name: 'Dashboard' })
+
+    await user.click(screen.getByRole('button', { name: 'Account menu for Rahul Venkat' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Sign out' }))
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Welcome back' }),
+    ).toBeInTheDocument()
+    expect(post).toHaveBeenCalledWith('/api/v1/auth/logout/')
+    expect(useAuthStore.getState()).toMatchObject({ status: 'anon', user: null })
   })
 })

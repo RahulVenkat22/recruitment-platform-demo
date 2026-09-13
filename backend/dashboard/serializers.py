@@ -54,3 +54,36 @@ class MetaEnumsSerializer(serializers.Serializer):
     status_groups = StatusGroupsSerializer()
     status_entry_category = serializers.DictField(child=serializers.CharField())
     kanban = KanbanSerializer()
+
+
+# ------------------------------------------------------------------ dashboard (plan.md 9.3)
+
+
+class MetricSerializer(serializers.Serializer):
+    value = serializers.IntegerField()
+    delta = serializers.IntegerField(help_text="Change against the previous seven days")
+
+
+class DashboardSummarySerializer(serializers.Serializer):
+    active_jds = MetricSerializer()
+    total_candidates = MetricSerializer()
+    new_candidates = MetricSerializer()
+    shortlisted = MetricSerializer()
+    interviews_scheduled = MetricSerializer()
+    selected = MetricSerializer()
+    offers_pending = MetricSerializer()
+    onboarded = MetricSerializer()
+
+
+class FunnelStageSerializer(serializers.Serializer):
+    key = serializers.CharField()
+    label = serializers.CharField()
+    value = serializers.IntegerField()
+    conversion_pct = serializers.IntegerField(
+        allow_null=True, help_text="Percent of the previous stage; null for the first"
+    )
+
+
+class FunnelSerializer(serializers.Serializer):
+    job_description = serializers.UUIDField(allow_null=True)
+    stages = FunnelStageSerializer(many=True)

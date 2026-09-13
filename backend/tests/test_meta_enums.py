@@ -3,6 +3,7 @@ tokens for statuses, sources and categories, the Kanban column mapping and the s
 
 import pytest
 from django.urls import reverse
+from rest_framework.test import APIClient
 
 from common import enums
 from tests.test_enums import EXPECTED_CATEGORIES, EXPECTED_STATUS_ORDER
@@ -13,15 +14,17 @@ URL = "/api/v1/meta/enums/"
 
 
 @pytest.fixture
-def payload(api_client) -> dict:
-    response = api_client.get(URL)
+def payload(auth_client) -> dict:
+    response = auth_client.get(URL)
     assert response.status_code == 200
     return response.json()
 
 
-def test_url_is_named_and_public(api_client):
+def test_url_is_named_and_requires_authentication(auth_client):
     assert reverse("api-v1:meta-enums") == URL
-    response = api_client.get(URL)
+    # A fresh client: the auth_client fixture force-authenticates the shared api_client.
+    assert APIClient().get(URL).status_code == 401
+    response = auth_client.get(URL)
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/json")
 

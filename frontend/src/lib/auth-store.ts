@@ -1,23 +1,12 @@
 import { create } from 'zustand'
+import type { SessionUser, UserRole } from '@/types/domain'
 
-export type UserRole = 'hr_admin' | 'hr' | 'interviewer' | 'employee'
-
-/** The profile returned by `POST /auth/login` and `GET /auth/me`. */
-export interface SessionUser {
-  id: string
-  email: string
-  first_name: string
-  last_name: string
-  designation: string
-  department: string
-  avatar_url: string | null
-  role: UserRole
-  timezone?: string
-}
+export type { SessionUser, UserRole }
 
 /**
  * `unknown` until the first session restore has run, then `authed` or `anon`.
- * RequireAuth passes `unknown` through so a reload never flashes the login page.
+ * AuthBootstrap holds the app on a splash while `unknown`, so a reload never
+ * flashes the login page.
  */
 export type AuthStatus = 'unknown' | 'authed' | 'anon'
 
@@ -28,6 +17,8 @@ export interface AuthState {
   status: AuthStatus
   setSession: (session: { user: SessionUser; accessToken: string }) => void
   setAccessToken: (accessToken: string) => void
+  /** Profile edits from Settings; keeps the token and status untouched. */
+  setUser: (user: SessionUser) => void
   clearSession: () => void
 }
 
@@ -39,6 +30,7 @@ export function createAuthStore() {
     setSession: ({ user, accessToken }) => set({ user, accessToken, status: 'authed' }),
     setAccessToken: (accessToken) =>
       set((state) => ({ accessToken, status: state.user ? 'authed' : state.status })),
+    setUser: (user) => set({ user }),
     clearSession: () => set({ user: null, accessToken: null, status: 'anon' }),
   }))
 }

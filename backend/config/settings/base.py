@@ -81,6 +81,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Last, so it wraps the view directly: it captures the JSON body before DRF
+    # parses it and reads the final status code (plan.md 6.9 "Audit").
+    "audit.middleware.AuditMiddleware",
 ]
 
 TEMPLATES = [
@@ -109,6 +112,13 @@ DATABASES["default"]["CONN_MAX_AGE"] = env.int("DATABASE_CONN_MAX_AGE", default=
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ---------------------------------------------------------------------------- cache
+# Throttle counters (plan.md 6.9 login rate limit) live here. Local memory is
+# per process; point CACHE_URL at Redis/memcached when the API runs multi-worker.
+CACHES = {
+    "default": env.cache_url("CACHE_URL", default="locmemcache://aimious-recruit"),
+}
 
 # --------------------------------------------------------------------------- auth
 AUTH_USER_MODEL = "accounts.User"
@@ -177,9 +187,13 @@ REST_FRAMEWORK = {
     ],
     "EXCEPTION_HANDLER": "common.exceptions.api_exception_handler",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # No global throttle; the login and forgot-password views opt in through
+    # the scoped classes in common.throttles.
+    "DEFAULT_THROTTLE_CLASSES": [],
     "DEFAULT_THROTTLE_RATES": {
         # plan.md 6.9: login is limited to 10 attempts per minute per IP.
         "login": "10/min",
+        "password_reset": "5/min",
     },
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
 }
@@ -191,12 +205,14 @@ JWT_REFRESH_REMEMBER_DAYS = env.int("JWT_REFRESH_REMEMBER_DAYS", default=14)
 JWT_COOKIE_SECURE = env.bool("JWT_COOKIE_SECURE", default=False)
 JWT_COOKIE_SAMESITE = env.str("JWT_COOKIE_SAMESITE", default="Lax")
 # The refresh token travels in an httpOnly cookie scoped to the auth endpoints (plan.md 6.9).
-JWT_REFRESH_COOKIE_NAME = "refresh_token"
+JWT_REFRESH_COOKIE_NAME = "aimious_refresh"
 JWT_REFRESH_COOKIE_PATH = "/api/v1/auth/"
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=JWT_ACCESS_MINUTES),
     "REFRESH_TOKEN_LIFETIME": timedelta(hours=JWT_REFRESH_HOURS),
+    # accounts.services.rotate_session honours both: every refresh issues a new
+    # token for the remaining session lifetime and blacklists the old one.
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,

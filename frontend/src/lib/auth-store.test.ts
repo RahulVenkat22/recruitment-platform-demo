@@ -1,15 +1,14 @@
-import { createAuthStore, type SessionUser } from '@/lib/auth-store'
+import { createAuthStore } from '@/lib/auth-store'
+import { makeUser } from '@/test/fixtures'
 
-const user: SessionUser = {
-  id: 'u1',
+const user = makeUser({
+  id: 'u2',
   email: 'priya@aimious.demo',
   first_name: 'Priya',
   last_name: 'Sharma',
   designation: 'HR Executive',
-  department: 'Human Resources',
-  avatar_url: null,
   role: 'hr',
-}
+})
 
 describe('auth store', () => {
   it('starts unknown with no session', () => {
@@ -37,5 +36,13 @@ describe('auth store', () => {
     store.getState().setSession({ user, accessToken: 't1' })
     store.getState().clearSession()
     expect(store.getState()).toMatchObject({ user: null, accessToken: null, status: 'anon' })
+  })
+
+  it('setUser replaces the profile without touching the token or status', () => {
+    const store = createAuthStore()
+    store.getState().setSession({ user, accessToken: 't1' })
+    const edited = { ...user, first_name: 'Priyanka', full_name: 'Priyanka Sharma' }
+    store.getState().setUser(edited)
+    expect(store.getState()).toMatchObject({ user: edited, accessToken: 't1', status: 'authed' })
   })
 })

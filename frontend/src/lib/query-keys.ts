@@ -12,6 +12,11 @@ export const qk = {
     enums: () => ['meta', 'enums'] as const,
     health: () => ['meta', 'health'] as const,
   },
+  users: {
+    all: ['users'] as const,
+    list: (filters?: QueryFilters) => ['users', 'list', withFilters(filters)] as const,
+    detail: (id: string) => ['users', 'detail', id] as const,
+  },
   jobs: {
     all: ['jobs'] as const,
     list: (filters?: QueryFilters) => ['jobs', 'list', withFilters(filters)] as const,
@@ -22,6 +27,11 @@ export const qk = {
     version: (id: string, version: number) => ['jobs', 'detail', id, 'versions', version] as const,
     kanban: (id: string, filters?: QueryFilters) =>
       ['jobs', 'detail', id, 'kanban', withFilters(filters)] as const,
+    facets: () => ['jobs', 'facets'] as const,
+  },
+  skills: {
+    all: ['skills'] as const,
+    suggest: (query: string) => ['skills', 'suggest', query] as const,
   },
   searches: {
     all: ['searches'] as const,
@@ -37,6 +47,11 @@ export const qk = {
     all: ['applications'] as const,
     list: (filters?: QueryFilters) => ['applications', 'list', withFilters(filters)] as const,
     detail: (id: string) => ['applications', 'detail', id] as const,
+    moves: (id: string) => ['applications', 'detail', id, 'moves'] as const,
+  },
+  sources: {
+    all: ['sources'] as const,
+    health: () => ['sources', 'health'] as const,
   },
   activities: {
     all: ['activities'] as const,
@@ -50,6 +65,20 @@ export const qk = {
     all: ['interviews'] as const,
     list: (filters?: QueryFilters) => ['interviews', 'list', withFilters(filters)] as const,
     detail: (id: string) => ['interviews', 'detail', id] as const,
+  },
+  communications: {
+    all: ['communications'] as const,
+    list: (filters?: QueryFilters) => ['communications', 'list', withFilters(filters)] as const,
+  },
+  offers: {
+    all: ['offers'] as const,
+    list: (filters?: QueryFilters) => ['offers', 'list', withFilters(filters)] as const,
+    detail: (id: string) => ['offers', 'detail', id] as const,
+  },
+  onboardings: {
+    all: ['onboardings'] as const,
+    list: (filters?: QueryFilters) => ['onboardings', 'list', withFilters(filters)] as const,
+    detail: (id: string) => ['onboardings', 'detail', id] as const,
   },
   notifications: {
     all: ['notifications'] as const,

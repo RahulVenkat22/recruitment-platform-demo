@@ -13,6 +13,7 @@ from time import perf_counter
 from django.db import transaction
 
 from accounts.models import User
+from activity.models import Activity
 from candidates.models import (
     Candidate,
     CandidateCertification,
@@ -23,15 +24,28 @@ from candidates.models import (
 )
 from common.enums import CandidateSource as SourceKey
 from jobs.models import JobDescription, JobDescriptionVersion, RecruitmentParticipant
+from notifications.models import Notification
+from pipeline.models import (
+    Application,
+    CandidateMatch,
+    Communication,
+    Interview,
+    Offer,
+    Onboarding,
+    SearchRun,
+)
 from seed.context import SeedContext
+from seed.generators.activities import seed_job_history
+from seed.generators.applications import seed_applications
 from seed.generators.candidates import seed_candidates
+from seed.generators.history import seed_history
 from seed.generators.jobs import seed_jobs
 from seed.generators.users import seed_users
 from seed.models import SeedMarker
 from seed.pools.users import EMAIL_DOMAIN
 
 # Bump when the shape of the seeded dataset changes (later phases add applications).
-SEED_VERSION = 1
+SEED_VERSION = 4
 
 Logger = Callable[[str], None]
 
@@ -77,8 +91,18 @@ def run_seed(reset: bool = False, log: Logger | None = None) -> SeedSummary:
         log(f"Users: {len(users)}")
         jobs = seed_jobs(ctx, users)
         log(f"Job descriptions: {len(jobs)}")
+        history = seed_job_history(ctx, jobs)
+        log(f"Activities: {len(history)}")
         candidates = seed_candidates(ctx, users)
         log(f"Candidates: {len(candidates)}")
+        applications, targets = seed_applications(ctx, jobs, users)
+        log(f"Applications: {len(applications)}")
+        history = seed_history(ctx, applications, targets, users)
+        log(
+            f"History: {history.interviews} interviews, {history.communications} contacts, "
+            f"{history.offers} offers, {history.onboardings} onboardings, "
+            f"{history.notifications} notifications"
+        )
         counts = collect_counts()
         marker = SeedMarker.objects.create(version=SEED_VERSION, counts=counts)
     return SeedSummary(
@@ -109,6 +133,7 @@ def wipe_demo_data() -> dict[str, int]:
             .delete()[1]
             .get(User._meta.label, 0)
         )
+        Notification.objects.all().delete()
         SeedMarker.objects.all().delete()
     return {"candidates": candidates, "jobs": jobs, "users": users}
 
@@ -120,6 +145,15 @@ def collect_counts() -> dict[str, int]:
         "Job descriptions": JobDescription.objects.count(),
         "Versions": JobDescriptionVersion.objects.count(),
         "Participants": RecruitmentParticipant.objects.count(),
+        "Activities": Activity.objects.count(),
+        "Search runs": SearchRun.objects.count(),
+        "Applications": Application.objects.count(),
+        "Matches": CandidateMatch.objects.count(),
+        "Interviews": Interview.objects.count(),
+        "Communications": Communication.objects.count(),
+        "Offers": Offer.objects.count(),
+        "Onboardings": Onboarding.objects.count(),
+        "Notifications": Notification.objects.count(),
         "Candidates": Candidate.objects.count(),
         "Candidate skills": CandidateSkill.objects.count(),
         "Experiences": CandidateExperience.objects.count(),

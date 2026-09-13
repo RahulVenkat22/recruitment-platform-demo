@@ -1,6 +1,7 @@
 import { AxiosError, AxiosHeaders, type AxiosAdapter, type InternalAxiosRequestConfig } from 'axios'
-import { createApiClient, endpoints } from '@/lib/api'
-import { createAuthStore, type SessionUser } from '@/lib/auth-store'
+import { createApiClient, endpoints, fieldErrorMessage, getApiError } from '@/lib/api'
+import { createAuthStore } from '@/lib/auth-store'
+import { makeUser } from '@/test/fixtures'
 
 type Responder = (config: InternalAxiosRequestConfig) => { status: number; data?: unknown }
 
@@ -34,16 +35,7 @@ function mockAdapter(respond: Responder) {
   return { adapter, calls }
 }
 
-const user: SessionUser = {
-  id: 'u1',
-  email: 'rahul@aimious.demo',
-  first_name: 'Rahul',
-  last_name: 'Venkat',
-  designation: 'HR Manager',
-  department: 'Human Resources',
-  avatar_url: null,
-  role: 'hr_admin',
-}
+const user = makeUser()
 
 function makeStore(accessToken: string | null = 'old-token') {
   const store = createAuthStore()
@@ -187,5 +179,40 @@ describe('api client', () => {
 
     expect(store.getState().user).toEqual(user)
     expect(store.getState().status).toBe('authed')
+  })
+
+  it('reads the error envelope out of an axios error', async () => {
+    const store = makeStore(null)
+    const { adapter } = mockAdapter(() => ({
+      status: 400,
+      data: {
+        error: {
+          code: 'validation_error',
+          message: 'Invalid input.',
+          details: { current_password: ['Wrong password.'], phone: 'Too long.' },
+        },
+      },
+    }))
+    const api = createApiClient({ adapter, store, baseURL: '' })
+
+    const error = await api.post(endpoints.authChangePassword, {}).catch((e: unknown) => e)
+    const parsed = getApiError(error)
+
+    expect(parsed).toMatchObject({
+      status: 400,
+      code: 'validation_error',
+      message: 'Invalid input.',
+      isNetworkError: false,
+    })
+    expect(fieldErrorMessage(parsed.details, 'current_password')).toBe('Wrong password.')
+    expect(fieldErrorMessage(parsed.details, 'phone')).toBe('Too long.')
+    expect(fieldErrorMessage(parsed.details, 'missing')).toBeNull()
+  })
+
+  it('marks errors without a response as network errors', () => {
+    const parsed = getApiError(new AxiosError('Network Error', AxiosError.ERR_NETWORK))
+    expect(parsed.isNetworkError).toBe(true)
+    expect(parsed.status).toBeUndefined()
+    expect(getApiError(new Error('boom'))).toMatchObject({ isNetworkError: false, message: 'boom' })
   })
 })

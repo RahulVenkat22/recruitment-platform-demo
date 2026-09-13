@@ -24,14 +24,2751 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/login/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log in with email and password
+         * @description Returns the access token and profile; the refresh token is set as the httpOnly `aimious_refresh` cookie (path /api/v1/auth/), valid 12 hours or 14 days with remember_me. Limited to 10 attempts per minute per IP.
+         */
+        post: operations["auth_login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/refresh/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate the refresh cookie and mint a new access token
+         * @description Reads the `aimious_refresh` cookie (or a JSON `refresh` field), blacklists it and sets a replacement that keeps the remaining session lifetime.
+         */
+        post: operations["auth_refresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log out: blacklist the refresh token and clear the cookie
+         * @description ``POST /api/v1/auth/logout/``: blacklist the refresh token and clear the cookie.
+         *
+         *     Needs no bearer token: logging out must work with an expired access token.
+         */
+        post: operations["auth_logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/me/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current user profile
+         * @description ``GET / PATCH /api/v1/auth/me/``: the current user's profile.
+         */
+        get: operations["auth_me_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit name, phone, avatar and time zone
+         * @description ``GET / PATCH /api/v1/auth/me/``: the current user's profile.
+         */
+        patch: operations["auth_me_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/auth/change-password/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the current user's password
+         * @description Runs Django's password validators and signs out every other session.
+         */
+        post: operations["auth_change_password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/forgot-password/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a password reset (always 202, no email is sent in the MVP)
+         * @description ``POST /api/v1/auth/forgot-password/``: always 202, records the request.
+         */
+        post: operations["auth_forgot_password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Users for the people picker
+         * @description Compact rows. `search` matches first name, last name, email and designation; `ordering` accepts name, first_name, last_name, email, designation, department, role (prefix with - for descending).
+         */
+        get: operations["users_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One user's profile
+         * @description ``GET /users/``, ``GET /users/{id}/``, admin-only ``PATCH /users/{id}/``.
+         */
+        get: operations["users_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a user's role or active flag (hr_admin only)
+         * @description ``GET /users/``, ``GET /users/{id}/``, admin-only ``PATCH /users/{id}/``.
+         */
+        patch: operations["users_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/skills/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Skill autocomplete (candidate and JD skills, most common first)
+         * @description ``GET /api/v1/skills/?q=``: autocomplete rows for the JD form's tag inputs (plan.md 9.5).
+         */
+        get: operations["skills_suggest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Job descriptions the caller can see
+         * @description Each row carries the creator, the first four participants, the participant count and the pipeline counts (candidates, shortlisted, interviewed, selected, onboarded). `status`, `department`, `location`, `employment_type` and `work_mode` accept comma lists; `mine` limits to JDs the caller created or is listed on; `search` matches title, department, location, domain or a skill.
+         */
+        get: operations["jobs_list"];
+        put?: never;
+        /**
+         * Create a job description (creator becomes owner, version 1 is written)
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        post: operations["jobs_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/facets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Filter options with counts over the JDs the caller can see
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        get: operations["jobs_facets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One job description with participants, metrics and the caller's permissions
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        get: operations["jobs_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete permanently; needs ?confirm=true
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        delete: operations["jobs_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit content (writes a version when something changed) and sync participants
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        patch: operations["jobs_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/{id}/archive/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive from any status
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        post: operations["jobs_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/{id}/duplicate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy as a new draft "Copy of {title}" with the same participants
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        post: operations["jobs_duplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/{id}/kanban/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Kanban board: eight columns plus the rejected / on-hold tray
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        get: operations["jobs_kanban"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/{id}/metrics/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The metric row: total found, shortlisted, contacted, in interview, selected, rejected, offers pending, onboarded
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        get: operations["jobs_metrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/{id}/participants/{participant_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove someone from the recruitment (the creator cannot be removed)
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        delete: operations["jobs_participant_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Change someone's role in the recruitment
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        patch: operations["jobs_participant_update"];
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/{id}/participants/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * People involved in the recruitment
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        get: operations["jobs_participants_list"];
+        put?: never;
+        /**
+         * Add one person or a list of people
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        post: operations["jobs_participants_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/{id}/publish/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * draft -> open
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        post: operations["jobs_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/{id}/status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move between open, on hold and closed (open on a draft publishes)
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        post: operations["jobs_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/{id}/unarchive/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore an archived JD to open (or draft when never published)
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        post: operations["jobs_unarchive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/{id}/versions/{number}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One version with its content snapshot
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        get: operations["jobs_versions_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/{id}/versions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Version history, newest first
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        get: operations["jobs_versions_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/activities/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Timeline events, newest first, with per-category counts
+         * @description Scope with `job_description`, `application` or `candidate`. `category` is a comma list; `counts` and `total` ignore it so filter chips keep their numbers. Page with `before` (ISO date-time) plus `before_id` from the previous response; `limit` is 200 at most.
+         */
+        get: operations["activities_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Candidate sources with availability and profile counts
+         * @description ``GET /api/v1/sources/``: provider health and pool sizes for the source cards.
+         */
+        get: operations["sources_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/searches/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search history (newest first); filter with job_description */
+        get: operations["searches_list"];
+        put?: never;
+        /** Run a candidate search for a job description */
+        post: operations["searches_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/searches/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One search run */
+        get: operations["searches_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ranked applications
+         * @description Filter with job_description, candidate, owner, search_run, status (comma list), status_group (new|shortlisted|in_progress|interview|selected|closed or a Kanban column key), source (comma list), min_match, is_starred and search. Default order is match descending.
+         */
+        get: operations["applications_list"];
+        put?: never;
+        /** Attach a known candidate to a job description by hand */
+        post: operations["applications_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/bulk-transition/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move several applications at once (one grouped activity per JD) */
+        post: operations["applications_bulk_transition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One application with its match */
+        get: operations["applications_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change the owner, star or notes */
+        patch: operations["applications_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/moves/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Status moves allowed from the current status (plan.md 6.5) */
+        get: operations["applications_moves"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/rematch/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recompute the AI match (never changes the status) */
+        post: operations["applications_rematch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/transition/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move an application to a new status */
+        post: operations["applications_transition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/interviews/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Interviews the user may see (visible JDs, plus any they conduct) */
+        get: operations["interviews_list"];
+        put?: never;
+        /** Schedule an interview (moves the application to Interview Scheduled) */
+        post: operations["interviews_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/interviews/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["interviews_retrieve"];
+        put?: never;
+        post?: never;
+        /** Delete an interview that has not been completed */
+        delete: operations["interviews_destroy"];
+        options?: never;
+        head?: never;
+        /** Change interviewer, mode, link, location, duration, or mark a no-show */
+        patch: operations["interviews_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/interviews/{id}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["interviews_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/interviews/{id}/feedback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit score, recommendation and feedback (completes the interview) */
+        post: operations["interviews_feedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/interviews/{id}/reschedule/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["interviews_reschedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/communications/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Logged contacts, newest first */
+        get: operations["communications_list"];
+        put?: never;
+        /** Log a contact (a connection moves early applications to Contacted) */
+        post: operations["communications_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/communications/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["communications_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["offers_list"];
+        put?: never;
+        /** Draft (or send) an offer for a selected candidate */
+        post: operations["offers_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["offers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["offers_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/offers/{id}/accept/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["offers_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers/{id}/decline/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["offers_decline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers/{id}/send/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["offers_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers/{id}/withdraw/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["offers_withdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboardings/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["onboardings_list"];
+        put?: never;
+        /** Start onboarding for a candidate who accepted an offer */
+        post: operations["onboardings_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboardings/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["onboardings_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Tick checklist items, edit notes, buddy, HR contact or start date */
+        patch: operations["onboardings_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/onboardings/{id}/complete/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Tick the rest of the checklist and mark the candidate onboarded */
+        post: operations["onboardings_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/candidates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Candidates with their active applications */
+        get: operations["candidates_list"];
+        put?: never;
+        /** Add a candidate by hand (source: internal) */
+        post: operations["candidates_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/candidates/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Full profile with skills, experience, education, certifications, sources and applications */
+        get: operations["candidates_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit a candidate's profile (skills replace the list when given) */
+        patch: operations["candidates_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/notifications/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The current user's notifications, newest first */
+        get: operations["notifications_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read-all/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark every unread notification read */
+        post: operations["notifications_read_all"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/unread-count/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Unread count for the bell (polled every 60 seconds) */
+        get: operations["notifications_unread_count"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["notifications_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{id}/read/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark one notification read */
+        post: operations["notifications_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meta/enums/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Enum catalogue: labels, colour tokens, status order and Kanban mapping
+         * @description ``GET /api/v1/meta/enums/``: every enum with labels and colour tokens (plan.md 6.10).
+         *
+         *     Authenticated: the SPA loads it right after the boot-time session restore.
+         */
+        get: operations["meta_enums"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/summary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Eight metric cards with deltas against the previous seven days */
+        get: operations["dashboard_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/funnel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recruitment funnel, optionally for one job description */
+        get: operations["dashboard_funnel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/recent-activity/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Last 15 activities across visible job descriptions */
+        get: operations["dashboard_recent_activity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/top-candidates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Top 8 applications by match across open job descriptions */
+        get: operations["dashboard_top_candidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/upcoming-interviews/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The next five interviews */
+        get: operations["dashboard_upcoming_interviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description One timeline row, ready to render (plan.md 6.3 activity.Activity). */
+        Activity: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly job_description: string;
+            /** Format: uuid */
+            readonly application: string | null;
+            readonly candidate: components["schemas"]["CandidateRef"] | null;
+            readonly category: components["schemas"]["ActivityCategoryEnum"];
+            readonly category_label: string;
+            readonly event_type: string;
+            readonly title: string;
+            readonly description: string;
+            readonly actor: components["schemas"]["UserSummary"] | null;
+            readonly metadata: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            readonly occurred_at: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `job_description` - Job Description
+         *     * `candidate_search` - Candidate Search
+         *     * `candidate_shortlisted` - Candidate Shortlisted
+         *     * `candidate_contact` - Candidate Contact
+         *     * `interview` - Interview
+         *     * `interview_feedback` - Interview Feedback
+         *     * `candidate_selected` - Candidate Selected
+         *     * `offer` - Offer
+         *     * `onboarding` - Onboarding
+         *     * `decision` - Rejected / On Hold
+         * @enum {string}
+         */
+        ActivityCategoryEnum: "job_description" | "candidate_search" | "candidate_shortlisted" | "candidate_contact" | "interview" | "interview_feedback" | "candidate_selected" | "offer" | "onboarding" | "decision";
+        /** @description A keyset page plus the numbers the timeline header needs (counts per category). */
+        ActivityPage: {
+            results: components["schemas"]["Activity"][];
+            /** Format: date-time */
+            next_before: string | null;
+            /** Format: uuid */
+            next_before_id: string | null;
+            has_more: boolean;
+            /** @description Events matching the filters, ignoring category */
+            total: number;
+            /** @description Events per category, ignoring category */
+            counts: {
+                [key: string]: number;
+            };
+        };
+        /** @description A ranked row (plan.md 9.8 results, 9.6 Candidates tab). */
+        ApplicationDetail: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly job_description: string;
+            readonly job: components["schemas"]["JobRef"];
+            readonly candidate: components["schemas"]["CandidateSummary"];
+            readonly status: components["schemas"]["ApplicationStatusEnum"];
+            readonly status_label: string;
+            readonly previous_status: (components["schemas"]["ApplicationStatusEnum"] | components["schemas"]["NullEnum"]) | null;
+            readonly owner: components["schemas"]["UserSummary"] | null;
+            readonly entry_source: components["schemas"]["CandidateSourceEnum"];
+            /** Format: uuid */
+            readonly search_run: string | null;
+            readonly match: components["schemas"]["CandidateMatch"] | null;
+            readonly is_starred: boolean;
+            /** Format: date-time */
+            readonly stage_entered_at: string;
+            /** Format: date-time */
+            readonly last_activity_at: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly permissions: components["schemas"]["ApplicationPermissions"];
+            readonly notes: string;
+            readonly rejection_reason: string | null;
+            readonly hold_reason: string | null;
+            readonly interview_count: number;
+            readonly communication_count: number;
+            readonly offer: components["schemas"]["Offer"] | null;
+            readonly onboarding: components["schemas"]["Onboarding"] | null;
+        };
+        ApplicationPermissions: {
+            can_transition: boolean;
+            can_manage: boolean;
+        };
+        /**
+         * @description Enough of an application to render an interview or offer row on its own
+         *     (the candidate chip, the JD title, the current status).
+         */
+        ApplicationRef: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly job_description: string;
+            readonly job: components["schemas"]["JobRef"];
+            readonly candidate: components["schemas"]["CandidateRef"];
+            readonly owner: components["schemas"]["UserSummary"] | null;
+            readonly status: components["schemas"]["ApplicationStatusEnum"];
+            readonly status_label: string;
+        };
+        /** @description A ranked row (plan.md 9.8 results, 9.6 Candidates tab). */
+        ApplicationRow: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly job_description: string;
+            readonly job: components["schemas"]["JobRef"];
+            readonly candidate: components["schemas"]["CandidateSummary"];
+            readonly status: components["schemas"]["ApplicationStatusEnum"];
+            readonly status_label: string;
+            readonly previous_status: (components["schemas"]["ApplicationStatusEnum"] | components["schemas"]["NullEnum"]) | null;
+            readonly owner: components["schemas"]["UserSummary"] | null;
+            readonly entry_source: components["schemas"]["CandidateSourceEnum"];
+            /** Format: uuid */
+            readonly search_run: string | null;
+            readonly match: components["schemas"]["CandidateMatch"] | null;
+            readonly is_starred: boolean;
+            /** Format: date-time */
+            readonly stage_entered_at: string;
+            /** Format: date-time */
+            readonly last_activity_at: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly permissions: components["schemas"]["ApplicationPermissions"];
+        };
+        /**
+         * @description * `new` - New
+         *     * `ai_shortlisted` - AI Shortlisted
+         *     * `hr_review` - HR Review
+         *     * `contact_pending` - Contact Pending
+         *     * `contacted` - Contacted
+         *     * `phone_screening` - Phone Screening
+         *     * `interview_scheduled` - Interview Scheduled
+         *     * `technical_interview` - Technical Interview
+         *     * `hr_interview` - HR Interview
+         *     * `final_interview` - Final Interview
+         *     * `selected` - Selected
+         *     * `offer_sent` - Offer Sent
+         *     * `offer_accepted` - Offer Accepted
+         *     * `onboarding` - Onboarding
+         *     * `onboarded` - Onboarded
+         *     * `rejected` - Rejected
+         *     * `withdrawn` - Withdrawn
+         *     * `on_hold` - On Hold
+         * @enum {string}
+         */
+        ApplicationStatusEnum: "new" | "ai_shortlisted" | "hr_review" | "contact_pending" | "contacted" | "phone_screening" | "interview_scheduled" | "technical_interview" | "hr_interview" | "final_interview" | "selected" | "offer_sent" | "offer_accepted" | "onboarding" | "onboarded" | "rejected" | "withdrawn" | "on_hold";
+        /**
+         * @description Body of ``POST /auth/login/`` and ``POST /auth/refresh/``; the refresh
+         *     token travels only in the ``aimious_refresh`` cookie.
+         */
+        AuthResponse: {
+            /** @description Short-lived JWT for the Authorization header */
+            access: string;
+            user: components["schemas"]["User"];
+        };
+        BulkTransitionRequest: {
+            ids: string[];
+            status: components["schemas"]["ApplicationStatusEnum"];
+            /** @default  */
+            note: string;
+        };
+        BulkTransitionResponse: {
+            moved: components["schemas"]["ApplicationRow"][];
+            skipped: {
+                [key: string]: string;
+            };
+            activities: components["schemas"]["Activity"][];
+        };
+        /** @description One JD the candidate is attached to, with the headline numbers. */
+        CandidateApplication: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly job_description: string;
+            readonly job: components["schemas"]["JobRef"];
+            readonly status: components["schemas"]["ApplicationStatusEnum"];
+            readonly status_label: string;
+            readonly owner: components["schemas"]["UserSummary"] | null;
+            readonly entry_source: components["schemas"]["CandidateSourceEnum"];
+            /** Format: double */
+            readonly match_pct: number | null;
+            readonly is_starred: boolean;
+            /** Format: date-time */
+            readonly stage_entered_at: string;
+            /** Format: date-time */
+            readonly last_activity_at: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        CandidateCertification: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly issuer: string;
+            readonly issued_year: number;
+            readonly credential_url: string | null;
+        };
+        /** @description ``GET /candidates/{id}/``: the whole profile with every child collection. */
+        CandidateDetail: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly full_name: string;
+            /** Format: email */
+            readonly email: string;
+            readonly phone: string;
+            readonly avatar_url: string | null;
+            readonly headline: string;
+            readonly current_company: string;
+            readonly current_title: string;
+            readonly location: string;
+            /** Format: double */
+            readonly total_experience_years: number;
+            readonly notice_period_days: number | null;
+            readonly skills: components["schemas"]["CandidateSkill"][];
+            readonly sources: string[];
+            readonly applications: components["schemas"]["CandidateApplication"][];
+            /** Format: date-time */
+            readonly last_activity_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly summary: string;
+            readonly resume_text: string;
+            readonly resume_url: string | null;
+            readonly linkedin_url: string | null;
+            readonly github_url: string | null;
+            readonly current_ctc: number | null;
+            readonly expected_ctc: number | null;
+            readonly experiences: components["schemas"]["CandidateExperience"][];
+            readonly education: components["schemas"]["CandidateEducation"][];
+            readonly certifications: components["schemas"]["CandidateCertification"][];
+            readonly source_details: components["schemas"]["CandidateSource"][];
+            readonly permissions: components["schemas"]["CandidatePermissions"];
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        CandidateEducation: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly degree: string;
+            readonly field: string;
+            readonly institution: string;
+            readonly start_year: number;
+            readonly end_year: number;
+            readonly grade: string | null;
+        };
+        CandidateExperience: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly company: string;
+            readonly title: string;
+            readonly domain: string | null;
+            /** Format: date */
+            readonly start_date: string;
+            /** Format: date */
+            readonly end_date: string | null;
+            readonly is_current: boolean;
+            readonly description: string;
+        };
+        CandidateMatch: {
+            /** Format: double */
+            readonly overall_pct: number;
+            /** Format: double */
+            readonly skills_score: number;
+            /** Format: double */
+            readonly experience_score: number;
+            /** Format: double */
+            readonly education_score: number;
+            /** Format: double */
+            readonly domain_score: number;
+            /** Format: double */
+            readonly responsibility_score: number;
+            readonly matched_required_skills: string[];
+            readonly matched_required_skill_names: string[];
+            readonly missing_required_skills: string[];
+            readonly missing_required_skill_names: string[];
+            readonly matched_preferred_skills: string[];
+            readonly matched_preferred_skill_names: string[];
+            readonly strengths: string[];
+            readonly gaps: string[];
+            readonly engine: string;
+            readonly engine_version: string;
+            /** Format: date-time */
+            readonly computed_at: string;
+        };
+        CandidatePermissions: {
+            can_edit: boolean;
+            can_view_contact: boolean;
+        };
+        /** @description Enough of a candidate to render a chip that links to their profile. */
+        CandidateRef: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly full_name: string;
+            readonly avatar_url: string | null;
+            readonly headline: string;
+            readonly current_company: string;
+            readonly current_title: string;
+        };
+        /** @description A row of ``GET /candidates/`` (plan.md 9.9). */
+        CandidateRow: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly full_name: string;
+            /** Format: email */
+            readonly email: string;
+            readonly phone: string;
+            readonly avatar_url: string | null;
+            readonly headline: string;
+            readonly current_company: string;
+            readonly current_title: string;
+            readonly location: string;
+            /** Format: double */
+            readonly total_experience_years: number;
+            readonly notice_period_days: number | null;
+            readonly skills: components["schemas"]["CandidateSkill"][];
+            readonly sources: string[];
+            readonly applications: components["schemas"]["CandidateApplication"][];
+            /** Format: date-time */
+            readonly last_activity_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        CandidateSkill: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly skill: string;
+            readonly display_name: string;
+            readonly proficiency: number;
+            /** Format: double */
+            readonly years: number | null;
+            readonly is_primary: boolean;
+        };
+        CandidateSkillInputRequest: {
+            name: string;
+            /** @default 3 */
+            proficiency: number;
+            /** Format: double */
+            years?: number | null;
+            /** @default false */
+            is_primary: boolean;
+        };
+        CandidateSkillRef: {
+            key: string;
+            name: string;
+            proficiency: number;
+            is_primary: boolean;
+        };
+        CandidateSource: {
+            readonly source: components["schemas"]["CandidateSourceEnum"];
+            readonly source_label: string;
+            readonly source_reference: string;
+            readonly referred_by: components["schemas"]["UserSummary"] | null;
+            /** Format: date-time */
+            readonly discovered_at: string;
+        };
+        /**
+         * @description * `internal` - Internal Database
+         *     * `referral` - Referral
+         *     * `naukri` - Naukri
+         *     * `linkedin` - LinkedIn
+         * @enum {string}
+         */
+        CandidateSourceEnum: "internal" | "referral" | "naukri" | "linkedin";
+        /** @description The candidate columns of a ranked row (plan.md 9.8); contact details masked by role. */
+        CandidateSummary: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly full_name: string;
+            /** Format: email */
+            readonly email: string;
+            readonly phone: string;
+            readonly avatar_url: string | null;
+            readonly headline: string;
+            readonly current_company: string;
+            readonly current_title: string;
+            readonly location: string;
+            /** Format: double */
+            readonly total_experience_years: number;
+            readonly skills: components["schemas"]["CandidateSkillRef"][];
+            readonly sources: string[];
+        };
+        /** @description ``POST`` (all required fields) and ``PATCH`` (partial) for manual entry. */
+        CandidateWriteRequest: {
+            full_name: string;
+            /** Format: email */
+            email: string;
+            /** @default  */
+            phone: string;
+            /** @default  */
+            location: string;
+            avatar_url?: (string) | null;
+            /** @default  */
+            headline: string;
+            /** @default  */
+            current_company: string;
+            /** @default  */
+            current_title: string;
+            /**
+             * Format: double
+             * @default 0
+             */
+            total_experience_years: number;
+            /** @default  */
+            summary: string;
+            resume_url?: (string) | null;
+            linkedin_url?: (string) | null;
+            github_url?: (string) | null;
+            notice_period_days?: number | null;
+            current_ctc?: number | null;
+            expected_ctc?: number | null;
+            skills?: components["schemas"]["CandidateSkillInputRequest"][];
+        };
+        ChangePasswordRequest: {
+            current_password: string;
+            new_password: string;
+        };
+        ChecklistItem: {
+            key: string;
+            label: string;
+            done: boolean;
+            /** Format: date-time */
+            done_at: string | null;
+        };
+        ChecklistToggleRequest: {
+            key: string;
+            /** @default true */
+            done: boolean;
+        };
+        ColorToken: {
+            /** @description Badge background, hex */
+            bg: string;
+            /** @description Badge text, hex */
+            text: string;
+            /** @description Palette name used in plan.md 8.1, e.g. 'emerald' */
+            name: string;
+        };
+        Communication: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly application: components["schemas"]["ApplicationRef"];
+            readonly channel: components["schemas"]["CommunicationChannelEnum"];
+            readonly channel_label: string;
+            readonly direction: components["schemas"]["CommunicationDirectionEnum"];
+            readonly direction_label: string;
+            readonly outcome: components["schemas"]["CommunicationOutcomeEnum"];
+            readonly outcome_label: string;
+            readonly summary: string;
+            readonly notes: string;
+            readonly next_action: string | null;
+            /** Format: date-time */
+            readonly next_action_at: string | null;
+            readonly performed_by: components["schemas"]["UserSummary"] | null;
+            /** Format: date-time */
+            readonly occurred_at: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `phone` - Phone
+         *     * `email` - Email
+         *     * `linkedin` - LinkedIn
+         *     * `whatsapp` - WhatsApp
+         *     * `in_person` - In Person
+         * @enum {string}
+         */
+        CommunicationChannelEnum: "phone" | "email" | "linkedin" | "whatsapp" | "in_person";
+        CommunicationCreateRequest: {
+            /** Format: uuid */
+            application_id: string;
+            channel: components["schemas"]["CommunicationChannelEnum"];
+            /** @default outbound */
+            direction: components["schemas"]["CommunicationDirectionEnum"];
+            outcome: components["schemas"]["CommunicationOutcomeEnum"];
+            summary: string;
+            /** @default  */
+            notes: string;
+            next_action?: string | null;
+            /** Format: date-time */
+            next_action_at?: string | null;
+            /** Format: date-time */
+            occurred_at?: string | null;
+        };
+        /**
+         * @description * `outbound` - Outbound
+         *     * `inbound` - Inbound
+         * @enum {string}
+         */
+        CommunicationDirectionEnum: "outbound" | "inbound";
+        /**
+         * @description * `connected` - Connected
+         *     * `no_answer` - No Answer
+         *     * `voicemail` - Voicemail
+         *     * `email_sent` - Email Sent
+         *     * `replied` - Replied
+         *     * `not_interested` - Not Interested
+         *     * `callback_requested` - Callback Requested
+         * @enum {string}
+         */
+        CommunicationOutcomeEnum: "connected" | "no_answer" | "voicemail" | "email_sent" | "replied" | "not_interested" | "callback_requested";
+        DashboardSummary: {
+            active_jds: components["schemas"]["Metric"];
+            total_candidates: components["schemas"]["Metric"];
+            new_candidates: components["schemas"]["Metric"];
+            shortlisted: components["schemas"]["Metric"];
+            interviews_scheduled: components["schemas"]["Metric"];
+            selected: components["schemas"]["Metric"];
+            offers_pending: components["schemas"]["Metric"];
+            onboarded: components["schemas"]["Metric"];
+        };
+        Detail: {
+            detail: string;
+        };
+        /**
+         * @description * `full_time` - Full-time
+         *     * `part_time` - Part-time
+         *     * `contract` - Contract
+         *     * `internship` - Internship
+         * @enum {string}
+         */
+        EmploymentTypeEnum: "full_time" | "part_time" | "contract" | "internship";
+        FacetOption: {
+            key: string;
+            label: string;
+            count: number;
+        };
+        /** @description ``POST /interviews/{id}/feedback``: score in half points, 0 to 10. */
+        FeedbackRequest: {
+            /** Format: decimal */
+            score: string;
+            feedback: string;
+            recommendation: components["schemas"]["RecommendationEnum"];
+        };
+        ForgotPasswordRequest: {
+            /** Format: email */
+            email: string;
+        };
+        Funnel: {
+            /** Format: uuid */
+            job_description: string | null;
+            stages: components["schemas"]["FunnelStage"][];
+        };
+        FunnelStage: {
+            key: string;
+            label: string;
+            value: number;
+            /** @description Percent of the previous stage; null for the first */
+            conversion_pct: number | null;
+        };
         Health: {
             status: string;
             database: string;
         };
+        Interview: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly application: components["schemas"]["ApplicationRef"];
+            readonly round: components["schemas"]["InterviewRoundEnum"];
+            readonly round_label: string;
+            readonly sequence: number;
+            readonly interviewer: components["schemas"]["UserSummary"];
+            /** Format: date-time */
+            readonly scheduled_at: string;
+            readonly duration_minutes: number;
+            readonly mode: components["schemas"]["InterviewModeEnum"];
+            readonly mode_label: string;
+            readonly meeting_link: string | null;
+            readonly location: string | null;
+            readonly status: components["schemas"]["InterviewStatusEnum"];
+            readonly status_label: string;
+            /** Format: double */
+            readonly score: number | null;
+            readonly feedback: string;
+            readonly recommendation: (components["schemas"]["RecommendationEnum"] | components["schemas"]["NullEnum"]) | null;
+            readonly recommendation_label: string | null;
+            /** Format: date-time */
+            readonly feedback_submitted_at: string | null;
+            readonly created_by: components["schemas"]["UserSummary"] | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            readonly permissions: components["schemas"]["InterviewPermissions"];
+        };
+        InterviewCancelRequest: {
+            /** @default  */
+            reason: string;
+        };
+        /** @description ``POST /interviews``. */
+        InterviewCreateRequest: {
+            /** Format: uuid */
+            application_id: string;
+            round: components["schemas"]["InterviewRoundEnum"];
+            /** Format: uuid */
+            interviewer_id: string;
+            /** Format: date-time */
+            scheduled_at: string;
+            /** @default 60 */
+            duration_minutes: number;
+            /** @default video */
+            mode: components["schemas"]["InterviewModeEnum"];
+            meeting_link?: (string) | null;
+            location?: string | null;
+        };
+        /**
+         * @description * `video` - Video
+         *     * `phone` - Phone
+         *     * `onsite` - On-site
+         * @enum {string}
+         */
+        InterviewModeEnum: "video" | "phone" | "onsite";
+        InterviewPermissions: {
+            can_manage: boolean;
+            can_submit_feedback: boolean;
+        };
+        InterviewRescheduleRequest: {
+            /** Format: date-time */
+            scheduled_at: string;
+            duration_minutes?: number;
+            mode?: components["schemas"]["InterviewModeEnum"];
+            meeting_link?: (string) | null;
+            location?: string | null;
+            /** @default  */
+            note: string;
+        };
+        /**
+         * @description * `phone_screen` - Phone Screen
+         *     * `technical` - Technical
+         *     * `system_design` - System Design
+         *     * `managerial` - Managerial
+         *     * `hr` - HR
+         *     * `final` - Final
+         * @enum {string}
+         */
+        InterviewRoundEnum: "phone_screen" | "technical" | "system_design" | "managerial" | "hr" | "final";
+        /**
+         * @description * `scheduled` - Scheduled
+         *     * `rescheduled` - Rescheduled
+         *     * `completed` - Completed
+         *     * `cancelled` - Cancelled
+         *     * `no_show` - No Show
+         * @enum {string}
+         */
+        InterviewStatusEnum: "scheduled" | "rescheduled" | "completed" | "cancelled" | "no_show";
+        /**
+         * @description * `no_show` - No Show
+         * @enum {string}
+         */
+        InterviewUpdateStatusEnum: "no_show";
+        /**
+         * @description * `draft` - Draft
+         *     * `open` - Open
+         *     * `on_hold` - On Hold
+         *     * `closed` - Closed
+         *     * `archived` - Archived
+         * @enum {string}
+         */
+        JDStatusEnum: "draft" | "open" | "on_hold" | "closed" | "archived";
+        /** @description ``POST /job-descriptions/``: content, people and the starting status. */
+        JobDescriptionCreateRequest: {
+            title: string;
+            department: string;
+            location: string;
+            work_mode: components["schemas"]["WorkModeEnum"];
+            employment_type: components["schemas"]["EmploymentTypeEnum"];
+            experience_min_years: number;
+            experience_max_years: number;
+            salary_min?: number | null;
+            salary_max?: number | null;
+            /** @default INR */
+            salary_currency: string;
+            required_skills: string[];
+            preferred_skills?: string[];
+            /** @default  */
+            education_requirements: string;
+            /** @default  */
+            responsibilities: string;
+            /** @default  */
+            qualifications: string;
+            /** @default  */
+            additional_requirements: string;
+            /** @default  */
+            description: string;
+            domain?: string | null;
+            /** @default 1 */
+            openings: number;
+            participants?: components["schemas"]["ParticipantInputRequest"][];
+            /** @default draft */
+            status: components["schemas"]["JobDescriptionCreateStatusEnum"];
+        };
+        /**
+         * @description * `draft` - Draft
+         *     * `open` - Open
+         * @enum {string}
+         */
+        JobDescriptionCreateStatusEnum: "draft" | "open";
+        /**
+         * @description ``GET .../{id}/``: everything on the row plus the long text, every
+         *     participant, the metric row and the caller's permissions.
+         */
+        JobDescriptionDetail: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly title: string;
+            readonly department: string;
+            readonly location: string;
+            readonly work_mode: components["schemas"]["WorkModeEnum"];
+            readonly work_mode_label: string;
+            readonly employment_type: components["schemas"]["EmploymentTypeEnum"];
+            readonly employment_type_label: string;
+            readonly experience_min_years: number;
+            readonly experience_max_years: number;
+            readonly salary_min: number | null;
+            readonly salary_max: number | null;
+            readonly salary_currency: string;
+            readonly required_skills: string[];
+            readonly required_skill_names: string[];
+            readonly preferred_skills: string[];
+            readonly preferred_skill_names: string[];
+            readonly domain: string | null;
+            readonly status: components["schemas"]["JDStatusEnum"];
+            readonly status_label: string;
+            readonly openings: number;
+            readonly created_by: components["schemas"]["UserSummary"];
+            readonly updated_by: components["schemas"]["UserSummary"] | null;
+            /** Format: date-time */
+            readonly published_at: string | null;
+            readonly current_version: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            readonly participants_preview: components["schemas"]["Participant"][];
+            readonly participants_count: number;
+            readonly counts: components["schemas"]["PipelineCounts"];
+            readonly education_requirements: string;
+            readonly responsibilities: string;
+            readonly qualifications: string;
+            readonly additional_requirements: string;
+            readonly description: string;
+            readonly participants: components["schemas"]["Participant"][];
+            readonly metrics: components["schemas"]["Metrics"];
+            readonly permissions: components["schemas"]["JobPermissions"];
+        };
+        /** @description A list row: header fields, creator, participants preview and pipeline counts. */
+        JobDescriptionRow: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly title: string;
+            readonly department: string;
+            readonly location: string;
+            readonly work_mode: components["schemas"]["WorkModeEnum"];
+            readonly work_mode_label: string;
+            readonly employment_type: components["schemas"]["EmploymentTypeEnum"];
+            readonly employment_type_label: string;
+            readonly experience_min_years: number;
+            readonly experience_max_years: number;
+            readonly salary_min: number | null;
+            readonly salary_max: number | null;
+            readonly salary_currency: string;
+            readonly required_skills: string[];
+            readonly required_skill_names: string[];
+            readonly preferred_skills: string[];
+            readonly preferred_skill_names: string[];
+            readonly domain: string | null;
+            readonly status: components["schemas"]["JDStatusEnum"];
+            readonly status_label: string;
+            readonly openings: number;
+            readonly created_by: components["schemas"]["UserSummary"];
+            readonly updated_by: components["schemas"]["UserSummary"] | null;
+            /** Format: date-time */
+            readonly published_at: string | null;
+            readonly current_version: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            readonly participants_preview: components["schemas"]["Participant"][];
+            readonly participants_count: number;
+            readonly counts: components["schemas"]["PipelineCounts"];
+        };
+        /** @description Filter popover options with counts over the JDs the caller can see. */
+        JobFacets: {
+            statuses: components["schemas"]["FacetOption"][];
+            departments: components["schemas"]["FacetOption"][];
+            locations: components["schemas"]["FacetOption"][];
+            employment_types: components["schemas"]["FacetOption"][];
+            work_modes: components["schemas"]["FacetOption"][];
+        };
+        /** @description What the requesting user may do with this JD, so the UI shows the right buttons. */
+        JobPermissions: {
+            can_edit: boolean;
+            can_delete: boolean;
+            can_manage_participants: boolean;
+            can_work_pipeline: boolean;
+            can_manage: boolean;
+        };
+        JobRef: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly title: string;
+            readonly status: components["schemas"]["JDStatusEnum"];
+            readonly department: string;
+            readonly location: string;
+        };
+        Kanban: {
+            columns: components["schemas"]["KanbanColumn"][];
+            tray: components["schemas"]["KanbanTray"];
+            /** @description Application status -> column key; null for tray statuses */
+            status_to_column: {
+                [key: string]: string | null;
+            };
+        };
+        KanbanBoard: {
+            columns: components["schemas"]["KanbanColumnData"][];
+            tray: components["schemas"]["KanbanColumnData"];
+            total: number;
+            count: number;
+        };
+        /** @description A ranked row plus the pending next action (the amber clock on a card). */
+        KanbanCard: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly job_description: string;
+            readonly job: components["schemas"]["JobRef"];
+            readonly candidate: components["schemas"]["CandidateSummary"];
+            readonly status: components["schemas"]["ApplicationStatusEnum"];
+            readonly status_label: string;
+            readonly previous_status: (components["schemas"]["ApplicationStatusEnum"] | components["schemas"]["NullEnum"]) | null;
+            readonly owner: components["schemas"]["UserSummary"] | null;
+            readonly entry_source: components["schemas"]["CandidateSourceEnum"];
+            /** Format: uuid */
+            readonly search_run: string | null;
+            readonly match: components["schemas"]["CandidateMatch"] | null;
+            readonly is_starred: boolean;
+            /** Format: date-time */
+            readonly stage_entered_at: string;
+            /** Format: date-time */
+            readonly last_activity_at: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly permissions: components["schemas"]["ApplicationPermissions"];
+            readonly next_action: string | null;
+            /** Format: date-time */
+            readonly next_action_at: string | null;
+        };
+        KanbanColumn: {
+            key: string;
+            label: string;
+            statuses: string[];
+            /** @description Status applied when a card is dropped into this column */
+            entry_status: string;
+        };
+        KanbanColumnData: {
+            key: string;
+            label: string;
+            statuses: string[];
+            entry_status: string;
+            /** @description Cards in the column before filters */
+            total: number;
+            /** @description Cards after filters */
+            count: number;
+            cards: components["schemas"]["KanbanCard"][];
+        };
+        KanbanTray: {
+            label: string;
+            statuses: string[];
+        };
+        KeyLabel: {
+            key: string;
+            label: string;
+        };
+        LoginRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+            /** @default false */
+            remember_me: boolean;
+        };
+        /** @description ``POST /applications/``: ``{candidate_id, job_description_id}``. */
+        ManualApplicationRequest: {
+            /** Format: uuid */
+            candidate_id: string;
+            /** Format: uuid */
+            job_description_id: string;
+        };
+        /** @description ``GET /api/v1/meta/enums/`` body (plan.md 6.4, 7.2). */
+        MetaEnums: {
+            enums: {
+                [key: string]: components["schemas"]["KeyLabel"][];
+            };
+            colors: {
+                [key: string]: {
+                    [key: string]: components["schemas"]["ColorToken"];
+                };
+            };
+            status_order: string[];
+            status_groups: components["schemas"]["StatusGroups"];
+            status_entry_category: {
+                [key: string]: string;
+            };
+            kanban: components["schemas"]["Kanban"];
+        };
+        Metric: {
+            value: number;
+            /** @description Change against the previous seven days */
+            delta: number;
+        };
+        /** @description ``GET .../metrics/`` (plan.md 6.10). */
+        Metrics: {
+            total_found: number;
+            shortlisted: number;
+            contacted: number;
+            in_interview: number;
+            selected: number;
+            rejected: number;
+            offers_pending: number;
+            onboarded: number;
+        };
+        Move: {
+            status: string;
+            label: string;
+            kind: string;
+            requires: string | null;
+        };
+        Notification: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly type: components["schemas"]["NotificationTypeEnum"];
+            readonly type_label: string;
+            readonly title: string;
+            readonly message: string;
+            readonly link_url: string;
+            readonly actor: components["schemas"]["UserSummary"] | null;
+            readonly is_read: boolean;
+            /** Format: date-time */
+            readonly read_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `assignment` - Assignment
+         *     * `status_change` - Status Change
+         *     * `interview` - Interview
+         *     * `feedback` - Feedback
+         *     * `offer` - Offer
+         *     * `onboarding` - Onboarding
+         *     * `mention` - Mention
+         *     * `system` - System
+         * @enum {string}
+         */
+        NotificationTypeEnum: "assignment" | "status_change" | "interview" | "feedback" | "offer" | "onboarding" | "mention" | "system";
+        /** @enum {unknown} */
+        NullEnum: null;
+        Offer: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly application: components["schemas"]["ApplicationRef"];
+            readonly status: components["schemas"]["OfferStatusEnum"];
+            readonly status_label: string;
+            readonly designation: string;
+            readonly annual_ctc: number;
+            readonly annual_ctc_display: string;
+            readonly currency: string;
+            /** Format: date */
+            readonly joining_date: string;
+            /** Format: date-time */
+            readonly expires_at: string | null;
+            /** Format: date-time */
+            readonly sent_at: string | null;
+            /** Format: date-time */
+            readonly responded_at: string | null;
+            readonly notes: string;
+            readonly created_by: components["schemas"]["UserSummary"] | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            readonly permissions: components["schemas"]["OfferPermissions"];
+        };
+        OfferCreateRequest: {
+            /** Format: uuid */
+            application_id: string;
+            designation: string;
+            annual_ctc: number;
+            /** @default INR */
+            currency: string;
+            /** Format: date */
+            joining_date: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+            /** @default  */
+            notes: string;
+            /**
+             * @description Send immediately instead of drafting
+             * @default false
+             */
+            send: boolean;
+        };
+        OfferPermissions: {
+            can_manage: boolean;
+        };
+        OfferReasonRequest: {
+            /** @default  */
+            reason: string;
+            /** @default  */
+            note: string;
+        };
+        /**
+         * @description * `draft` - Draft
+         *     * `sent` - Sent
+         *     * `negotiating` - Negotiating
+         *     * `accepted` - Accepted
+         *     * `declined` - Declined
+         *     * `withdrawn` - Withdrawn
+         *     * `expired` - Expired
+         * @enum {string}
+         */
+        OfferStatusEnum: "draft" | "sent" | "negotiating" | "accepted" | "declined" | "withdrawn" | "expired";
+        /**
+         * @description * `sent` - Sent
+         *     * `negotiating` - Negotiating
+         * @enum {string}
+         */
+        OfferUpdateStatusEnum: "sent" | "negotiating";
+        Onboarding: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly application: components["schemas"]["ApplicationRef"];
+            readonly status: components["schemas"]["OnboardingStatusEnum"];
+            readonly status_label: string;
+            /** Format: date */
+            readonly start_date: string;
+            readonly buddy: components["schemas"]["UserSummary"] | null;
+            readonly hr_contact: components["schemas"]["UserSummary"] | null;
+            readonly checklist: components["schemas"]["ChecklistItem"][];
+            readonly progress: components["schemas"]["OnboardingProgress"];
+            /** Format: date-time */
+            readonly completed_at: string | null;
+            readonly notes: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            readonly permissions: components["schemas"]["OfferPermissions"];
+        };
+        OnboardingCreateRequest: {
+            /** Format: uuid */
+            application_id: string;
+            /** Format: date */
+            start_date: string;
+            /** Format: uuid */
+            buddy_id?: string | null;
+            /** Format: uuid */
+            hr_contact_id?: string | null;
+            /** @default  */
+            notes: string;
+        };
+        OnboardingProgress: {
+            done: number;
+            total: number;
+        };
+        /**
+         * @description * `not_started` - Not Started
+         *     * `documents_pending` - Documents Pending
+         *     * `in_progress` - In Progress
+         *     * `completed` - Completed
+         *     * `dropped` - Dropped
+         * @enum {string}
+         */
+        OnboardingStatusEnum: "not_started" | "documents_pending" | "in_progress" | "completed" | "dropped";
+        /**
+         * @description * `dropped` - Dropped
+         * @enum {string}
+         */
+        OnboardingUpdateStatusEnum: "dropped";
+        PaginatedApplicationRowList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["ApplicationRow"][];
+        };
+        PaginatedCandidateRowList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["CandidateRow"][];
+        };
+        PaginatedCommunicationList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Communication"][];
+        };
+        PaginatedInterviewList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Interview"][];
+        };
+        PaginatedJobDescriptionRowList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["JobDescriptionRow"][];
+        };
+        PaginatedMoveList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Move"][];
+        };
+        PaginatedNotificationList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Notification"][];
+        };
+        PaginatedOfferList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Offer"][];
+        };
+        PaginatedOnboardingList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Onboarding"][];
+        };
+        PaginatedSearchRunList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["SearchRun"][];
+        };
+        PaginatedUserSummaryList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["UserSummary"][];
+        };
+        /** @description One row under "People Involved in the Recruitment". */
+        Participant: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly user: components["schemas"]["UserSummary"];
+            readonly role_in_recruitment: components["schemas"]["ParticipantRoleEnum"];
+            readonly role_label: string;
+            readonly added_by: components["schemas"]["UserSummary"] | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly interview_count: number;
+            readonly activity_count: number;
+        };
+        /** @description ``{user_id, role_in_recruitment}``; validates to ``{user, role_in_recruitment}``. */
+        ParticipantInputRequest: {
+            /** Format: uuid */
+            user_id: string;
+            /** @default interviewer */
+            role_in_recruitment: components["schemas"]["ParticipantRoleEnum"];
+        };
+        /**
+         * @description * `owner` - Owner
+         *     * `recruiter` - Recruiter
+         *     * `hiring_manager` - Hiring Manager
+         *     * `interviewer` - Interviewer
+         *     * `observer` - Observer
+         * @enum {string}
+         */
+        ParticipantRoleEnum: "owner" | "recruiter" | "hiring_manager" | "interviewer" | "observer";
+        /** @description ``PATCH /applications/{id}``: owner, star, notes. */
+        PatchedApplicationUpdateRequest: {
+            /** Format: uuid */
+            owner_id?: string | null;
+            is_starred?: boolean;
+            notes?: string;
+        };
+        /** @description ``POST`` (all required fields) and ``PATCH`` (partial) for manual entry. */
+        PatchedCandidateWriteRequest: {
+            full_name?: string;
+            /** Format: email */
+            email?: string;
+            /** @default  */
+            phone: string;
+            /** @default  */
+            location: string;
+            avatar_url?: (string) | null;
+            /** @default  */
+            headline: string;
+            /** @default  */
+            current_company: string;
+            /** @default  */
+            current_title: string;
+            /**
+             * Format: double
+             * @default 0
+             */
+            total_experience_years: number;
+            /** @default  */
+            summary: string;
+            resume_url?: (string) | null;
+            linkedin_url?: (string) | null;
+            github_url?: (string) | null;
+            notice_period_days?: number | null;
+            current_ctc?: number | null;
+            expected_ctc?: number | null;
+            skills?: components["schemas"]["CandidateSkillInputRequest"][];
+        };
+        /** @description ``PATCH /interviews/{id}``: everything but the time (see reschedule). */
+        PatchedInterviewUpdateRequest: {
+            /** Format: uuid */
+            interviewer_id?: string;
+            duration_minutes?: number;
+            mode?: components["schemas"]["InterviewModeEnum"];
+            meeting_link?: (string) | null;
+            location?: string | null;
+            status?: components["schemas"]["InterviewUpdateStatusEnum"];
+        };
+        /**
+         * @description ``PATCH /job-descriptions/{id}/``: any subset of the content, an optional
+         *     replacement participant list and a change summary for the version note.
+         *     Status changes go through the dedicated endpoints.
+         */
+        PatchedJobDescriptionUpdateRequest: {
+            title?: string;
+            department?: string;
+            location?: string;
+            work_mode?: components["schemas"]["WorkModeEnum"];
+            employment_type?: components["schemas"]["EmploymentTypeEnum"];
+            experience_min_years?: number;
+            experience_max_years?: number;
+            salary_min?: number | null;
+            salary_max?: number | null;
+            /** @default INR */
+            salary_currency: string;
+            required_skills?: string[];
+            preferred_skills?: string[];
+            /** @default  */
+            education_requirements: string;
+            /** @default  */
+            responsibilities: string;
+            /** @default  */
+            qualifications: string;
+            /** @default  */
+            additional_requirements: string;
+            /** @default  */
+            description: string;
+            domain?: string | null;
+            /** @default 1 */
+            openings: number;
+            participants?: components["schemas"]["ParticipantInputRequest"][];
+            change_summary?: string;
+        };
+        PatchedOfferUpdateRequest: {
+            designation?: string;
+            annual_ctc?: number;
+            currency?: string;
+            /** Format: date */
+            joining_date?: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+            notes?: string;
+            status?: components["schemas"]["OfferUpdateStatusEnum"];
+        };
+        PatchedOnboardingUpdateRequest: {
+            checklist?: components["schemas"]["ChecklistToggleRequest"][];
+            notes?: string;
+            /** Format: date */
+            start_date?: string;
+            /** Format: uuid */
+            buddy_id?: string | null;
+            /** Format: uuid */
+            hr_contact_id?: string | null;
+            status?: components["schemas"]["OnboardingUpdateStatusEnum"];
+        };
+        /** @description ``PATCH .../participants/{pid}/``. */
+        PatchedParticipantRoleRequest: {
+            role_in_recruitment?: components["schemas"]["ParticipantRoleEnum"];
+        };
+        /** @description ``PATCH /auth/me/``: the fields a user may edit about themselves. */
+        PatchedProfileUpdateRequest: {
+            first_name?: string;
+            last_name?: string;
+            phone?: string | null;
+            avatar_url?: (string) | null;
+            timezone?: string;
+        };
+        /** @description ``PATCH /users/{id}/`` (hr_admin only): role and active flag. */
+        PatchedUserAdminUpdateRequest: {
+            role?: components["schemas"]["UserRoleEnum"];
+            is_active?: boolean;
+        };
+        /** @description The five numbers in the list's Pipeline column (plan.md 9.4). */
+        PipelineCounts: {
+            candidates: number;
+            shortlisted: number;
+            interviewed: number;
+            selected: number;
+            onboarded: number;
+        };
+        ProviderHealth: {
+            key: string;
+            display_name: string;
+            available: boolean;
+            profile_count: number;
+            note: string;
+        };
+        ReadAll: {
+            marked: number;
+        };
+        /**
+         * @description * `strong_proceed` - Strong Proceed
+         *     * `proceed` - Proceed
+         *     * `hold` - Hold
+         *     * `reject` - Reject
+         * @enum {string}
+         */
+        RecommendationEnum: "strong_proceed" | "proceed" | "hold" | "reject";
+        RefreshRequestRequest: {
+            /** @description For clients without cookies; the aimious_refresh cookie wins when present. */
+            refresh?: string;
+        };
+        /** @description ``POST /searches/``: ``{job_description_id, sources: ["naukri", "linkedin"] | ["all"]}``. */
+        SearchRequestRequest: {
+            /** Format: uuid */
+            job_description_id: string;
+            sources?: string[];
+        };
+        SearchResponse: {
+            run: components["schemas"]["SearchRun"];
+            results: components["schemas"]["ApplicationRow"][];
+            errors: {
+                [key: string]: string;
+            };
+        };
+        SearchRun: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly job_description: string;
+            readonly requested_by: components["schemas"]["UserSummary"] | null;
+            readonly sources: string[];
+            readonly status: components["schemas"]["SearchRunStatusEnum"];
+            readonly status_label: string;
+            readonly total_found: number;
+            readonly new_candidates: number;
+            readonly existing_candidates: number;
+            readonly shortlisted: number;
+            /** Format: date-time */
+            readonly started_at: string;
+            /** Format: date-time */
+            readonly finished_at: string | null;
+            readonly duration_ms: number | null;
+            readonly error: string | null;
+        };
+        /**
+         * @description * `pending` - Pending
+         *     * `running` - Running
+         *     * `completed` - Completed
+         *     * `partial` - Partial
+         *     * `failed` - Failed
+         * @enum {string}
+         */
+        SearchRunStatusEnum: "pending" | "running" | "completed" | "partial" | "failed";
+        SkillSuggestion: {
+            key: string;
+            display_name: string;
+            count: number;
+        };
+        /** @description ``POST .../status/``: the target status and an optional note for the timeline. */
+        StatusChangeRequest: {
+            status: components["schemas"]["JDStatusEnum"];
+            /** @default  */
+            note: string;
+        };
+        StatusGroups: {
+            active: string[];
+            tray: string[];
+            terminal: string[];
+        };
+        TransitionRequest: {
+            status: components["schemas"]["ApplicationStatusEnum"];
+            /** @default  */
+            note: string;
+            /** @default  */
+            reason: string;
+        };
+        TransitionResponse: {
+            application: components["schemas"]["ApplicationDetail"];
+            activity: components["schemas"]["Activity"];
+        };
+        UnreadCount: {
+            unread: number;
+        };
+        /** @description The profile returned by login, refresh, ``auth/me`` and ``users/{id}``. */
+        User: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            readonly first_name: string;
+            readonly last_name: string;
+            readonly full_name: string;
+            readonly initials: string;
+            readonly designation: string;
+            readonly department: string;
+            readonly role: components["schemas"]["UserRoleEnum"];
+            readonly avatar_url: string | null;
+            readonly phone: string | null;
+            readonly timezone: string;
+            readonly is_active: boolean;
+            /** Format: date-time */
+            readonly last_login: string | null;
+        };
+        /**
+         * @description * `hr_admin` - HR Admin
+         *     * `hr` - HR
+         *     * `interviewer` - Interviewer
+         *     * `employee` - Employee
+         * @enum {string}
+         */
+        UserRoleEnum: "hr_admin" | "hr" | "interviewer" | "employee";
+        /** @description Compact row for the people picker (``GET /users/``). */
+        UserSummary: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly full_name: string;
+            readonly first_name: string;
+            readonly last_name: string;
+            /** Format: email */
+            readonly email: string;
+            readonly designation: string;
+            readonly department: string;
+            readonly role: components["schemas"]["UserRoleEnum"];
+            readonly avatar_url: string | null;
+            readonly initials: string;
+            readonly is_active: boolean;
+        };
+        /** @description One snapshot, with skill display names alongside the stored keys. */
+        VersionDetail: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly version: number;
+            readonly change_summary: string;
+            readonly created_by: components["schemas"]["UserSummary"];
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly is_current: boolean;
+            readonly snapshot: {
+                [key: string]: unknown;
+            };
+            readonly required_skill_names: string[];
+            readonly preferred_skill_names: string[];
+        };
+        VersionRow: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly version: number;
+            readonly change_summary: string;
+            readonly created_by: components["schemas"]["UserSummary"];
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly is_current: boolean;
+        };
+        /**
+         * @description * `onsite` - On-site
+         *     * `hybrid` - Hybrid
+         *     * `remote` - Remote
+         * @enum {string}
+         */
+        WorkModeEnum: "onsite" | "hybrid" | "remote";
     };
     responses: never;
     parameters: never;
@@ -64,6 +2801,2852 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    auth_login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["LoginRequest"];
+                "multipart/form-data": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthResponse"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid_credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description account_inactive */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description throttled; details.wait is the retry delay */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_refresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RefreshRequestRequest"];
+                "multipart/form-data": components["schemas"]["RefreshRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthResponse"];
+                };
+            };
+            /** @description refresh_token_missing, token_not_valid or user_inactive; the cookie is cleared */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RefreshRequestRequest"];
+                "multipart/form-data": components["schemas"]["RefreshRequestRequest"];
+            };
+        };
+        responses: {
+            /** @description Logged out (idempotent) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_me_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_me_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedProfileUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedProfileUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedProfileUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_change_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ChangePasswordRequest"];
+                "multipart/form-data": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Password changed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_forgot_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ForgotPasswordRequest"];
+                "multipart/form-data": components["schemas"]["ForgotPasswordRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Detail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description throttled */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    users_list: {
+        parameters: {
+            query?: {
+                department?: string;
+                is_active?: boolean;
+                /** @description name (default), first_name, last_name, email, designation, department, role */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `hr_admin` - HR Admin
+                 *     * `hr` - HR
+                 *     * `interviewer` - Interviewer
+                 *     * `employee` - Employee
+                 */
+                role?: "employee" | "hr" | "hr_admin" | "interviewer";
+                /** @description Free text over name, email, designation */
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedUserSummaryList"];
+                };
+            };
+        };
+    };
+    users_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this user. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    users_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this user. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedUserAdminUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedUserAdminUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedUserAdminUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    skills_suggest: {
+        parameters: {
+            query?: {
+                /** @description Default 20, max 50 */
+                limit?: number;
+                /** @description Prefix or synonym; empty returns the most common */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillSuggestion"][];
+                };
+            };
+        };
+    };
+    jobs_list: {
+        parameters: {
+            query?: {
+                /** @description User id */
+                created_by?: string;
+                /** @description Comma list, case-insensitive */
+                department?: string;
+                /** @description Comma list */
+                employment_type?: string;
+                /** @description Comma list, case-insensitive */
+                location?: string;
+                mine?: boolean;
+                /** @description -updated_at (default), updated_at, created_at, title, status, department, count_candidates */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                search?: string;
+                /** @description One skill (normalised) */
+                skill?: string;
+                /** @description Comma list of draft|open|on_hold|closed|archived */
+                status?: string;
+                /** @description Comma list */
+                work_mode?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedJobDescriptionRowList"];
+                };
+            };
+        };
+    };
+    jobs_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobDescriptionCreateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["JobDescriptionCreateRequest"];
+                "multipart/form-data": components["schemas"]["JobDescriptionCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDescriptionDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_facets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobFacets"];
+                };
+            };
+        };
+    };
+    jobs_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDescriptionDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_destroy: {
+        parameters: {
+            query: {
+                confirm: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedJobDescriptionUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedJobDescriptionUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedJobDescriptionUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDescriptionDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDescriptionDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_duplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDescriptionDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_kanban: {
+        parameters: {
+            query?: {
+                min_match?: number;
+                owner?: string;
+                search?: string;
+                /** @description comma list */
+                source?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KanbanBoard"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_metrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Metrics"];
+                };
+            };
+        };
+    };
+    jobs_participant_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                participant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_participant_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                participant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedParticipantRoleRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedParticipantRoleRequest"];
+                "multipart/form-data": components["schemas"]["PatchedParticipantRoleRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Participant"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_participants_list: {
+        parameters: {
+            query?: {
+                created_by?: string;
+                department?: string;
+                employment_type?: string;
+                location?: string;
+                mine?: string;
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A search term. */
+                search?: string;
+                skill?: string;
+                status?: string;
+                work_mode?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Participant"][];
+                };
+            };
+        };
+    };
+    jobs_participants_add: {
+        parameters: {
+            query?: {
+                created_by?: string;
+                department?: string;
+                employment_type?: string;
+                location?: string;
+                mine?: string;
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A search term. */
+                search?: string;
+                skill?: string;
+                status?: string;
+                work_mode?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantInputRequest"][];
+                "application/x-www-form-urlencoded": components["schemas"]["ParticipantInputRequest"][];
+                "multipart/form-data": components["schemas"]["ParticipantInputRequest"][];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Participant"][];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDescriptionDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusChangeRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["StatusChangeRequest"];
+                "multipart/form-data": components["schemas"]["StatusChangeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDescriptionDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_unarchive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDescriptionDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_versions_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_versions_list: {
+        parameters: {
+            query?: {
+                created_by?: string;
+                department?: string;
+                employment_type?: string;
+                location?: string;
+                mine?: string;
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A search term. */
+                search?: string;
+                skill?: string;
+                status?: string;
+                work_mode?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionRow"][];
+                };
+            };
+        };
+    };
+    activities_list: {
+        parameters: {
+            query?: {
+                /** @description User id */
+                actor?: string;
+                application?: string;
+                /** @description ISO date-time cursor (exclusive) */
+                before?: string;
+                /** @description Tie-break id from the last page */
+                before_id?: string;
+                candidate?: string;
+                /** @description Comma list of activity categories */
+                category?: string;
+                /** @description Comma list of event types */
+                event_type?: string;
+                job_description?: string;
+                /** @description Default 200, max 200 */
+                limit?: number;
+                /** @description Title, description, actor or candidate */
+                search?: string;
+                /** @description ISO date-time lower bound */
+                since?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPage"];
+                };
+            };
+        };
+    };
+    sources_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderHealth"][];
+                };
+            };
+        };
+    };
+    searches_list: {
+        parameters: {
+            query?: {
+                job_description?: string;
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description A search term. */
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedSearchRunList"];
+                };
+            };
+        };
+    };
+    searches_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["SearchRequestRequest"];
+                "multipart/form-data": components["schemas"]["SearchRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    searches_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this search run. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchRun"];
+                };
+            };
+        };
+    };
+    applications_list: {
+        parameters: {
+            query?: {
+                candidate?: string;
+                is_starred?: boolean;
+                job_description?: string;
+                min_match?: number;
+                /** @description -match__overall_pct (default), last_activity_at, created_at, candidate__full_name, candidate__total_experience_years, status */
+                ordering?: string;
+                owner?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                search?: string;
+                search_run?: string;
+                source?: string;
+                status?: string;
+                status_group?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedApplicationRowList"];
+                };
+            };
+        };
+    };
+    applications_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualApplicationRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ManualApplicationRequest"];
+                "multipart/form-data": components["schemas"]["ManualApplicationRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    applications_bulk_transition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkTransitionRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["BulkTransitionRequest"];
+                "multipart/form-data": components["schemas"]["BulkTransitionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkTransitionResponse"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    applications_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this application. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDetail"];
+                };
+            };
+        };
+    };
+    applications_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this application. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedApplicationUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedApplicationUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedApplicationUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    applications_moves: {
+        parameters: {
+            query?: {
+                candidate?: string;
+                is_starred?: boolean;
+                job_description?: string;
+                min_match?: number;
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                owner?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description A search term. */
+                search?: string;
+                search_run?: string;
+                source?: string;
+                status?: string;
+                status_group?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this application. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedMoveList"];
+                };
+            };
+        };
+    };
+    applications_rematch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this application. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateMatch"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    applications_transition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this application. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TransitionRequest"];
+                "multipart/form-data": components["schemas"]["TransitionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransitionResponse"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    interviews_list: {
+        parameters: {
+            query?: {
+                application?: string;
+                /** @description upcoming | today | completed | past | pending_feedback */
+                bucket?: string;
+                candidate?: string;
+                /** @description ISO datetime, scheduled_at >= */
+                from?: string;
+                from_?: string;
+                interviewer?: string;
+                job_description?: string;
+                mine?: boolean;
+                /** @description scheduled_at (default), -scheduled_at */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description comma list */
+                round?: string;
+                search?: string;
+                /** @description comma list */
+                status?: string;
+                /** @description ISO datetime, scheduled_at <= */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedInterviewList"];
+                };
+            };
+        };
+    };
+    interviews_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewCreateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["InterviewCreateRequest"];
+                "multipart/form-data": components["schemas"]["InterviewCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Interview"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    interviews_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this interview. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Interview"];
+                };
+            };
+        };
+    };
+    interviews_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this interview. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    interviews_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this interview. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedInterviewUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedInterviewUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedInterviewUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Interview"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    interviews_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this interview. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["InterviewCancelRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["InterviewCancelRequest"];
+                "multipart/form-data": components["schemas"]["InterviewCancelRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Interview"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    interviews_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this interview. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["FeedbackRequest"];
+                "multipart/form-data": components["schemas"]["FeedbackRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Interview"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    interviews_reschedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this interview. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewRescheduleRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["InterviewRescheduleRequest"];
+                "multipart/form-data": components["schemas"]["InterviewRescheduleRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Interview"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    communications_list: {
+        parameters: {
+            query?: {
+                application?: string;
+                candidate?: string;
+                channel?: string;
+                job_description?: string;
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                outcome?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description A search term. */
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCommunicationList"];
+                };
+            };
+        };
+    };
+    communications_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommunicationCreateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CommunicationCreateRequest"];
+                "multipart/form-data": components["schemas"]["CommunicationCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Communication"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    communications_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this communication. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Communication"];
+                };
+            };
+        };
+    };
+    offers_list: {
+        parameters: {
+            query?: {
+                application?: string;
+                candidate?: string;
+                job_description?: string;
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description A search term. */
+                search?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedOfferList"];
+                };
+            };
+        };
+    };
+    offers_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferCreateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["OfferCreateRequest"];
+                "multipart/form-data": components["schemas"]["OfferCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offer"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    offers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this offer. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offer"];
+                };
+            };
+        };
+    };
+    offers_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this offer. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedOfferUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedOfferUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedOfferUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offer"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    offers_accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this offer. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OfferReasonRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["OfferReasonRequest"];
+                "multipart/form-data": components["schemas"]["OfferReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offer"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    offers_decline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this offer. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OfferReasonRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["OfferReasonRequest"];
+                "multipart/form-data": components["schemas"]["OfferReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offer"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    offers_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this offer. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offer"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    offers_withdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this offer. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OfferReasonRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["OfferReasonRequest"];
+                "multipart/form-data": components["schemas"]["OfferReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offer"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    onboardings_list: {
+        parameters: {
+            query?: {
+                application?: string;
+                candidate?: string;
+                job_description?: string;
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description A search term. */
+                search?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedOnboardingList"];
+                };
+            };
+        };
+    };
+    onboardings_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardingCreateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["OnboardingCreateRequest"];
+                "multipart/form-data": components["schemas"]["OnboardingCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Onboarding"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    onboardings_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this onboarding. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Onboarding"];
+                };
+            };
+        };
+    };
+    onboardings_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this onboarding. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedOnboardingUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedOnboardingUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedOnboardingUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Onboarding"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    onboardings_complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this onboarding. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Onboarding"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    candidates_list: {
+        parameters: {
+            query?: {
+                job_description?: string;
+                location?: string;
+                max_exp?: number;
+                min_exp?: number;
+                /** @description full_name, -total_experience_years, -created_at, -last_activity (default) */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description Name, headline, company, location or a skill */
+                search?: string;
+                /** @description Comma list of skills (normalised) */
+                skills?: string;
+                /** @description Comma list of sources */
+                source?: string;
+                /** @description Comma list of application statuses */
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCandidateRowList"];
+                };
+            };
+        };
+    };
+    candidates_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CandidateWriteRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CandidateWriteRequest"];
+                "multipart/form-data": components["schemas"]["CandidateWriteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    candidates_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this candidate. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    candidates_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this candidate. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCandidateWriteRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedCandidateWriteRequest"];
+                "multipart/form-data": components["schemas"]["PatchedCandidateWriteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notifications_list: {
+        parameters: {
+            query?: {
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description A search term. */
+                search?: string;
+                /** @description comma list of notification types */
+                type?: string;
+                /** @description Only unread rows */
+                unread?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedNotificationList"];
+                };
+            };
+        };
+    };
+    notifications_read_all: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadAll"];
+                };
+            };
+        };
+    };
+    notifications_unread_count: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCount"];
+                };
+            };
+        };
+    };
+    notifications_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+        };
+    };
+    notifications_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+        };
+    };
+    meta_enums: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaEnums"];
+                };
+            };
+        };
+    };
+    dashboard_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardSummary"];
+                };
+            };
+        };
+    };
+    dashboard_funnel: {
+        parameters: {
+            query?: {
+                job_description?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Funnel"];
+                };
+            };
+        };
+    };
+    dashboard_recent_activity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"][];
+                };
+            };
+        };
+    };
+    dashboard_top_candidates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationRow"][];
+                };
+            };
+        };
+    };
+    dashboard_upcoming_interviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Interview"][];
+                };
             };
         };
     };

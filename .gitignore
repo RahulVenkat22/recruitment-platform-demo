@@ -31,3 +31,4 @@ coverage/
 backend/staticfiles/
 backend/media/
 frontend/openapi.json
+frontend/.screenshots/
