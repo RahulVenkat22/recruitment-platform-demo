@@ -1,7 +1,8 @@
 """Query-string filters for ``GET /api/v1/job-descriptions/`` (plan.md 6.10):
 ``search``, ``status``, ``department``, ``location``, ``employment_type``,
-``work_mode``, ``created_by``, ``mine`` and ``skill``. Multi-value filters take a
-comma list (``?status=open,on_hold``) so the filter popovers can send one param."""
+``work_mode``, ``created_by``, ``created_by_role``, ``mine`` and ``skill``.
+Multi-value filters take a comma list (``?status=open,on_hold``) so the filter
+popovers can send one param."""
 
 from __future__ import annotations
 
@@ -10,7 +11,7 @@ from typing import Any
 import django_filters
 from django.db.models import Q, QuerySet
 
-from common.enums import EmploymentType, JDStatus, WorkMode
+from common.enums import EmploymentType, JDStatus, UserRole, WorkMode
 from jobs.models import JobDescription
 from matching.skills import normalize_skill
 
@@ -56,6 +57,8 @@ class JobDescriptionFilter(django_filters.FilterSet):
     employment_type = _CsvChoiceFilter(field_name="employment_type", choices=EmploymentType.choices)
     work_mode = _CsvChoiceFilter(field_name="work_mode", choices=WorkMode.choices)
     created_by = django_filters.UUIDFilter(field_name="created_by_id")
+    # The homepage "User level" filter (Enhancement.md 3): JDs raised by users of these roles.
+    created_by_role = _CsvChoiceFilter(field_name="created_by__role", choices=UserRole.choices)
     mine = django_filters.BooleanFilter(method="filter_mine")
     skill = django_filters.CharFilter(method="filter_skill")
 

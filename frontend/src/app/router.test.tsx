@@ -46,9 +46,17 @@ describe('app shell routing', () => {
     expect(screen.getByRole('status')).toHaveTextContent('API offline')
   })
 
-  it('redirects the root path to the dashboard', async () => {
+  it('renders the homepage at the root path', async () => {
     renderApp('/')
-    expect(await screen.findByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Homepage' }, { timeout: 10_000 }),
+    ).toBeInTheDocument()
+    const nav = screen.getByRole('navigation', { name: 'Primary' })
+    expect(within(nav).getByRole('link', { name: 'Homepage' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(within(nav).getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute('aria-current')
   })
 
   it('marks the parent nav item active on nested routes', async () => {

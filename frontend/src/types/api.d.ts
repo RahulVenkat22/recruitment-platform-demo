@@ -223,7 +223,7 @@ export interface paths {
         };
         /**
          * Job descriptions the caller can see
-         * @description Each row carries the creator, the first four participants, the participant count and the pipeline counts (candidates, shortlisted, interviewed, selected, onboarded). `status`, `department`, `location`, `employment_type` and `work_mode` accept comma lists; `mine` limits to JDs the caller created or is listed on; `search` matches title, department, location, domain or a skill.
+         * @description Each row carries the creator, the first four participants, the participant count and the pipeline counts (candidates, shortlisted, interviewed, selected, onboarded). `status`, `department`, `location`, `employment_type` and `work_mode` accept comma lists; `mine` limits to JDs the caller created or is listed on; `created_by_role` (comma list of user roles) keeps the JDs raised by that level of user; `search` matches title, department, location, domain or a skill. Rows carry the interviewer-role participants, the time of the latest timeline event and the completion percentage for the homepage table.
          */
         get: operations["jobs_list"];
         put?: never;
@@ -306,6 +306,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/job-descriptions/{id}/comments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a comment to the job description timeline
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        post: operations["jobs_comment_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/job-descriptions/{id}/duplicate/": {
         parameters: {
             query?: never;
@@ -320,6 +340,26 @@ export interface paths {
          * @description ``/api/v1/job-descriptions/`` and its sub-resources.
          */
         post: operations["jobs_duplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/{id}/force-close/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a draft, open or on-hold JD early; the reason goes on the timeline
+         * @description ``/api/v1/job-descriptions/`` and its sub-resources.
+         */
+        post: operations["jobs_force_close"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1730,6 +1770,11 @@ export interface components {
             feedback: string;
             recommendation: components["schemas"]["RecommendationEnum"];
         };
+        /** @description ``POST .../force-close/``: an optional reason, shown on the timeline. */
+        ForceCloseRequest: {
+            /** @default  */
+            reason: string;
+        };
         ForgotPasswordRequest: {
             /** Format: email */
             email: string;
@@ -1851,10 +1896,15 @@ export interface components {
          *     * `open` - Open
          *     * `on_hold` - On Hold
          *     * `closed` - Closed
+         *     * `force_closed` - Force Closed
          *     * `archived` - Archived
          * @enum {string}
          */
-        JDStatusEnum: "draft" | "open" | "on_hold" | "closed" | "archived";
+        JDStatusEnum: "draft" | "open" | "on_hold" | "closed" | "force_closed" | "archived";
+        /** @description ``POST .../comments/``: the remark that becomes a ``jd.comment_added`` event. */
+        JobCommentRequest: {
+            text: string;
+        };
         /** @description ``POST /job-descriptions/``: content, people and the starting status. */
         JobDescriptionCreateRequest: {
             title: string;
@@ -1932,6 +1982,10 @@ export interface components {
             readonly participants_preview: components["schemas"]["Participant"][];
             readonly participants_count: number;
             readonly counts: components["schemas"]["PipelineCounts"];
+            readonly interviewers: components["schemas"]["UserSummary"][];
+            /** Format: date-time */
+            readonly last_activity_at: string;
+            readonly completion_pct: number;
             readonly education_requirements: string;
             readonly responsibilities: string;
             readonly qualifications: string;
@@ -1941,7 +1995,11 @@ export interface components {
             readonly metrics: components["schemas"]["Metrics"];
             readonly permissions: components["schemas"]["JobPermissions"];
         };
-        /** @description A list row: header fields, creator, participants preview and pipeline counts. */
+        /**
+         * @description A list row: header fields, creator, participants preview, pipeline counts,
+         *     plus the homepage columns (Enhancement.md 3): the interviewer-role
+         *     participants, the latest timeline event and the completion percentage.
+         */
         JobDescriptionRow: {
             /** Format: uuid */
             readonly id: string;
@@ -1977,6 +2035,10 @@ export interface components {
             readonly participants_preview: components["schemas"]["Participant"][];
             readonly participants_count: number;
             readonly counts: components["schemas"]["PipelineCounts"];
+            readonly interviewers: components["schemas"]["UserSummary"][];
+            /** Format: date-time */
+            readonly last_activity_at: string;
+            readonly completion_pct: number;
         };
         /** @description Filter popover options with counts over the JDs the caller can see. */
         JobFacets: {
@@ -1993,6 +2055,8 @@ export interface components {
             can_manage_participants: boolean;
             can_work_pipeline: boolean;
             can_manage: boolean;
+            can_force_close: boolean;
+            can_comment: boolean;
         };
         JobRef: {
             /** Format: uuid */
@@ -2678,6 +2742,10 @@ export interface components {
             tray: string[];
             terminal: string[];
         };
+        /**
+         * @description ``POST .../transition/``: every move through the API carries a reason
+         *     (Enhancement.md 6); ``note`` is accepted as the same thing for older clients.
+         */
         TransitionRequest: {
             status: components["schemas"]["ApplicationStatusEnum"];
             /** @default  */
@@ -3199,6 +3267,8 @@ export interface operations {
             query?: {
                 /** @description User id */
                 created_by?: string;
+                /** @description Comma list of hr_admin|hr|interviewer|employee */
+                created_by_role?: string;
                 /** @description Comma list, case-insensitive */
                 department?: string;
                 /** @description Comma list */
@@ -3206,7 +3276,7 @@ export interface operations {
                 /** @description Comma list, case-insensitive */
                 location?: string;
                 mine?: boolean;
-                /** @description -updated_at (default), updated_at, created_at, title, status, department, count_candidates */
+                /** @description -updated_at (default), updated_at, created_at, title, status, department, count_candidates, last_activity_at */
                 ordering?: string;
                 /** @description A page number within the paginated result set. */
                 page?: number;
@@ -3434,6 +3504,47 @@ export interface operations {
             };
         };
     };
+    jobs_comment_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobCommentRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["JobCommentRequest"];
+                "multipart/form-data": components["schemas"]["JobCommentRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     jobs_duplicate: {
         parameters: {
             query?: never;
@@ -3455,6 +3566,54 @@ export interface operations {
             };
             /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_force_close: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ForceCloseRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ForceCloseRequest"];
+                "multipart/form-data": components["schemas"]["ForceCloseRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDescriptionDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3598,6 +3757,7 @@ export interface operations {
         parameters: {
             query?: {
                 created_by?: string;
+                created_by_role?: string;
                 department?: string;
                 employment_type?: string;
                 location?: string;
@@ -3632,6 +3792,7 @@ export interface operations {
         parameters: {
             query?: {
                 created_by?: string;
+                created_by_role?: string;
                 department?: string;
                 employment_type?: string;
                 location?: string;
@@ -3840,6 +4001,7 @@ export interface operations {
         parameters: {
             query?: {
                 created_by?: string;
+                created_by_role?: string;
                 department?: string;
                 employment_type?: string;
                 location?: string;
@@ -5497,6 +5659,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description A UUID string identifying this notification. */
                 id: string;
             };
             cookie?: never;
@@ -5518,6 +5681,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description A UUID string identifying this notification. */
                 id: string;
             };
             cookie?: never;

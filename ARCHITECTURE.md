@@ -120,6 +120,7 @@ src/
 - TanStack Query owns server state. `lib/query-keys.ts` is the only place keys are built, so mutations can invalidate precisely: a transition invalidates applications, the kanban board, the JD timeline, the JD detail and the dashboard.
 - `lib/enums.ts` loads `/meta/enums` once per session so labels and badge colours come from the API, with a typed fallback for tests.
 - Tab and filter state lives in the URL through `useUrlState`, so every view is linkable.
+- `lib/history-store.ts` records every in-app navigation (`useTrackHistory` in the AppShell). A page's Back control (`PageHeader`) steps back through the browser history to the last entry on a different path, so Interviews → Candidate → Back returns to Interviews; a direct load falls back to the breadcrumb parent.
 
 ### 3.3 UI conventions
 
@@ -127,6 +128,8 @@ src/
 - Query errors inside a section render an inline `ErrorState` with a retry; only page-level failures use the block variant.
 - Mutations report through toasts. Destructive actions confirm through `ConfirmDialog`; deleting a JD requires typing its title.
 - Motion follows plan.md 8.3: 400ms page enter, 250ms dialogs, 150ms hovers, `cubic-bezier(.22,1,.36,1)`. `prefers-reduced-motion` turns it all off at the CSS level and through `useReducedMotion` for JS-driven animation.
+- Brand: Buro Happold black, white and lime (`--color-accent`) on warm stone neutrals, Manrope for headings over Geist for UI text (`index.css`). The sidebar and the login panel are dark surfaces: `data-surface="dark"` re-points the colour tokens for that subtree, so every component inside keeps its classes. Logo assets live in `public/brand/` behind `components/shared/BrandLogo`.
+- Every candidate status change goes through `TransitionDialog`, which requires a reason; the API refuses a transition without one. Timeline events render through `TimelineChanges` (From → To, reason, who) plus the per-category details, and never show identifiers or raw field names (`lib/timeline.ts`).
 - Below 768px the sidebar becomes a drawer opened from the top bar, tables switch to cards or scroll inside their own container, and the Kanban board snaps one column per screen.
 
 ## 4. Extension points
@@ -137,7 +140,8 @@ src/
 | Parse referral emails | Same as above with a provider that reads a mailbox and yields `NormalizedCandidate`. |
 | Use Claude for matching | Implement `MatchEngine` (`matching/engine.py`) returning `MatchResult`; register it in `matching/registry.py`; set `MATCH_ENGINE=claude`. `matching/adapters.py` already builds the profiles. |
 | Run searches in the background | Enqueue `SearchService.run` steps 2 to 7; return `SearchRun(status="pending")`; the UI polls `GET /searches/{id}`. |
-| Add a new timeline event | Add the `event_type` to `EVENT_TYPE_CATEGORY` in `activity/services.py`; call `record_activity()` from the service that owns the behaviour; add a renderer case in `components/shared/TimelineItemDetails.tsx` if it carries extra details. |
+| Add a new timeline event | Add the `event_type` to `EVENT_TYPE_CATEGORY` in `activity/services.py`; call `record_activity()` from the service that owns the behaviour; add a renderer case in `components/shared/TimelineItemDetails.tsx` if it carries extra details. Put `from` / `to` (or a `changes` map of `{field: {from, to}}`) and `reason` in the metadata and the change block renders itself. |
+| Add a job description action | Follow `JobService.force_close` / `add_comment` (`jobs/services.py`) and their `POST .../force-close/` and `.../comments/` actions in `jobs/views.py`; gate them with a predicate in `common/permissions.py` and mirror it in `features/jobs/job-permissions.ts`. |
 | Add a pipeline status | Add it to `ApplicationStatus` and the order, Kanban group and entry-category maps in `common/enums.py`; the transition rules and the frontend `pipeline-target.ts` read those maps. |
 | Add a dark theme | Populate the token set under `[data-theme="dark"]` in `frontend/src/index.css`; every colour in the app comes from those tokens. |
 

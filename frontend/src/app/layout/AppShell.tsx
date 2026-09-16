@@ -6,6 +6,7 @@ import { Sidebar } from '@/app/layout/Sidebar'
 import { TopBar } from '@/app/layout/TopBar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLoadEnums } from '@/lib/enums'
+import { useTrackHistory } from '@/lib/hooks/useBackNavigation'
 
 /** plan.md 8.3: page content fades in and rises 8px over 400ms; off under reduced motion. */
 function PageTransition({ children }: { children: ReactNode }) {
@@ -36,6 +37,8 @@ function PageFallback() {
 export function AppShell() {
   // The enum catalogue (labels, badge colours) loads once per authenticated session.
   useLoadEnums()
+  // Every in-app navigation is recorded so page Back controls return to the real previous page.
+  useTrackHistory()
   const { pathname } = useLocation()
 
   return (

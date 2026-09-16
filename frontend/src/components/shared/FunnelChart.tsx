@@ -11,7 +11,8 @@ import {
 import type { FunnelStage } from '@/types/domain'
 
 /** One brand hue, dark to light, in stage order (plan.md 8.4 FunnelChart, sequential ramp). */
-const RAMP = ['#b84515', '#cd6035', '#d97656', '#e39078', '#edab9a', '#f5c7bb']
+/** Buro Happold ramp: black at the top of the funnel through the lime at the bottom. */
+const RAMP = ['#0a0a0a', '#3d4400', '#6b7500', '#8fa000', '#b3c400', '#c4d600']
 
 export interface FunnelChartProps {
   stages: readonly FunnelStage[]
@@ -84,7 +85,7 @@ export function FunnelChart({ stages, className }: FunnelChartProps) {
             width={92}
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#4e5562', fontSize: 13 }}
+            tick={{ fill: '#4a4d48', fontSize: 13 }}
           />
           <Tooltip cursor={{ fill: 'rgba(14, 16, 19, 0.04)' }} content={<StageTooltip />} />
           <Bar dataKey="value" barSize={16} radius={[0, 4, 4, 0]} isAnimationActive={false}>

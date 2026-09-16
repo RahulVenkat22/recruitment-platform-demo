@@ -38,8 +38,11 @@ const CLOSED = new Set(['rejected', 'withdrawn', 'onboarded'])
 export interface ApplicationActionsHandle {
   itemsFor: (row: ApplicationRow) => RowAction[]
   shortlist: (row: ApplicationRow) => Promise<void>
-  /** Moves straight to `status` (no note needed); toasts the outcome. */
-  transitionTo: (row: ApplicationRow, status: string) => Promise<void>
+  /**
+   * Moves straight to `status` with the given reason; toasts the outcome. Only
+   * for callers that collected the reason themselves; the UI paths use `changeStatus`.
+   */
+  transitionTo: (row: ApplicationRow, status: string, reason: string) => Promise<void>
   /** Opens the status dialog with every allowed move, or with `status` preselected. */
   changeStatus: (row: ApplicationRow, status?: string) => void
   /** Opens the status dialog with "Rejected" preselected. */
@@ -91,9 +94,9 @@ export function useApplicationActions(callbacks: { onBulkDone?: () => void } = {
     start?: string | null
   } | null>(null)
 
-  async function transitionTo(row: ApplicationRow, status: string) {
+  async function transitionTo(row: ApplicationRow, status: string, reason: string) {
     try {
-      const result = await transition.mutateAsync({ id: row.id, status })
+      const result = await transition.mutateAsync({ id: row.id, status, reason })
       toast.success(
         `Moved ${row.candidate.full_name} to ${statusMeta(result.application.status).label}`,
       )
@@ -102,13 +105,9 @@ export function useApplicationActions(callbacks: { onBulkDone?: () => void } = {
     }
   }
 
+  /** Shortlisting is a status change like any other: confirmed with a reason (Enhancement.md 6). */
   async function shortlist(row: ApplicationRow) {
-    try {
-      await transition.mutateAsync({ id: row.id, status: 'hr_review' })
-      toast.success(`Shortlisted ${row.candidate.full_name}`)
-    } catch (error) {
-      toast.error(describeError(error))
-    }
+    setDialog({ row, status: 'hr_review' })
   }
 
   async function deleteInterview(interview: Interview) {

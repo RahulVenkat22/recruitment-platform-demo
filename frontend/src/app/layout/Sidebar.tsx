@@ -10,6 +10,7 @@ import { useState } from 'react'
 import { Link, useLocation, useMatch, useNavigate } from 'react-router'
 import { NAV_ITEMS, type NavItem } from '@/app/layout/nav'
 import { Avatar } from '@/components/shared/Avatar'
+import { BrandLogo } from '@/components/shared/BrandLogo'
 import { UserChip } from '@/components/shared/UserChip'
 import { Button } from '@/components/ui/button'
 import {
@@ -37,7 +38,7 @@ function SidebarNavItem({
   collapsed: boolean
   onNavigate?: () => void
 }) {
-  const isActive = Boolean(useMatch({ path: item.to, end: false }))
+  const isActive = Boolean(useMatch({ path: item.to, end: item.end ?? false }))
   const Icon = item.icon
 
   const link = (
@@ -140,26 +141,30 @@ function BrandLink({
 }) {
   return (
     <Link
-      to="/dashboard"
+      to="/"
       onClick={onNavigate}
-      className="flex items-center gap-2.5 rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      aria-label="Aimious home"
+      className="flex min-w-0 items-center gap-2.5 rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      aria-label="Buro Happold homepage"
     >
-      <img
-        src="/brand/aimious-mark-for-light-bg.svg"
-        alt=""
-        width={28}
-        height={28}
-        className="size-7"
-      />
-      {!collapsed && (
-        <span className="text-[17px] font-medium tracking-[-0.01em] text-ink">Aimious</span>
+      {collapsed ? (
+        <BrandLogo variant="mark" />
+      ) : (
+        <span className="flex min-w-0 flex-col gap-1">
+          <BrandLogo variant="wordmark" on="dark" className="h-[22px]" />
+          <span className="text-[10px] font-medium tracking-[0.14em] text-ink-subtle uppercase">
+            Recruitment
+          </span>
+        </span>
       )}
     </Link>
   )
 }
 
-/** Desktop sidebar (plan.md 8.4): 248px expanded, 64px icon-only. Hidden below 768px, where `MobileNav` takes over. */
+/**
+ * Desktop sidebar (plan.md 8.4): 248px expanded, 64px icon-only, on Buro Happold
+ * graphite with the lime as the active colour (`data-surface="dark"` re-points
+ * the colour tokens). Hidden below 768px, where `MobileNav` takes over.
+ */
 export function Sidebar() {
   const collapsed = useUiStore((state) => state.sidebarCollapsed)
   const toggleSidebar = useUiStore((state) => state.toggleSidebar)
@@ -169,13 +174,19 @@ export function Sidebar() {
   return (
     <aside
       data-collapsed={collapsed}
+      data-surface="dark"
       className={cn(
         'flex h-full shrink-0 flex-col border-r border-line bg-surface max-md:hidden',
         'transition-[width] duration-250 ease-brand',
         collapsed ? 'w-16' : 'w-[248px]',
       )}
     >
-      <div className={cn('flex h-14 items-center px-4', collapsed && 'justify-center px-0')}>
+      <div
+        className={cn(
+          'flex h-16 items-center border-b border-line px-4',
+          collapsed && 'justify-center px-0',
+        )}
+      >
         <BrandLink collapsed={collapsed} />
       </div>
 
@@ -235,10 +246,14 @@ export function MobileNav() {
       >
         <MenuIcon aria-hidden="true" />
       </Button>
-      <SheetContent side="left" className="w-[280px] gap-0 bg-surface p-0 sm:max-w-[280px]">
+      <SheetContent
+        side="left"
+        data-surface="dark"
+        className="w-[280px] gap-0 bg-surface p-0 text-ink sm:max-w-[280px]"
+      >
         <SheetTitle className="sr-only">Navigation</SheetTitle>
         <SheetDescription className="sr-only">Main sections of the app</SheetDescription>
-        <div className="flex h-14 items-center border-b border-line px-4">
+        <div className="flex h-16 items-center border-b border-line px-4">
           <BrandLink onNavigate={close} />
         </div>
         <nav aria-label="Primary" className="flex-1 space-y-0.5 px-2 pt-2">

@@ -1,6 +1,7 @@
 import { ArrowLeftIcon } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { Link } from 'react-router'
+import { useBackNavigation } from '@/lib/hooks/useBackNavigation'
 import { useUiStore, type Crumb } from '@/lib/ui-store'
 import { cn } from '@/lib/utils'
 
@@ -26,6 +27,37 @@ export interface PageHeaderProps {
 function backCrumb(breadcrumbs: Crumb[] | undefined): Crumb | undefined {
   if (!breadcrumbs || breadcrumbs.length < 2) return undefined
   return [...breadcrumbs.slice(0, -1)].reverse().find((crumb) => crumb.to)
+}
+
+/**
+ * The "← Back" control above a detail page title (Enhancement.md 4): a real link
+ * to the page the user came from (the breadcrumb parent when there is no history,
+ * e.g. after a refresh), stepping back through the browser history on a plain
+ * click so the browser's own Back stays consistent.
+ */
+function BackLink({ fallback, fallbackLabel }: { fallback: string; fallbackLabel: string }) {
+  const back = useBackNavigation(fallback, fallbackLabel)
+
+  function onClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0)
+      return
+    event.preventDefault()
+    back.goBack()
+  }
+
+  return (
+    <Link
+      to={back.href}
+      onClick={onClick}
+      data-slot="page-back"
+      data-from-history={back.fromHistory || undefined}
+      aria-label={`Back to ${back.label}`}
+      className="mb-2 inline-flex items-center gap-1 rounded-control text-small text-ink-muted transition-colors duration-150 ease-brand hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      <ArrowLeftIcon aria-hidden="true" className="size-3.5" />
+      <span>{back.label}</span>
+    </Link>
+  )
 }
 
 /**
@@ -76,16 +108,7 @@ export function PageHeader({
           className,
         )}
       >
-        {back?.to && (
-          <Link
-            to={back.to}
-            aria-label={`Back to ${back.label}`}
-            className="mb-2 inline-flex items-center gap-1 rounded-control text-small text-ink-muted transition-colors duration-150 ease-brand hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            <ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-            <span>{back.label}</span>
-          </Link>
-        )}
+        {back?.to && <BackLink fallback={back.to} fallbackLabel={back.label} />}
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">

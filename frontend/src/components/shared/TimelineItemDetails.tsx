@@ -1,4 +1,5 @@
 import {
+  ArrowRightIcon,
   CalendarClockIcon,
   ExternalLinkIcon,
   LinkIcon,
@@ -9,18 +10,22 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { Link } from 'react-router'
+import { Avatar } from '@/components/shared/Avatar'
 import { SourceBadge } from '@/components/shared/SourceBadge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { UserChip } from '@/components/shared/UserChip'
-import { FALLBACK_STATUS, humanise } from '@/lib/enums'
+import { FALLBACK_JD_STATUS, FALLBACK_STATUS, humanise } from '@/lib/enums'
 import { formatCurrencyINR, formatDate, formatDateTime } from '@/lib/format'
 import {
+  changesOf,
   humaniseField,
   metaNumber,
   metaPeople,
   metaPerson,
   metaString,
   metaStrings,
+  reasonOf,
+  type FieldChange,
   type Metadata,
 } from '@/lib/timeline'
 import { cn } from '@/lib/utils'
@@ -64,15 +69,92 @@ function candidateHref(id: string, jobId?: string): string {
   return jobId ? `/candidates/${id}?jd=${jobId}` : `/candidates/${id}`
 }
 
-function statusPill(key: string) {
-  return key in FALLBACK_STATUS ? (
-    <StatusBadge status={key} dot />
-  ) : (
-    <Pill className="bg-primary-soft text-primary">{humanise(key)}</Pill>
+/** A stored value as a badge when it is a known status key, otherwise as words. */
+function ValueChip({ raw, text }: { raw: unknown; text: string }) {
+  if (typeof raw === 'string') {
+    if (raw in FALLBACK_STATUS) return <StatusBadge status={raw} dot />
+    if (raw in FALLBACK_JD_STATUS) return <StatusBadge status={raw} kind="jd_status" dot />
+  }
+  return (
+    <span className="rounded-control bg-surface px-1.5 py-0.5 text-small font-medium text-ink ring-1 ring-line">
+      {text}
+    </span>
   )
 }
 
-/** The per-category detail block under a timeline title (plan.md 8.4 "TimelineItem details by category"). */
+function ChangeRow({ change }: { change: FieldChange }) {
+  // A first status (a candidate found by a search) has nothing to show as "From".
+  const hasFrom = change.fromRaw !== null && change.fromRaw !== undefined && change.fromRaw !== ''
+  return (
+    <div className="contents">
+      <dt className="pt-0.5 text-caption text-ink-subtle">{change.label}</dt>
+      <dd className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        {hasFrom && (
+          <>
+            <span className="text-caption text-ink-subtle">From</span>
+            <ValueChip raw={change.fromRaw} text={change.from} />
+            <ArrowRightIcon aria-hidden="true" className="size-3.5 text-ink-subtle" />
+            <span className="text-caption text-ink-subtle">To</span>
+          </>
+        )}
+        <ValueChip raw={change.toRaw} text={change.to} />
+      </dd>
+    </div>
+  )
+}
+
+/**
+ * What changed, as a person reads it (Enhancement.md 5): every From → To the
+ * event carries, the reason or note that was given, and who made the change and
+ * when. Returns null for events that changed nothing.
+ */
+export function TimelineChanges({ item }: { item: Activity }) {
+  const meta = (item.metadata ?? {}) as Metadata
+  const changes = changesOf(meta, item.event_type)
+  const reason = reasonOf(meta)
+  if (changes.length === 0 && !reason) return null
+
+  return (
+    <dl
+      data-slot="timeline-changes"
+      className="mt-2 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 rounded-control bg-surface-2 px-3 py-2.5"
+    >
+      {changes.map((change) => (
+        <ChangeRow key={change.field} change={change} />
+      ))}
+      {reason && (
+        <div className="contents">
+          <dt className="pt-0.5 text-caption text-ink-subtle">{reason.label}</dt>
+          <dd className="min-w-0 text-small break-words whitespace-pre-line text-ink">
+            {reason.text}
+          </dd>
+        </div>
+      )}
+      <div className="contents">
+        <dt className="pt-0.5 text-caption text-ink-subtle">
+          {changes.length > 0 ? 'Changed by' : 'By'}
+        </dt>
+        <dd className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-small text-ink">
+          {item.actor ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Avatar name={item.actor.full_name} src={item.actor.avatar_url} size="xs" />
+              <span className="font-medium">{item.actor.full_name}</span>
+            </span>
+          ) : (
+            <span className="font-medium">System</span>
+          )}
+          <span className="text-ink-subtle">· {formatDateTime(item.occurred_at)}</span>
+        </dd>
+      </div>
+    </dl>
+  )
+}
+
+/**
+ * The per-category detail block under a timeline title (plan.md 8.4 "TimelineItem
+ * details by category"). Status moves and reasons are rendered by
+ * `TimelineChanges`, so this only adds what the category knows on top.
+ */
 export function TimelineItemDetails({ item, jobId }: TimelineItemDetailsProps) {
   const meta = (item.metadata ?? {}) as Metadata
   const wrap = 'mt-1.5 flex flex-wrap items-center gap-1.5'
@@ -80,14 +162,22 @@ export function TimelineItemDetails({ item, jobId }: TimelineItemDetailsProps) {
   switch (item.category) {
     case 'job_description': {
       const changed = metaStrings(meta, 'changed_fields')
+      const detailed = new Set(Object.keys((meta.changes as object | undefined) ?? {}))
+      const summarised = changed.filter((field) => !detailed.has(field))
       const people = metaPeople(meta, 'participants')
       const version = metaNumber(meta, 'version')
-      if (!changed.length && !people.length && !(version && item.event_type === 'jd.updated'))
+      const sourceTitle = metaString(meta, 'source_title')
+      if (
+        !summarised.length &&
+        !people.length &&
+        !sourceTitle &&
+        !(version && item.event_type === 'jd.updated')
+      )
         return null
       return (
         <div className={wrap}>
-          {changed.map((field) => (
-            <Pill key={field}>{humaniseField(field)}</Pill>
+          {summarised.map((field) => (
+            <Pill key={field}>{humaniseField(field)} updated</Pill>
           ))}
           {people.map((person) => (
             <Pill key={person.id ?? person.name}>
@@ -95,6 +185,9 @@ export function TimelineItemDetails({ item, jobId }: TimelineItemDetailsProps) {
               {person.role && <span className="text-ink-subtle">· {humanise(person.role)}</span>}
             </Pill>
           ))}
+          {sourceTitle && (
+            <span className="text-small text-ink-muted">Copied from “{sourceTitle}”</span>
+          )}
           {version !== null && item.event_type === 'jd.updated' && (
             <Link
               to={`/jobs/${item.job_description}?tab=versions&version=${version}`}
@@ -110,7 +203,8 @@ export function TimelineItemDetails({ item, jobId }: TimelineItemDetailsProps) {
       const sources = metaStrings(meta, 'sources')
       const found = metaNumber(meta, 'total_found') ?? metaNumber(meta, 'count')
       const shortlisted = metaNumber(meta, 'shortlisted')
-      if (!sources.length && found === null) return null
+      const match = metaNumber(meta, 'match_pct')
+      if (!sources.length && found === null && match === null) return null
       return (
         <div className={wrap}>
           {sources.length > 0 && <SourceBadge source={sources} />}
@@ -124,6 +218,11 @@ export function TimelineItemDetails({ item, jobId }: TimelineItemDetailsProps) {
               • <span className="font-medium text-ink tabular-nums">{shortlisted}</span> AI
               shortlisted
             </span>
+          )}
+          {match !== null && (
+            <Pill className="bg-primary-soft font-medium text-primary tabular-nums">
+              AI match {Math.round(match)}%
+            </Pill>
           )}
         </div>
       )
@@ -162,6 +261,7 @@ export function TimelineItemDetails({ item, jobId }: TimelineItemDetailsProps) {
     case 'candidate_contact': {
       const channel = metaString(meta, 'channel')
       const outcome = metaString(meta, 'outcome')
+      const direction = metaString(meta, 'direction')
       const nextAction = metaString(meta, 'next_action')
       const nextAt = metaString(meta, 'next_action_at')
       const Icon = channel ? CHANNEL_ICONS[channel] : undefined
@@ -172,12 +272,13 @@ export function TimelineItemDetails({ item, jobId }: TimelineItemDetailsProps) {
             <Pill>
               {Icon && <Icon aria-hidden="true" className="size-3" />}
               {humanise(channel)}
+              {direction && <span className="text-ink-subtle">· {humanise(direction)}</span>}
             </Pill>
           )}
-          {outcome && <Pill className="bg-info-soft text-info">Status: {humanise(outcome)}</Pill>}
+          {outcome && <Pill className="bg-info-soft text-info">Outcome: {humanise(outcome)}</Pill>}
           {nextAction && (
             <span className="text-small text-ink-muted">
-              Next: <span className="text-ink">{nextAction}</span>
+              Next step: <span className="text-ink">{nextAction}</span>
               {nextAt && <span className="text-ink-subtle"> · {formatDateTime(nextAt)}</span>}
             </span>
           )}
@@ -188,11 +289,17 @@ export function TimelineItemDetails({ item, jobId }: TimelineItemDetailsProps) {
       const round = metaString(meta, 'round')
       const interviewer = metaPerson(meta, 'interviewer')
       const scheduledAt = metaString(meta, 'scheduled_at')
+      const mode = metaString(meta, 'mode')
       const link = metaString(meta, 'meeting_link')
       if (!round && !interviewer && !scheduledAt) return null
       return (
         <div className={wrap}>
-          {round && <Pill className="bg-info-soft text-info">{humanise(round)}</Pill>}
+          {round && (
+            <Pill className="bg-info-soft text-info">
+              {humanise(round)}
+              {mode && <span className="opacity-80">· {humanise(mode)}</span>}
+            </Pill>
+          )}
           {interviewer && (
             <span className="inline-flex items-center gap-1 text-small text-ink-muted">
               Interviewer:
@@ -244,20 +351,13 @@ export function TimelineItemDetails({ item, jobId }: TimelineItemDetailsProps) {
         </div>
       )
     }
-    case 'candidate_selected': {
-      const to = metaString(meta, 'to') ?? metaString(meta, 'status')
-      if (!to) return null
-      return <div className={wrap}>{statusPill(to)}</div>
-    }
     case 'offer': {
-      const to = metaString(meta, 'to')
       const designation = metaString(meta, 'designation')
       const ctc = metaNumber(meta, 'annual_ctc')
       const joining = metaString(meta, 'joining_date')
-      if (!to && !designation && ctc === null) return null
+      if (!designation && ctc === null && !joining) return null
       return (
         <div className={wrap}>
-          {to && statusPill(to)}
           {designation && <Pill>{designation}</Pill>}
           {ctc !== null && (
             <Pill className="bg-warning-soft font-medium text-warning tabular-nums">
@@ -271,19 +371,19 @@ export function TimelineItemDetails({ item, jobId }: TimelineItemDetailsProps) {
       )
     }
     case 'onboarding': {
-      const to = metaString(meta, 'to')
       const done = metaNumber(meta, 'checklist_done')
       const total = metaNumber(meta, 'checklist_total')
       const buddy = metaPerson(meta, 'buddy')
-      if (!to && done === null && !buddy) return null
+      const start = metaString(meta, 'start_date')
+      if (done === null && !buddy && !start) return null
       return (
         <div className={wrap}>
-          {to && statusPill(to)}
           {done !== null && total !== null && (
             <Pill className="bg-success-soft font-medium text-success tabular-nums">
               {done}/{total} checklist
             </Pill>
           )}
+          {start && <span className="text-small text-ink-muted">Starts {formatDate(start)}</span>}
           {buddy && (
             <span className="inline-flex items-center gap-1 text-small text-ink-muted">
               Buddy:
@@ -299,18 +399,8 @@ export function TimelineItemDetails({ item, jobId }: TimelineItemDetailsProps) {
         </div>
       )
     }
-    case 'decision': {
-      const reason = metaString(meta, 'reason')
-      const to = metaString(meta, 'to')
-      if (!reason && !to) return null
-      return (
-        <div className={wrap}>
-          {to && statusPill(to)}
-          {reason && <span className="text-small text-ink-muted">Reason: {reason}</span>}
-        </div>
-      )
-    }
     default:
+      // candidate_selected and decision: the status move and reason are in TimelineChanges.
       return null
   }
 }

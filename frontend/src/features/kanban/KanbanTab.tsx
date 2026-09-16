@@ -18,6 +18,7 @@ import { useApplicationActions } from '@/features/applications/useApplicationAct
 import { useKanban } from '@/features/jobs/api'
 import { AddExistingCandidateDialog } from '@/features/kanban/AddExistingCandidateDialog'
 import { KanbanBoard } from '@/features/kanban/KanbanBoard'
+import { isWorkable } from '@/features/jobs/job-utils'
 import { MATCH_FLOORS } from '@/features/kanban/kanban-utils'
 import { useEnumOptions } from '@/lib/enums'
 import { param, useDebounce, useIsMobile, useUrlState } from '@/lib/hooks'
@@ -151,7 +152,7 @@ export function KanbanTab({ job }: { job: JobDetail }) {
             {filtered ? `${board.data.count} of ${board.data.total}` : board.data.total} candidates
           </span>
         )}
-        {job.permissions.can_work_pipeline && job.status !== 'archived' && (
+        {job.permissions.can_work_pipeline && isWorkable(job.status) && (
           <Button asChild variant="outline" size="sm">
             <Link to={`/search?jd=${job.id}`}>
               <UserSearchIcon data-icon="inline-start" aria-hidden="true" />

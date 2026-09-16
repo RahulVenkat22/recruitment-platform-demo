@@ -238,6 +238,7 @@ def test_update_with_no_content_change_writes_nothing(jd, priya):
 
 
 def test_update_with_content_change_writes_the_next_version(jd, priya):
+    before = {"title": jd.title, "experience_max_years": jd.experience_max_years}
     result = JobService.update(
         jd,
         {"title": "Lead Python Developer", "experience_max_years": 10, "openings": 1},
@@ -263,6 +264,10 @@ def test_update_with_content_change_writes_the_next_version(jd, priya):
     assert activity.description == "Raised experience to 4–10 yrs"
     assert activity.metadata == {
         "changed_fields": ["title", "experience_max_years"],
+        "changes": {
+            "title": {"from": before["title"], "to": "Lead Python Developer"},
+            "experience_max_years": {"from": before["experience_max_years"], "to": 10},
+        },
         "version": 2,
         "change_summary": "Raised experience to 4–10 yrs",
     }

@@ -33,6 +33,7 @@ export const JD_STATUS_LABELS: Record<string, string> = {
   open: 'Open',
   on_hold: 'On Hold',
   closed: 'Closed',
+  force_closed: 'Force Closed',
   archived: 'Archived',
 }
 
@@ -164,6 +165,17 @@ export function isEditableStatus(status: string): boolean {
   return status !== 'archived'
 }
 
+/** Statuses that end the recruitment: no searches, no new candidates (Enhancement.md 3). */
+export const ENDED_STATUSES = new Set(['closed', 'force_closed', 'archived'])
+
+/** True while candidates can still be searched for and worked on this JD. */
+export function isWorkable(status: string): boolean {
+  return status !== 'archived' && status !== 'force_closed'
+}
+
+/** Statuses a JD can be force closed from: anything still in play. */
+export const FORCE_CLOSABLE = new Set(['draft', 'open', 'on_hold'])
+
 /** The status moves offered from the header menu, per plan.md 6.5 JD rules. */
 export function nextStatusOptions(status: string): { key: string; label: string }[] {
   switch (status) {
@@ -180,6 +192,7 @@ export function nextStatusOptions(status: string): { key: string; label: string 
         { key: 'closed', label: 'Close' },
       ]
     case 'closed':
+    case 'force_closed':
       return [{ key: 'open', label: 'Reopen' }]
     default:
       return []

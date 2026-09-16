@@ -18,6 +18,8 @@ Rules implemented here
 * Status moves: draft -> open only through ``publish`` (sets ``published_at``);
   open / on_hold / closed move between themselves; ``archive`` works from any
   status and ``unarchive`` restores open (or draft when never published).
+  ``force_close`` ends a draft, open or on-hold JD early (Enhancement.md 3); an
+  HR admin can reopen it the way a closed JD is reopened.
 * Delete is destructive (applications, versions and activities cascade) and
   needs an explicit ``confirm=True``.
 """
@@ -29,9 +31,10 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q, QuerySet
+from django.db.models import Count, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.utils import timezone
 
+from activity.models import Activity
 from activity.services import record_activity
 from candidates.models import CandidateSkill
 from common.enums import (
@@ -85,8 +88,24 @@ STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
     JDStatus.OPEN: frozenset({JDStatus.ON_HOLD, JDStatus.CLOSED}),
     JDStatus.ON_HOLD: frozenset({JDStatus.OPEN, JDStatus.CLOSED}),
     JDStatus.CLOSED: frozenset({JDStatus.OPEN}),
+    JDStatus.FORCE_CLOSED: frozenset({JDStatus.OPEN}),
     JDStatus.ARCHIVED: frozenset(),
 }
+# Statuses a JD can be force closed from: anything still in play.
+FORCE_CLOSABLE: frozenset[str] = frozenset({JDStatus.DRAFT, JDStatus.OPEN, JDStatus.ON_HOLD})
+# Content fields whose old and new values are too long to show on the timeline;
+# the ``jd.updated`` event lists them as changed without the before / after text.
+LONG_TEXT_FIELDS: frozenset[str] = frozenset(
+    {
+        "description",
+        "responsibilities",
+        "qualifications",
+        "additional_requirements",
+        "education_requirements",
+    }
+)
+# ``onboarded`` is the last pipeline stage, so it scores 100% (Enhancement.md 3).
+COMPLETION_MAX_INDEX = ApplicationStatus.order_index(ApplicationStatus.ONBOARDED)
 
 CREATED_SUMMARY = "Created"
 DUPLICATE_PREFIX = "Copy of "
@@ -216,6 +235,11 @@ def _humanise(field: str) -> str:
     return field.replace("_", " ")
 
 
+def _json_ready(value: Any) -> Any:
+    """Snapshot values for ``metadata`` (a JSONField): lists copy, scalars pass through."""
+    return list(value) if isinstance(value, list | tuple) else value
+
+
 def _unchanged(jd: JobDescription, name: str, value: Any) -> bool:
     """Skill lists compare as sets (order and spelling never make a version);
     every other content field compares as stored."""
@@ -337,18 +361,65 @@ class JobService:
     @staticmethod
     def list_queryset(user: Any) -> QuerySet[JobDescription]:
         """Visible JDs (plan.md 6.9 "See all JDs"), newest update first, with the
-        five pipeline counts of plan.md 9.4 from one aggregated join."""
+        five pipeline counts of plan.md 9.4 from one aggregated join, the time of
+        the latest timeline event and the application stages behind
+        ``completion_pct`` (Enhancement.md 3)."""
         visible = visible_job_descriptions_for(user).values("pk")
         counts = {
             name: Count("applications", filter=Q(applications__status__in=statuses), distinct=True)
             for name, statuses in LIST_COUNT_STATUSES.items()
         }
+        latest_activity = (
+            Activity.objects.filter(job_description=OuterRef("pk"))
+            .order_by("-occurred_at")
+            .values("occurred_at")[:1]
+        )
+        progress_rows = Application.objects.only(
+            "id", "status", "previous_status", "job_description_id"
+        )
         return (
             JobService.base_queryset()
             .filter(pk__in=visible)
-            .annotate(count_candidates=Count("applications", distinct=True), **counts)
+            .prefetch_related(
+                Prefetch("applications", queryset=progress_rows, to_attr="progress_rows")
+            )
+            .annotate(
+                count_candidates=Count("applications", distinct=True),
+                last_activity_at=Subquery(latest_activity),
+                **counts,
+            )
             .order_by("-updated_at", "-created_at")
         )
+
+    @staticmethod
+    def completion_pct(jd: JobDescription) -> int:
+        """How far the recruitment has progressed, 0 to 100 (Enhancement.md 3 "% Completed").
+
+        A closed JD is complete. Otherwise every application scores by how far it
+        has moved along the pipeline (new = 0 ... onboarded = 100; on hold keeps the
+        stage it paused at; rejected and withdrawn score nothing) and the JD takes
+        the mean of its best ``openings`` scores, so a role with two openings and
+        one hire sits at 50%. Uses the ``progress_rows`` prefetch of
+        ``list_queryset`` when present.
+        """
+        if str(jd.status) == JDStatus.CLOSED:
+            return 100
+        rows = getattr(jd, "progress_rows", None)
+        if rows is None:
+            rows = list(jd.applications.only("status", "previous_status"))
+        scores: list[float] = []
+        for application in rows:
+            stage = str(application.status)
+            if stage == ApplicationStatus.ON_HOLD:
+                stage = str(application.previous_status or "")
+            if stage not in ApplicationStatus.ACTIVE:
+                continue
+            scores.append(ApplicationStatus.order_index(stage) / COMPLETION_MAX_INDEX)
+        openings = max(int(jd.openings or 1), 1)
+        best = sorted(scores, reverse=True)[:openings]
+        if not best:
+            return 0
+        return round(100 * sum(best) / openings)
 
     @staticmethod
     def metrics(jd: JobDescription) -> dict[str, int]:
@@ -424,6 +495,13 @@ class JobService:
         _drop_required_from_preferred(content, jd)
         changed = [name for name, value in content.items() if not _unchanged(jd, name, value)]
         if changed:
+            # Before / after per field for the timeline (Enhancement.md 5); long text
+            # fields are listed as changed without their bodies.
+            changes = {
+                name: {"from": _json_ready(getattr(jd, name)), "to": _json_ready(content[name])}
+                for name in changed
+                if name not in LONG_TEXT_FIELDS
+            }
             for name in changed:
                 setattr(jd, name, content[name])
             jd.current_version += 1
@@ -447,6 +525,7 @@ class JobService:
                 description=summary,
                 metadata={
                     "changed_fields": changed,
+                    "changes": changes,
                     "version": jd.current_version,
                     "change_summary": summary,
                 },
@@ -507,6 +586,45 @@ class JobService:
             metadata={"from": previous, "to": target, "note": note},
         )
         return jd
+
+    @staticmethod
+    @transaction.atomic
+    def force_close(jd: JobDescription, actor: Any, reason: str = "") -> JobDescription:
+        """End the recruitment early (Enhancement.md 3 "Force Close"): draft, open or
+        on-hold JDs become ``force_closed``; the reason goes on the timeline."""
+        if str(jd.status) not in FORCE_CLOSABLE:
+            raise InvalidStatusTransition(
+                f"A {_status_label(jd.status).lower()} job description cannot be force closed."
+            )
+        previous = str(jd.status)
+        jd.status = JDStatus.FORCE_CLOSED
+        jd.updated_by = actor
+        jd.save(update_fields=["status", "updated_by", "updated_at"])
+        reason = (reason or "").strip()
+        _record_jd(
+            jd,
+            "jd.force_closed",
+            f'{_actor_name(actor)} force closed the job description "{jd.title}"',
+            actor,
+            description=reason,
+            metadata={"from": previous, "to": str(JDStatus.FORCE_CLOSED), "reason": reason},
+        )
+        return jd
+
+    @staticmethod
+    @transaction.atomic
+    def add_comment(jd: JobDescription, text: str, actor: Any):
+        """A free-text remark on the JD timeline (Enhancement.md 3 "Add Comment");
+        returns the activity row so the caller can render it straight away."""
+        text = (text or "").strip()
+        return _record_jd(
+            jd,
+            "jd.comment_added",
+            f'{_actor_name(actor)} commented on "{jd.title}"',
+            actor,
+            description=text,
+            metadata={"comment": text},
+        )
 
     @staticmethod
     @transaction.atomic

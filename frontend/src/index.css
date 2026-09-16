@@ -2,40 +2,50 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
+@import '@fontsource-variable/manrope';
 
 /* Light only for the MVP. A future dark theme populates the same tokens under [data-theme="dark"]. */
 @custom-variant dark (&:is(.dark *));
 
 /* ------------------------------------------------------------------ */
-/* Aimious brand tokens (plan.md 8.1, 8.2, 8.3). Utilities such as      */
-/* bg-surface, text-ink-muted, border-line, rounded-card, shadow-card,  */
-/* ease-brand and text-h1 come from this block.                         */
+/* Buro Happold brand tokens (Enhancement.md 1, 7): black, white and    */
+/* the signature lime on warm stone neutrals. Utilities such as         */
+/* bg-surface, text-ink-muted, border-line, bg-accent, rounded-card,    */
+/* shadow-card, ease-brand and text-h1 come from this block.            */
 /* ------------------------------------------------------------------ */
 @theme {
   --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-heading: var(--font-sans);
+  /* Display face for headings and numbers; the body stays on the grotesque for density. */
+  --font-heading: 'Manrope Variable', 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
 
-  /* Surfaces and lines */
-  --color-bg: #f5f6f8;
+  /* Surfaces and lines: warm stone neutrals from the Buro Happold site */
+  --color-bg: #f4f4f1;
   --color-surface: #ffffff;
-  --color-surface-2: #edeff3;
-  --color-surface-3: #e2e5eb;
-  --color-line: #dce0e7;
-  --color-line-strong: #b8bec9;
+  --color-surface-2: #f0f0ec;
+  --color-surface-3: #e4e4de;
+  --color-line: #e1e1db;
+  --color-line-strong: #b7b7ae;
 
   /* Text */
-  --color-ink: #0e1013;
-  --color-ink-muted: #4e5562;
-  --color-ink-subtle: #5c6371;
+  --color-ink: #0a0a0a;
+  --color-ink-muted: #4a4d48;
+  --color-ink-subtle: #5d615c;
 
-  /* Signal orange. #b84515 is the website orange darkened ~3% so it reads at 4.5:1 on primary-soft (WCAG AA). */
-  --color-primary: #b84515;
-  --color-primary-hover: #a03c12;
-  --color-primary-soft: #fce9e0;
+  /* Primary: Buro Happold black. Buttons, links, focus and the active state on light surfaces. */
+  --color-primary: #0a0a0a;
+  --color-primary-hover: #2b2b2b;
+  --color-primary-soft: #eef3c9;
 
-  /* Graphite: the login showcase and mobile header band (plan.md 9.1) */
-  --color-graphite: #0b0c0f;
-  --color-graphite-2: #111318;
+  /* Signature lime (#C4D600). Fills with black text and indicators on dark surfaces; it never
+     carries small text on white (1.6:1), so accent-ink is the darkest lime that passes AA there. */
+  --color-accent: #c4d600;
+  --color-accent-soft: #f3f7d2;
+  --color-accent-strong: #8fa000;
+  --color-accent-ink: #6b7500;
+
+  /* Graphite: the sidebar, the login panel and the mobile header band */
+  --color-graphite: #0a0a0a;
+  --color-graphite-2: #171717;
 
   /* Avatar initials fallback: 8 muted hues hashed from the name (plan.md 8.4 Avatar) */
   --color-avatar-slate: #5b6472;
@@ -53,22 +63,23 @@
   /* Amber text at 5:1 on warning-soft; the lighter #b7791f failed AA for small text. */
   --color-warning: #8f5d12;
   --color-warning-soft: #fbf1dc;
-  --color-danger: #b42318;
-  --color-danger-soft: #fce8e6;
+  /* Buro Happold red. */
+  --color-danger: #d50032;
+  --color-danger-soft: #fce7ec;
   --color-info: #1d4ed8;
   --color-info-soft: #e4ecfb;
 
-  /* Radii */
-  --radius-card: 10px;
-  --radius-control: 6px;
+  /* Radii: architectural, close to square */
+  --radius-card: 8px;
+  --radius-control: 4px;
   --radius-pill: 999px;
 
   /* Elevation */
-  --shadow-card: 0 1px 2px rgb(14 16 19 / 0.04), 0 8px 24px -16px rgb(14 16 19 / 0.12);
+  --shadow-card: 0 1px 2px rgb(10 10 10 / 0.04), 0 8px 24px -16px rgb(10 10 10 / 0.12);
   --shadow-card-hover:
-    0 1px 2px rgb(14 16 19 / 0.04), 0 8px 24px -16px rgb(14 16 19 / 0.12),
-    0 16px 32px -20px rgb(14 16 19 / 0.18);
-  --shadow-popover: 0 12px 32px -12px rgb(14 16 19 / 0.24);
+    0 1px 2px rgb(10 10 10 / 0.04), 0 8px 24px -16px rgb(10 10 10 / 0.12),
+    0 16px 32px -20px rgb(10 10 10 / 0.18);
+  --shadow-popover: 0 12px 32px -12px rgb(10 10 10 / 0.24);
 
   /* Motion */
   --ease-brand: cubic-bezier(0.22, 1, 0.36, 1);
@@ -92,23 +103,77 @@
       transform: translateX(4px);
     }
   }
+  /* Login backdrop: the lime glow drifts across the graphite panel. */
+  --animate-bh-drift: bh-drift 18s ease-in-out infinite alternate;
+  @keyframes bh-drift {
+    0% {
+      transform: translate3d(-6%, -4%, 0) scale(1);
+    }
+    100% {
+      transform: translate3d(8%, 6%, 0) scale(1.15);
+    }
+  }
+  /* Search loader: radar sweep, orbiting profile dots, scanning bar. */
+  --animate-bh-sweep: bh-sweep 2.4s linear infinite;
+  @keyframes bh-sweep {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  --animate-bh-orbit: bh-orbit 9s linear infinite;
+  @keyframes bh-orbit {
+    to {
+      transform: rotate(-360deg);
+    }
+  }
+  --animate-bh-ping: bh-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+  @keyframes bh-ping {
+    0% {
+      transform: scale(0.55);
+      opacity: 0.6;
+    }
+    100% {
+      transform: scale(1.35);
+      opacity: 0;
+    }
+  }
+  --animate-bh-scan: bh-scan 2.2s ease-in-out infinite;
+  @keyframes bh-scan {
+    0%,
+    100% {
+      transform: translateX(-120%);
+    }
+    50% {
+      transform: translateX(220%);
+    }
+  }
+  --animate-bh-float: bh-float 6s ease-in-out infinite;
+  @keyframes bh-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
 
   /* Type scale (size / line-height / weight / tracking) */
   --text-display: 28px;
   --text-display--line-height: 34px;
-  --text-display--font-weight: 500;
+  --text-display--font-weight: 600;
   --text-display--letter-spacing: -0.02em;
   --text-h1: 24px;
   --text-h1--line-height: 30px;
-  --text-h1--font-weight: 500;
+  --text-h1--font-weight: 600;
   --text-h1--letter-spacing: -0.02em;
   --text-h2: 20px;
   --text-h2--line-height: 28px;
-  --text-h2--font-weight: 500;
+  --text-h2--font-weight: 600;
   --text-h2--letter-spacing: -0.015em;
   --text-h3: 16px;
   --text-h3--line-height: 24px;
-  --text-h3--font-weight: 500;
+  --text-h3--font-weight: 600;
   --text-h3--letter-spacing: -0.01em;
   --text-body: 14px;
   --text-body--line-height: 20px;
@@ -122,7 +187,7 @@
   --text-caption--letter-spacing: 0.01em;
   --text-metric: 30px;
   --text-metric--line-height: 36px;
-  --text-metric--font-weight: 500;
+  --text-metric--font-weight: 600;
   --text-metric--letter-spacing: -0.02em;
 }
 
@@ -150,25 +215,58 @@
   --input: var(--color-line);
   --ring: var(--color-primary);
   --chart-1: var(--color-primary);
-  --chart-2: #d9773f;
-  --chart-3: #e9a278;
-  --chart-4: #f3c9b1;
-  --chart-5: var(--color-primary-soft);
+  --chart-2: #4f5a00;
+  --chart-3: #8fa000;
+  --chart-4: #c4d600;
+  --chart-5: #e6ec9a;
   /* Control radius; cards use --radius-xl below. */
-  --radius: 6px;
-  --sidebar: var(--color-surface);
-  --sidebar-foreground: var(--color-ink);
-  --sidebar-primary: var(--color-primary);
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: var(--color-primary-soft);
-  --sidebar-accent-foreground: var(--color-primary);
-  --sidebar-border: var(--color-line);
-  --sidebar-ring: var(--color-primary);
+  --radius: 4px;
+  --sidebar: var(--color-graphite);
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: var(--color-accent);
+  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-accent: rgb(196 214 0 / 0.14);
+  --sidebar-accent-foreground: var(--color-accent);
+  --sidebar-border: #262626;
+  --sidebar-ring: var(--color-accent);
 
   /* Durations (plan.md 8.3) */
   --duration-hover: 150ms;
   --duration-dialog: 250ms;
   --duration-page: 400ms;
+}
+
+/*
+ * Dark surfaces (the sidebar, the phone navigation drawer, the login panel):
+ * the same tokens re-pointed, so UserChip, Avatar and every button inside keep
+ * their classes and simply read white on graphite with lime as the action colour.
+ * Portaled layers (menus, tooltips) render on body and stay light.
+ */
+[data-surface='dark'] {
+  --color-bg: #0a0a0a;
+  --color-surface: #0a0a0a;
+  --color-surface-2: #1c1c1c;
+  --color-surface-3: #282828;
+  --color-line: #262626;
+  --color-line-strong: #3d3d3d;
+  --color-ink: #ffffff;
+  --color-ink-muted: #b8b8b0;
+  --color-ink-subtle: #8f8f88;
+  --color-primary: #c4d600;
+  --color-primary-hover: #d7e63c;
+  --color-primary-soft: rgb(196 214 0 / 0.14);
+  --color-graphite: #0a0a0a;
+  --background: #0a0a0a;
+  --foreground: #ffffff;
+  --muted: #1c1c1c;
+  --muted-foreground: #b8b8b0;
+  --accent: #1c1c1c;
+  --accent-foreground: #ffffff;
+  --border: #262626;
+  --input: #262626;
+  --ring: #c4d600;
+  --primary: #c4d600;
+  --primary-foreground: #0a0a0a;
 }
 
 @theme inline {
@@ -190,7 +288,7 @@
   --color-border: var(--border);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
+  /* shadcn's `accent` (hover fills) keeps its own variable; the brand lime is `--color-accent` above. */
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -203,24 +301,26 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  /* shadcn radius scale: controls (rounded-lg) 6px, cards and dialogs (rounded-xl) 10px. */
-  --radius-sm: 4px;
-  --radius-md: 5px;
+  /* shadcn radius scale: controls (rounded-lg) 4px, cards and dialogs (rounded-xl) 8px. */
+  --radius-sm: 3px;
+  --radius-md: 4px;
   --radius-lg: var(--radius);
   --radius-xl: var(--radius-card);
-  --radius-2xl: 14px;
-  --radius-3xl: 18px;
+  --radius-2xl: 12px;
+  --radius-3xl: 16px;
   --radius-4xl: 24px;
 }
 
-/* Login showcase panel (plan.md 9.1): graphite gradient with a faint dot grid on top. */
+/* Login and loading backdrops (Enhancement.md 1): graphite with a faint engineering grid. */
 @utility graphite-dots {
   background-color: var(--color-graphite);
   background-image:
-    radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px),
+    linear-gradient(rgb(255 255 255 / 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.045) 1px, transparent 1px),
     linear-gradient(160deg, var(--color-graphite) 0%, var(--color-graphite-2) 100%);
   background-size:
-    22px 22px,
+    32px 32px,
+    32px 32px,
     100% 100%;
 }
 
@@ -236,14 +336,21 @@
   body {
     @apply bg-bg text-body text-ink;
   }
+  /* Headings carry the display face; sizes and weights still come from the type scale utilities. */
+  h1,
+  h2,
+  h3,
+  .font-heading {
+    font-family: var(--font-heading);
+  }
   /* 2px primary ring at 2px offset for anything that does not bring its own ring. */
   :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
   ::selection {
-    background: var(--color-primary-soft);
-    color: var(--color-ink);
+    background: var(--color-accent);
+    color: #0a0a0a;
   }
 }
 
@@ -256,4 +363,31 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Light islands inside a dark surface (the preview cards on the login panel). */
+[data-surface='light'] {
+  --color-bg: #f4f4f1;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0f0ec;
+  --color-surface-3: #e4e4de;
+  --color-line: #e1e1db;
+  --color-line-strong: #b7b7ae;
+  --color-ink: #0a0a0a;
+  --color-ink-muted: #4a4d48;
+  --color-ink-subtle: #5d615c;
+  --color-primary: #0a0a0a;
+  --color-primary-hover: #2b2b2b;
+  --color-primary-soft: #eef3c9;
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --muted: #f0f0ec;
+  --muted-foreground: #4a4d48;
+  --accent: #f0f0ec;
+  --accent-foreground: #0a0a0a;
+  --border: #e1e1db;
+  --input: #e1e1db;
+  --ring: #0a0a0a;
+  --primary: #0a0a0a;
+  --primary-foreground: #ffffff;
 }

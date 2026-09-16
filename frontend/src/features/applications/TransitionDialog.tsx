@@ -1,6 +1,7 @@
-import { Loader2Icon } from 'lucide-react'
+import { ArrowRightIcon, Loader2Icon } from 'lucide-react'
 import { useEffect, useId, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -10,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
 import {
   Select,
   SelectContent,
@@ -54,10 +55,14 @@ export interface TransitionDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+export const REASON_REQUIRED_MESSAGE = 'Give a reason before confirming the change.'
+export const STATUS_REQUIRED_MESSAGE = 'Choose the new status.'
+
 /**
- * plan.md 8.4 TransitionDialog: choose (or confirm) the next status and add the
- * note or reason the plan.md 6.5 rules require. The allowed moves come from the
- * API so the menu can never offer an illegal move.
+ * Enhancement.md 6: every candidate status change is confirmed here. The dialog
+ * shows the current and the new status side by side, requires a reason, and only
+ * then submits the move; the reason lands on the timeline with the From → To.
+ * The allowed moves come from the API so the list can never offer an illegal move.
  */
 export function TransitionDialog({
   application,
@@ -65,35 +70,48 @@ export function TransitionDialog({
   onOpenChange,
 }: TransitionDialogProps) {
   const open = application !== null
-  const ids = { status: useId(), note: useId() }
+  const ids = { status: useId(), reason: useId() }
   const moves = useMoves(application?.id, open)
   const transition = useTransition()
   const [status, setStatus] = useState(initialStatus ?? '')
-  const [note, setNote] = useState('')
+  const [reason, setReason] = useState('')
+  const [reasonError, setReasonError] = useState<string | null>(null)
+  const [statusError, setStatusError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
     const handle = window.setTimeout(() => {
       setStatus(initialStatus ?? '')
-      setNote('')
+      setReason('')
+      setReasonError(null)
+      setStatusError(null)
     }, 0)
     return () => window.clearTimeout(handle)
   }, [open, initialStatus, application?.id])
 
   const groups = useMemo(() => groupMoves(moves.data ?? []), [moves.data])
   const move = moves.data?.find((entry) => entry.status === status) ?? null
-  const needsText = move?.requires === 'note' || move?.requires === 'reason'
-  const canSubmit = Boolean(move) && (!needsText || note.trim().length > 0) && !transition.isPending
   const candidateName = application?.candidate.full_name ?? ''
+  const jobTitle = application?.job?.title ?? ''
+  const decision = move?.kind === 'decision'
 
   async function submit() {
-    if (!application || !move) return
+    if (!application || transition.isPending) return
+    if (!move) {
+      setStatusError(STATUS_REQUIRED_MESSAGE)
+      return
+    }
+    const text = reason.trim()
+    if (!text) {
+      setReasonError(REASON_REQUIRED_MESSAGE)
+      return
+    }
     try {
       const result = await transition.mutateAsync({
         id: application.id,
         status: move.status,
-        note: move.requires === 'reason' ? '' : note,
-        reason: move.requires === 'reason' ? note : '',
+        reason: text,
+        note: move.requires === 'note' ? text : '',
       })
       toast.success(`Moved ${candidateName} to ${statusMeta(result.application.status).label}`)
       onOpenChange(false)
@@ -106,20 +124,57 @@ export function TransitionDialog({
     <Dialog open={open} onOpenChange={(next) => !transition.isPending && onOpenChange(next)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
-            {initialStatus
-              ? `${statusMeta(initialStatus).label}: ${candidateName}`
-              : `Change status for ${candidateName}`}
-          </DialogTitle>
+          <DialogTitle>Change candidate status</DialogTitle>
           <DialogDescription>
-            {application ? `Currently ${statusMeta(application.status).label}.` : ''} Every move is
-            written to the timeline and the owner is notified.
+            {candidateName}
+            {jobTitle ? ` · ${jobTitle}` : ''}. The change and your reason are written to the
+            timeline and the owner is notified.
           </DialogDescription>
         </DialogHeader>
-        <Field>
-          <FieldLabel htmlFor={ids.status}>New status</FieldLabel>
-          <Select value={status} onValueChange={setStatus} disabled={moves.isPending}>
-            <SelectTrigger id={ids.status} className="w-full">
+
+        {application && (
+          <div
+            data-slot="status-change-summary"
+            className="grid gap-3 rounded-card border border-line bg-surface-2/70 p-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center"
+          >
+            <div className="min-w-0">
+              <span className="mb-1 block text-caption font-medium tracking-[0.06em] text-ink-subtle uppercase">
+                Current status
+              </span>
+              <StatusBadge status={application.status} size="md" dot />
+            </div>
+            <ArrowRightIcon
+              aria-hidden="true"
+              className="size-4 justify-self-center text-ink-subtle max-sm:rotate-90"
+            />
+            <div className="min-w-0">
+              <span className="mb-1 block text-caption font-medium tracking-[0.06em] text-ink-subtle uppercase">
+                New status
+              </span>
+              {move ? (
+                <StatusBadge status={move.status} size="md" dot />
+              ) : (
+                <span className="text-small text-ink-subtle">Choose below</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        <Field data-invalid={Boolean(statusError)}>
+          <FieldLabel htmlFor={ids.status}>New status *</FieldLabel>
+          <Select
+            value={status}
+            onValueChange={(next) => {
+              setStatus(next)
+              setStatusError(null)
+            }}
+            disabled={moves.isPending}
+          >
+            <SelectTrigger
+              id={ids.status}
+              className="w-full"
+              aria-invalid={Boolean(statusError) || undefined}
+            >
               <SelectValue placeholder={moves.isPending ? 'Loading moves…' : 'Choose a status'} />
             </SelectTrigger>
             <SelectContent>
@@ -135,6 +190,7 @@ export function TransitionDialog({
               ))}
             </SelectContent>
           </Select>
+          {statusError && <FieldError errors={[{ message: statusError }]} />}
           {moves.isError && (
             <FieldDescription className="text-danger">
               {describeError(moves.error)}
@@ -144,24 +200,36 @@ export function TransitionDialog({
             <FieldDescription>No status change is possible from here.</FieldDescription>
           )}
         </Field>
-        <Field>
-          <FieldLabel htmlFor={ids.note}>
-            {move?.requires === 'reason' ? 'Reason' : 'Note'}
-            {needsText ? ' *' : ' (optional)'}
-          </FieldLabel>
+
+        <Field data-invalid={Boolean(reasonError)}>
+          <FieldLabel htmlFor={ids.reason}>Reason *</FieldLabel>
           <Textarea
-            id={ids.note}
+            id={ids.reason}
             rows={3}
             maxLength={1000}
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
+            required
+            aria-invalid={Boolean(reasonError) || undefined}
+            aria-describedby={reasonError ? undefined : `${ids.reason}-hint`}
+            value={reason}
+            onChange={(event) => {
+              setReason(event.target.value)
+              if (reasonError && event.target.value.trim()) setReasonError(null)
+            }}
             placeholder={
-              move?.requires === 'reason'
-                ? 'Why this decision? Shown on the timeline.'
-                : 'What happened? Shown on the timeline.'
+              decision
+                ? 'Why this decision? For example: not enough hands-on experience with Django.'
+                : 'Why this change? For example: candidate performed well in the technical interview.'
             }
           />
+          {reasonError ? (
+            <FieldError errors={[{ message: reasonError }]} />
+          ) : (
+            <FieldDescription id={`${ids.reason}-hint`}>
+              Required. Shown on the candidate's timeline next to the status change.
+            </FieldDescription>
+          )}
         </Field>
+
         <DialogFooter>
           <Button
             type="button"
@@ -173,15 +241,14 @@ export function TransitionDialog({
           </Button>
           <Button
             type="button"
-            variant={move?.kind === 'decision' ? 'destructive' : 'default'}
-            className={
-              move?.kind === 'decision' ? 'bg-danger text-white hover:bg-danger/90' : undefined
-            }
-            disabled={!canSubmit}
+            variant={decision ? 'destructive' : 'default'}
+            className={decision ? 'bg-danger text-white hover:bg-danger/90' : undefined}
+            disabled={transition.isPending || moves.isPending}
+            aria-busy={transition.isPending || undefined}
             onClick={() => void submit()}
           >
             {transition.isPending && <Loader2Icon aria-hidden="true" className="animate-spin" />}
-            {move ? `Move to ${move.label}` : 'Move'}
+            Confirm change
           </Button>
         </DialogFooter>
       </DialogContent>

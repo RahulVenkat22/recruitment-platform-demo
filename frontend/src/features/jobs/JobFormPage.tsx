@@ -84,7 +84,8 @@ export default function JobFormPage({ mode }: { mode: 'create' | 'edit' }) {
       toast.success(
         intent === 'draft' ? `Saved “${created.title}” as a draft` : `Created “${created.title}”`,
       )
-      navigate(`/jobs/${created.id}`)
+      // Replace the form in the history so Back from the new JD returns to the list, not the form.
+      navigate(`/jobs/${created.id}`, { replace: true })
     }
 
     return (
@@ -159,7 +160,7 @@ export default function JobFormPage({ mode }: { mode: 'create' | 'edit' }) {
         ? `Saved as version ${updated.current_version}`
         : 'Changes saved',
     )
-    navigate(`/jobs/${updated.id}`)
+    navigate(`/jobs/${updated.id}`, { replace: true })
   }
 
   return (

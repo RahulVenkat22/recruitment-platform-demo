@@ -1,6 +1,6 @@
-# Aimious AI Recruitment Platform
+# Buro Happold Recruitment Platform
 
-A demo-ready recruitment platform that walks the full hiring journey: sign in, create a Job Description with the people involved in the recruitment, search candidates across pluggable sources (internal pool, referrals, mock Naukri and LinkedIn), rank them with an explainable AI match percentage, and move each one through contact, interviews, selection, offer and onboarding on a Kanban board. Every important action is stored in PostgreSQL and shows up on a filterable timeline with who did it and when.
+A demo-ready recruitment platform built for Buro Happold (the Aimious engine underneath) that walks the full hiring journey: sign in, create a Job Description with the people involved in the recruitment, search candidates across pluggable sources (internal pool, referrals, mock Naukri and LinkedIn), rank them with an explainable AI match percentage, and move each one through contact, interviews, selection, offer and onboarding on a Kanban board. Every important action is stored in PostgreSQL and shows up on a filterable timeline with who did it and when.
 
 Django + Django REST Framework serve a JSON API under `/api/v1/`; a Vite + React + TypeScript SPA styled with Tailwind CSS v4 and shadcn/ui consumes it. External integrations are mock providers behind a stable interface, so real Naukri, LinkedIn, referral email and an LLM matcher can be plugged in without restructuring.
 
@@ -11,14 +11,16 @@ Django + Django REST Framework serve a JSON API under `/api/v1/`; a Vite + React
 
 | | |
 |---|---|
-| ![Login](docs/screenshots/login-1440.png) | ![Dashboard](docs/screenshots/dashboard-1440.png) |
-| Login, with the AI recruitment showcase and one-click demo accounts | Dashboard: metric cards, funnel, recent activity, top candidates, upcoming interviews |
+| ![Login](docs/screenshots/login-1440.png) | ![Homepage](docs/screenshots/home-1440.png) |
+| Login on the Buro Happold graphite panel, with one-click demo accounts | Homepage: every job description with status, interviewer, latest update, completion and the row actions |
+| ![Dashboard](docs/screenshots/dashboard-1440.png) | ![Search candidates](docs/screenshots/search-1440.png) |
+| Dashboard: metric cards, funnel, recent activity, top candidates, upcoming interviews | Search Candidates: the search panel, the AI loading experience and ranked results with match rings |
 | ![Job description timeline](docs/screenshots/jd-timeline-1440.png) | ![Kanban](docs/screenshots/jd-kanban-1440.png) |
 | Job Description timeline with category filter chips | Kanban board with drag and drop, dialog-first columns and the parked tray |
-| ![Search candidates](docs/screenshots/search-1440.png) | ![AI match analysis](docs/screenshots/candidate-match-1440.png) |
-| Search Candidates: sources, ranked results with match rings | Candidate detail: AI Match Analysis with breakdown, strengths and gaps |
-| ![Candidate timeline on a phone](docs/screenshots/candidate-timeline-400.png) | ![Jobs on a phone](docs/screenshots/jobs-400.png) |
-| Candidate timeline with the stage stepper at 400px | Job Descriptions as cards at 400px, navigation in a drawer |
+| ![AI match analysis](docs/screenshots/candidate-match-1440.png) | ![Candidate timeline on a phone](docs/screenshots/candidate-timeline-400.png) |
+| Candidate detail: AI Match Analysis with breakdown, strengths and gaps | Candidate timeline with the stage stepper at 400px |
+| ![Jobs on a phone](docs/screenshots/jobs-400.png) | |
+| Job Descriptions as cards at 400px, navigation in a drawer | |
 
 ## Quick start (local development)
 
@@ -59,18 +61,21 @@ Every password is `Demo@1234`. Emails are `<firstname>@aimious.demo`.
 | Vikram Shah | Employee | Product Manager |
 | Lakshmi Narayanan | Employee | Frontend Lead |
 
-Sign in as Rahul for the full experience. Arun sees masked candidate contact details and can submit feedback on his own interviews. The login page lists these accounts with one-click fill.
+Sign in as Rahul for the full experience. Arun sees masked candidate contact details and can submit feedback on his own interviews. The login page lists these accounts with one-click fill (the demo accounts keep their `@aimious.demo` addresses).
 
 ## The demo walk-through
 
-1. **Dashboard**: eight metric cards with 7-day deltas, the recruitment funnel, recent activity, top candidates and upcoming interviews.
-2. **Job Descriptions**: table or card view with filters. Open **Senior Python Developer**, the richest pipeline.
-3. **Create a Job Description**: skills as tag inputs, and the **People Involved in the Recruitment** picker that adds colleagues with a role in the recruitment.
-4. **Timeline tab**: toggle the category chips (Job Description, Candidate Search, Candidate Shortlisted, Candidate Contact, Interview, Interview Feedback, Candidate Selected, Offer, Onboarding, Rejected / On Hold). Filtering is instant and mirrored to the URL.
-5. **Search Candidates**: pick the JD, choose sources, run the search. Results are ranked by match with skill chips that highlight matched and missing required skills. Shortlist in bulk.
-6. **Candidate detail**: profile, **AI Match Analysis** (five weighted components, strengths, gaps, skill coverage), the stage stepper timeline, interviews and communications. **John Doe** carries the complete journey that ends onboarded.
-7. **Kanban tab**: drag a card forward. Interview, Offer and Onboarding columns open their dialog first; backward moves and the tray ask for a note or reason. Every move lands on the timeline.
-8. **Interviews**, **Notifications** (bell with unread count), **Settings** (profile, security, preferences; users list for admins).
+The sidebar runs Homepage, Job Descriptions, Search Candidates, Interviews, Candidates, Dashboard, Notifications; signing in lands on the Homepage.
+
+1. **Homepage**: your job descriptions as a work table (JD, status, interviewer, latest update, % completed). HR admins and HR toggle **Mine** off to see everyone's work, filter by **User level**, and use the row menu to **Add comment** (lands on the JD timeline) or **Force close** (with a confirmation; the JD becomes *Force Closed*).
+2. **Dashboard**: eight metric cards with 7-day deltas, the recruitment funnel, recent activity, top candidates and upcoming interviews.
+3. **Job Descriptions**: table or card view with filters. Open **Senior Python Developer**, the richest pipeline.
+4. **Create a Job Description**: skills as tag inputs, and the **People Involved in the Recruitment** picker that adds colleagues with a role in the recruitment.
+5. **Timeline tab**: toggle the category chips (Job Description, Candidate Search, Candidate Shortlisted, Candidate Contact, Interview, Interview Feedback, Candidate Selected, Offer, Onboarding, Rejected / On Hold). Every event reads in plain language: changes show **From → To**, the reason given, and who made the change.
+6. **Search Candidates**: pick the JD, choose sources, run the search. While it runs, the AI loading experience rotates through what the system is doing; results are ranked by match with skill chips that highlight matched and missing required skills. Shortlist in bulk.
+7. **Candidate detail**: profile, **AI Match Analysis** (five weighted components, strengths, gaps, skill coverage), the stage stepper timeline, interviews and communications. **John Doe** carries the complete journey that ends onboarded. Every status change confirms the current and new status and requires a reason.
+8. **Kanban tab**: drag a card forward. Interview, Offer and Onboarding columns open their dialog first; every other drop opens the status confirmation. Every move lands on the timeline.
+9. **Interviews**, **Notifications** (bell with unread count), **Settings** (profile, security, preferences; users list for admins). The **Back** control on every detail page returns to the page you came from.
 
 ## Ports
 

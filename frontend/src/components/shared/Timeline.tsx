@@ -1,12 +1,13 @@
-import { ChevronDownIcon, CpuIcon, Loader2Icon } from 'lucide-react'
+import { CpuIcon, Loader2Icon } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Avatar } from '@/components/shared/Avatar'
-import { TimelineItemDetails } from '@/components/shared/TimelineItemDetails'
+import { TimelineChanges, TimelineItemDetails } from '@/components/shared/TimelineItemDetails'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useEnumMeta } from '@/lib/enums'
 import { formatDateTime, formatTime } from '@/lib/format'
-import { groupByDay, type Metadata } from '@/lib/timeline'
+import { groupByDay, reasonOf, type Metadata } from '@/lib/timeline'
 import { cn } from '@/lib/utils'
 import type { Activity } from '@/types/domain'
 
@@ -23,28 +24,6 @@ export interface TimelineProps {
   className?: string
 }
 
-const HIDDEN_META_KEYS = new Set(['changed_fields', 'participants', 'candidates', 'sources'])
-
-function MetadataList({ metadata }: { metadata: Metadata }) {
-  const entries = Object.entries(metadata).filter(
-    ([key, value]) =>
-      !HIDDEN_META_KEYS.has(key) && value !== null && value !== '' && value !== undefined,
-  )
-  if (entries.length === 0) return null
-  return (
-    <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 rounded-control bg-surface-2 px-3 py-2 text-caption">
-      {entries.map(([key, value]) => (
-        <div key={key} className="contents">
-          <dt className="text-ink-subtle">{key.replace(/_/g, ' ')}</dt>
-          <dd className="min-w-0 break-words text-ink">
-            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
-
 function TimelineEntry({
   item,
   jobId,
@@ -55,9 +34,16 @@ function TimelineEntry({
   renderExtra?: (item: Activity) => ReactNode
 }) {
   const meta = useEnumMeta('category', item.category)
-  const [expanded, setExpanded] = useState(false)
   const metadata = (item.metadata ?? {}) as Metadata
-  const expandable = Object.keys(metadata).some((key) => !HIDDEN_META_KEYS.has(key))
+  // The reason is shown, labelled, inside the change block, and a logged contact's
+  // outcome and next step are rendered as pills; neither is repeated as plain text.
+  const reason = reasonOf(metadata)
+  const restated =
+    item.event_type === 'communication.logged' && Boolean(metadata.outcome || metadata.next_action)
+  const description =
+    item.description && !restated && item.description.trim() !== reason?.text.trim()
+      ? item.description
+      : ''
 
   return (
     <div data-slot="timeline-item" data-category={item.category} className="relative pl-8">
@@ -76,12 +62,14 @@ function TimelineEntry({
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
             {item.actor ? (
-              <Avatar
-                name={item.actor.full_name}
-                src={item.actor.avatar_url}
-                size="xs"
-                className="mt-0.5"
-              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="mt-0.5 inline-flex shrink-0">
+                    <Avatar name={item.actor.full_name} src={item.actor.avatar_url} size="xs" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{item.actor.full_name}</TooltipContent>
+              </Tooltip>
             ) : (
               <span
                 aria-label="System"
@@ -91,31 +79,19 @@ function TimelineEntry({
               </span>
             )}
             <p className="min-w-0 flex-1 text-body text-ink">{item.title}</p>
-            {expandable && (
-              <button
-                type="button"
-                aria-expanded={expanded}
-                aria-label={expanded ? 'Hide details' : 'Show details'}
-                onClick={() => setExpanded((value) => !value)}
-                className="inline-flex size-6 shrink-0 items-center justify-center rounded-control text-ink-subtle hover:bg-surface-2 hover:text-ink"
-              >
-                <ChevronDownIcon
-                  aria-hidden="true"
-                  className={cn(
-                    'size-4 transition-transform duration-150',
-                    expanded && 'rotate-180',
-                  )}
-                />
-              </button>
-            )}
+            <span className="shrink-0 pt-0.5 text-caption text-ink-subtle max-md:hidden">
+              {meta.label}
+            </span>
           </div>
-          {item.description && (
-            <p className="mt-0.5 pl-7 text-small text-ink-muted">{item.description}</p>
+          {description && (
+            <p className="mt-0.5 pl-7 text-small whitespace-pre-line text-ink-muted">
+              {description}
+            </p>
           )}
           <div className="pl-7">
+            <TimelineChanges item={item} />
             <TimelineItemDetails item={item} jobId={jobId} />
             {renderExtra?.(item)}
-            {expanded && <MetadataList metadata={metadata} />}
           </div>
         </div>
       </div>
@@ -125,7 +101,9 @@ function TimelineEntry({
 
 /**
  * Vertical timeline (plan.md 8.4): a line at 16px, category-coloured indicators,
- * day headers, and items that animate in and out as filters change.
+ * day headers, and items that animate in and out as filters change. Every item
+ * reads as plain language (Enhancement.md 5): no identifiers, field names as
+ * words, and changes shown as From → To with the reason and who made them.
  */
 export function Timeline({
   items,

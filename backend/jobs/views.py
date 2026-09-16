@@ -26,11 +26,19 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from activity.serializers import ActivitySerializer
 from common.enums import EmploymentType, JDStatus, WorkMode
-from common.permissions import JobDescriptionAccess, can_manage_participants
+from common.permissions import (
+    JobDescriptionAccess,
+    can_comment_job,
+    can_force_close_job,
+    can_manage_participants,
+)
 from jobs.filters import JobDescriptionFilter
 from jobs.models import JobDescription, JobDescriptionVersion, RecruitmentParticipant
 from jobs.serializers import (
+    ForceCloseSerializer,
+    JobCommentSerializer,
     JobDescriptionCreateSerializer,
     JobDescriptionDetailSerializer,
     JobDescriptionRowSerializer,
@@ -74,8 +82,11 @@ def _require(predicate: bool, message: str) -> None:
             "Each row carries the creator, the first four participants, the participant count "
             "and the pipeline counts (candidates, shortlisted, interviewed, selected, onboarded). "
             "`status`, `department`, `location`, `employment_type` and `work_mode` accept comma "
-            "lists; `mine` limits to JDs the caller created or is listed on; `search` matches "
-            "title, department, location, domain or a skill."
+            "lists; `mine` limits to JDs the caller created or is listed on; `created_by_role` "
+            "(comma list of user roles) keeps the JDs raised by that level of user; `search` "
+            "matches title, department, location, domain or a skill. Rows carry the "
+            "interviewer-role participants, the time of the latest timeline event and the "
+            "completion percentage for the homepage table."
         ),
         parameters=[
             OpenApiParameter("search", str),
@@ -87,6 +98,9 @@ def _require(predicate: bool, message: str) -> None:
             OpenApiParameter("employment_type", str, description="Comma list"),
             OpenApiParameter("work_mode", str, description="Comma list"),
             OpenApiParameter("created_by", str, description="User id"),
+            OpenApiParameter(
+                "created_by_role", str, description="Comma list of hr_admin|hr|interviewer|employee"
+            ),
             OpenApiParameter("mine", bool),
             OpenApiParameter("skill", str, description="One skill (normalised)"),
             OpenApiParameter(
@@ -94,7 +108,7 @@ def _require(predicate: bool, message: str) -> None:
                 str,
                 description=(
                     "-updated_at (default), updated_at, created_at, title, status, department, "
-                    "count_candidates"
+                    "count_candidates, last_activity_at"
                 ),
             ),
         ],
@@ -144,6 +158,7 @@ class JobDescriptionViewSet(viewsets.ModelViewSet):
         "status",
         "department",
         "count_candidates",
+        "last_activity_at",
     ]
     ordering = ["-updated_at", "-created_at"]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
@@ -270,6 +285,52 @@ class JobDescriptionViewSet(viewsets.ModelViewSet):
             note=serializer.validated_data.get("note", ""),
         )
         return self._detail(updated)
+
+    @extend_schema(
+        operation_id="jobs_force_close",
+        summary="Close a draft, open or on-hold JD early; the reason goes on the timeline",
+        request=ForceCloseSerializer,
+        responses={
+            200: JobDescriptionDetailSerializer,
+            400: ERROR_ENVELOPE,
+            403: ERROR_ENVELOPE,
+            409: ERROR_ENVELOPE,
+        },
+        tags=["jobs"],
+    )
+    @action(detail=True, methods=["post"], url_path="force-close")
+    def force_close(self, request: Request, pk: str | None = None) -> Response:
+        jd = self.get_object()
+        _require(
+            can_force_close_job(request.user, jd), "You cannot force close this job description."
+        )
+        serializer = ForceCloseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        updated = JobService.force_close(
+            jd, request.user, reason=serializer.validated_data["reason"]
+        )
+        return self._detail(updated)
+
+    @extend_schema(
+        operation_id="jobs_comment_add",
+        summary="Add a comment to the job description timeline",
+        request=JobCommentSerializer,
+        responses={201: ActivitySerializer, 400: ERROR_ENVELOPE, 403: ERROR_ENVELOPE},
+        tags=["jobs"],
+    )
+    @action(detail=True, methods=["post"], url_path="comments")
+    def comments(self, request: Request, pk: str | None = None) -> Response:
+        # Commenting needs visibility plus HR membership, not edit rights, so the
+        # POST branch of JobDescriptionAccess (edit) is bypassed on purpose.
+        jd = get_object_or_404(self.get_queryset(), pk=pk)
+        _require(can_comment_job(request.user, jd), "You cannot comment on this job description.")
+        serializer = JobCommentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        activity = JobService.add_comment(jd, serializer.validated_data["text"], request.user)
+        return Response(
+            ActivitySerializer(activity, context=self.get_serializer_context()).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     @extend_schema(
         operation_id="jobs_metrics",

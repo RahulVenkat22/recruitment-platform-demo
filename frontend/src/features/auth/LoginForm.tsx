@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CircleAlertIcon, EyeIcon, EyeOffIcon, Loader2Icon } from 'lucide-react'
+import { ArrowRightIcon, CircleAlertIcon, EyeIcon, EyeOffIcon, Loader2Icon } from 'lucide-react'
+import { motion, useReducedMotion } from 'motion/react'
 import { useEffect, useId, useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -23,6 +24,7 @@ import {
   type LoginValues,
 } from '@/features/auth/login-schema'
 import { login } from '@/lib/auth'
+import { EASE_BRAND } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import type { SessionUser } from '@/types/domain'
 
@@ -31,8 +33,18 @@ interface LoginFormProps {
   className?: string
 }
 
+/** The fields rise in one after another on load (Enhancement.md 1); off under reduced motion. */
+function rise(index: number, reduced: boolean | null) {
+  return {
+    initial: reduced ? false : { opacity: 0, y: 10 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.45, ease: EASE_BRAND, delay: 0.3 + index * 0.07 },
+  }
+}
+
 export function LoginForm({ onSuccess, className }: LoginFormProps) {
   const ids = { identifier: useId(), password: useId(), remember: useId(), error: useId() }
+  const reducedMotion = useReducedMotion()
   const [showPassword, setShowPassword] = useState(false)
   const [failure, setFailure] = useState<LoginFailure | null>(null)
   const [shake, setShake] = useState(false)
@@ -106,85 +118,124 @@ export function LoginForm({ onSuccess, className }: LoginFormProps) {
         )}
 
         <fieldset disabled={isSubmitting} className="space-y-5">
-          <Field data-invalid={Boolean(errors.identifier)}>
-            <FieldLabel htmlFor={ids.identifier}>Email or username</FieldLabel>
-            <Input
-              id={ids.identifier}
-              type="text"
-              inputMode="email"
-              autoComplete="username"
-              autoFocus
-              className="h-10"
-              aria-invalid={Boolean(errors.identifier)}
-              {...form.register('identifier')}
-            />
-            <FieldError errors={[errors.identifier]} />
-          </Field>
-
-          <Field data-invalid={Boolean(errors.password)}>
-            <div className="flex items-center justify-between">
-              <FieldLabel htmlFor={ids.password}>Password</FieldLabel>
-              <button
-                type="button"
-                onClick={() => {
-                  setForgotKey((key) => key + 1)
-                  setForgotOpen(true)
-                }}
-                className="rounded-control text-small text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              >
-                Forgot password?
-              </button>
-            </div>
-            <InputGroup className="h-10">
-              <InputGroupInput
-                id={ids.password}
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                aria-invalid={Boolean(errors.password)}
-                {...form.register('password')}
+          <motion.div {...rise(0, reducedMotion)}>
+            <Field data-invalid={Boolean(errors.identifier)}>
+              <FieldLabel htmlFor={ids.identifier}>Email or username</FieldLabel>
+              <Input
+                id={ids.identifier}
+                type="text"
+                inputMode="email"
+                autoComplete="username"
+                autoFocus
+                className="h-11 bg-surface transition-[border-color,box-shadow] duration-150 ease-brand hover:border-line-strong"
+                aria-invalid={Boolean(errors.identifier)}
+                {...form.register('identifier')}
               />
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  size="icon-xs"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  aria-pressed={showPassword}
-                  onClick={() => setShowPassword((value) => !value)}
-                >
-                  {showPassword ? (
-                    <EyeOffIcon aria-hidden="true" />
-                  ) : (
-                    <EyeIcon aria-hidden="true" />
-                  )}
-                </InputGroupButton>
-              </InputGroupAddon>
-            </InputGroup>
-            <FieldError errors={[errors.password]} />
-          </Field>
+              <FieldError errors={[errors.identifier]} />
+            </Field>
+          </motion.div>
 
-          <Field orientation="horizontal">
-            <Controller
-              control={form.control}
-              name="remember_me"
-              render={({ field }) => (
-                <Checkbox
-                  id={ids.remember}
-                  checked={field.value}
-                  onCheckedChange={(checked) => field.onChange(checked === true)}
+          <motion.div {...rise(1, reducedMotion)}>
+            <Field data-invalid={Boolean(errors.password)}>
+              <div className="flex items-center justify-between">
+                <FieldLabel htmlFor={ids.password}>Password</FieldLabel>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotKey((key) => key + 1)
+                    setForgotOpen(true)
+                  }}
+                  className="rounded-control text-small text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <InputGroup className="h-11 bg-surface transition-[border-color,box-shadow] duration-150 ease-brand hover:border-line-strong">
+                <InputGroupInput
+                  id={ids.password}
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  aria-invalid={Boolean(errors.password)}
+                  {...form.register('password')}
                 />
-              )}
-            />
-            <FieldLabel htmlFor={ids.remember} className="font-normal text-ink-muted">
-              Remember me
-            </FieldLabel>
-          </Field>
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    size="icon-xs"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPassword}
+                    onClick={() => setShowPassword((value) => !value)}
+                  >
+                    {showPassword ? (
+                      <EyeOffIcon aria-hidden="true" />
+                    ) : (
+                      <EyeIcon aria-hidden="true" />
+                    )}
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldError errors={[errors.password]} />
+            </Field>
+          </motion.div>
+
+          <motion.div {...rise(2, reducedMotion)}>
+            <Field orientation="horizontal">
+              <Controller
+                control={form.control}
+                name="remember_me"
+                render={({ field }) => (
+                  <Checkbox
+                    id={ids.remember}
+                    checked={field.value}
+                    onCheckedChange={(checked) => field.onChange(checked === true)}
+                  />
+                )}
+              />
+              <FieldLabel htmlFor={ids.remember} className="font-normal text-ink-muted">
+                Remember me
+              </FieldLabel>
+            </Field>
+          </motion.div>
         </fieldset>
 
-        <Button type="submit" size="lg" disabled={isSubmitting} className="h-10 w-full text-[14px]">
-          {isSubmitting && <Loader2Icon aria-hidden="true" className="animate-spin" />}
-          {isSubmitting ? 'Signing in' : 'Sign in'}
-        </Button>
+        <motion.div {...rise(3, reducedMotion)}>
+          <Button
+            type="submit"
+            size="lg"
+            disabled={isSubmitting}
+            aria-busy={isSubmitting || undefined}
+            className="group/submit relative h-11 w-full overflow-hidden text-[14px] transition-[background-color,transform,box-shadow] duration-150 ease-brand hover:shadow-card-hover"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2Icon aria-hidden="true" className="animate-spin" />
+                Signing in
+              </>
+            ) : (
+              <>
+                Sign in
+                <ArrowRightIcon
+                  data-icon="inline-end"
+                  aria-hidden="true"
+                  className="transition-transform duration-150 ease-brand group-hover/submit:translate-x-0.5"
+                />
+              </>
+            )}
+            {isSubmitting && (
+              <span
+                aria-hidden="true"
+                className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden bg-white/15"
+              >
+                <span className="block h-full w-1/3 bg-accent animate-bh-scan" />
+              </span>
+            )}
+          </Button>
+        </motion.div>
 
-        {demoAccountsEnabled() && <DemoAccounts onPick={fillDemo} />}
+        {demoAccountsEnabled() && (
+          <motion.div {...rise(4, reducedMotion)}>
+            <DemoAccounts onPick={fillDemo} />
+          </motion.div>
+        )}
       </form>
 
       <ForgotPasswordDialog

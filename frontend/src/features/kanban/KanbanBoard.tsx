@@ -16,18 +16,13 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
-import { useQueryClient } from '@tanstack/react-query'
-import { useTransition } from '@/features/applications/api'
 import { toTarget } from '@/features/applications/pipeline-target'
 import type { ApplicationActionsHandle } from '@/features/applications/useApplicationActions'
 import { KanbanCard } from '@/features/kanban/KanbanCard'
 import { KanbanColumn } from '@/features/kanban/KanbanColumn'
 import { KanbanTray } from '@/features/kanban/KanbanTray'
-import { classifyDrop, moveCard, TRAY_KEY } from '@/features/kanban/kanban-utils'
-import { statusMeta } from '@/lib/enums'
-import { describeError } from '@/lib/errors'
-import { qk } from '@/lib/query-keys'
+import { isWorkable } from '@/features/jobs/job-utils'
+import { classifyDrop, TRAY_KEY } from '@/features/kanban/kanban-utils'
 import { cn } from '@/lib/utils'
 import type {
   JobDetail,
@@ -69,31 +64,23 @@ export interface KanbanBoardProps {
 }
 
 /**
- * plan.md 9.7 KanbanBoard: eight droppable columns plus the tray. Forward drops
- * apply the column's entry status optimistically; columns that need data open
- * the matching dialog first (cancelling snaps the card back); backward and tray
- * drops open the transition dialog for a note or reason.
+ * plan.md 9.7 KanbanBoard: eight droppable columns plus the tray. Columns that
+ * need data open the matching dialog first; every other drop opens the
+ * transition dialog so the move is confirmed with a reason (Enhancement.md 6).
+ * Cancelling either dialog leaves the card where it was.
  */
 export function KanbanBoard({
   job,
-  board: serverBoard,
+  board,
   filtered,
   actions,
   onAddCandidate,
   focusColumn,
   className,
 }: KanbanBoardProps) {
-  const client = useQueryClient()
-  const transition = useTransition()
-  const canDrag = job.permissions.can_work_pipeline && job.status !== 'archived'
-  // Optimistic state remembers the server board it was built on; a fresh server board wins.
-  const [override, setOverride] = useState<{
-    base: KanbanBoardData
-    board: KanbanBoardData
-  } | null>(null)
+  const canDrag = job.permissions.can_work_pipeline && isWorkable(job.status)
   const [active, setActive] = useState<KanbanCardData | null>(null)
   const [trayOpen, setTrayOpen] = useState(false)
-  const board = override && override.base === serverBoard ? override.board : serverBoard
 
   useEffect(() => {
     if (!focusColumn) return
@@ -150,7 +137,7 @@ export function KanbanBoard({
     setActive(cardsById.get(String(event.active.id)) ?? null)
   }
 
-  async function onDragEnd(event: DragEndEvent) {
+  function onDragEnd(event: DragEndEvent) {
     setActive(null)
     const card = cardsById.get(String(event.active.id))
     const columnKey = event.over ? String(event.over.id) : null
@@ -172,19 +159,9 @@ export function KanbanBoard({
       }, 0)
       return
     }
-    if (drop.kind === 'note') {
-      window.setTimeout(() => actions.changeStatus(card, drop.status), 0)
-      return
-    }
-    setOverride({ base: serverBoard, board: moveCard(board, card.id, column.key, drop.status) })
-    try {
-      await transition.mutateAsync({ id: card.id, status: drop.status })
-      toast.success(`Moved ${card.candidate.full_name} to ${statusMeta(drop.status).label}`)
-    } catch (error) {
-      setOverride(null)
-      toast.error(describeError(error))
-      void client.invalidateQueries({ queryKey: qk.jobs.detail(job.id) })
-    }
+    // Forward moves and moves that need a note both confirm with a reason
+    // (Enhancement.md 6); the card stays home until the dialog is confirmed.
+    window.setTimeout(() => actions.changeStatus(card, drop.status), 0)
   }
 
   return (

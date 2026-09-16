@@ -45,6 +45,8 @@ EVENT_TYPE_CATEGORY: dict[str, frozenset[str]] = {
     "jd.participant_removed": _single(ActivityCategory.JOB_DESCRIPTION),
     "jd.duplicated": _single(ActivityCategory.JOB_DESCRIPTION),
     "jd.archived": _single(ActivityCategory.JOB_DESCRIPTION),
+    "jd.force_closed": _single(ActivityCategory.JOB_DESCRIPTION),
+    "jd.comment_added": _single(ActivityCategory.JOB_DESCRIPTION),
     # candidate_search
     "search.completed": _single(ActivityCategory.CANDIDATE_SEARCH),
     "application.added_manually": _single(ActivityCategory.CANDIDATE_SEARCH),

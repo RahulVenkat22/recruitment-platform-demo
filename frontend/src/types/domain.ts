@@ -106,7 +106,7 @@ export type ActivityCategory =
   | 'onboarding'
   | 'decision'
 
-export type JDStatus = 'draft' | 'open' | 'on_hold' | 'closed' | 'archived'
+export type JDStatus = 'draft' | 'open' | 'on_hold' | 'closed' | 'force_closed' | 'archived'
 
 // ------------------------------------------------------------------ jobs (plan.md 6.10)
 

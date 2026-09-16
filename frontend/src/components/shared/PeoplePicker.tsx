@@ -1,5 +1,5 @@
 import { SearchIcon, XIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Avatar } from '@/components/shared/Avatar'
 import { AvatarGroup } from '@/components/shared/AvatarGroup'
 import { Button } from '@/components/ui/button'
@@ -73,6 +73,8 @@ export function PeoplePicker({
   className,
 }: PeoplePickerProps) {
   const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const directory = useUsersDirectory()
   const roles = useEnumOptions('participant_role')
   const users = useMemo(() => directory.data ?? [], [directory.data])
@@ -135,6 +137,7 @@ export function PeoplePicker({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
+            ref={triggerRef}
             type="button"
             id={id}
             disabled={disabled}
@@ -151,10 +154,24 @@ export function PeoplePicker({
             <span className="flex-1 truncate">{placeholder}</span>
           </button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-(--radix-popover-trigger-width) min-w-80 p-0">
+        <PopoverContent
+          align="start"
+          collisionPadding={16}
+          className="w-(--radix-popover-trigger-width) min-w-80 p-0"
+          // Focus moves in and out without the browser's scroll-into-view, so opening
+          // or closing the picker never shifts the page (Enhancement.md 4, issue 2).
+          onOpenAutoFocus={(event) => {
+            event.preventDefault()
+            window.requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }))
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            triggerRef.current?.focus({ preventScroll: true })
+          }}
+        >
           <Command loop>
-            <CommandInput placeholder="Search by name, title or department" autoFocus />
-            <CommandList className="max-h-72">
+            <CommandInput ref={inputRef} placeholder="Search by name, title or department" />
+            <CommandList className="max-h-72 overscroll-contain">
               <CommandEmpty>
                 {directory.isPending
                   ? 'Loading people…'
@@ -198,9 +215,12 @@ export function PeoplePicker({
               const locked = entry.user_id === lockedUserId
               const name = user?.full_name ?? 'Unknown user'
               return (
-                <li key={entry.user_id} className="flex items-center gap-3 px-3 py-2">
+                <li
+                  key={entry.user_id}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2"
+                >
                   <Avatar name={name} src={user?.avatar_url} size="md" />
-                  <span className="min-w-0 flex-1">
+                  <span className="min-w-0 flex-1 basis-32">
                     <span className="block truncate text-[13px] font-medium text-ink">
                       {name}
                       {locked && <span className="ml-1.5 text-caption text-ink-subtle">(you)</span>}
@@ -219,7 +239,11 @@ export function PeoplePicker({
                       onValueChange={(role) => setRole(entry.user_id, role as ParticipantRole)}
                       disabled={disabled}
                     >
-                      <SelectTrigger size="sm" aria-label={`Role for ${name}`} className="w-40">
+                      <SelectTrigger
+                        size="sm"
+                        aria-label={`Role for ${name}`}
+                        className="w-40 max-sm:w-36"
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent align="end">

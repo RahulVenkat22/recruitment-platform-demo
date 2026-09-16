@@ -2,6 +2,7 @@ import {
   BellIcon,
   BriefcaseIcon,
   CalendarClockIcon,
+  HouseIcon,
   LayoutDashboardIcon,
   UserSearchIcon,
   UsersIcon,
@@ -12,15 +13,21 @@ export interface NavItem {
   to: string
   label: string
   icon: LucideIcon
+  /** Match the exact path only; the homepage lives at "/" and would otherwise match everything. */
+  end?: boolean
 }
 
-/** Sidebar order per plan.md 8.4. */
+/**
+ * Sidebar order (Enhancement.md 2): Homepage, Job Descriptions, Search Candidates,
+ * Interviews, Candidates, Dashboard, Notifications.
+ */
 export const NAV_ITEMS: readonly NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboardIcon },
+  { to: '/', label: 'Homepage', icon: HouseIcon, end: true },
   { to: '/jobs', label: 'Job Descriptions', icon: BriefcaseIcon },
   { to: '/search', label: 'Search Candidates', icon: UserSearchIcon },
-  { to: '/candidates', label: 'Candidates', icon: UsersIcon },
   { to: '/interviews', label: 'Interviews', icon: CalendarClockIcon },
+  { to: '/candidates', label: 'Candidates', icon: UsersIcon },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboardIcon },
   { to: '/notifications', label: 'Notifications', icon: BellIcon },
 ]
 

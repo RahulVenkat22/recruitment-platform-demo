@@ -72,6 +72,7 @@ export const FALLBACK_JD_STATUS: Record<JDStatus, EnumMeta> = {
   open: { label: 'Open', bg: '#E3F3EA', fg: '#1F7A4D' },
   on_hold: { label: 'On Hold', bg: '#F6E7D8', fg: '#9A4D12' },
   closed: { label: 'Closed', bg: '#ECEEF2', fg: '#5C6371' },
+  force_closed: { label: 'Force Closed', bg: '#FCE8E6', fg: '#B42318' },
   archived: { label: 'Archived', bg: '#ECEEF2', fg: '#5C6371' },
 }
 

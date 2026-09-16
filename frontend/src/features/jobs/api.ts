@@ -9,6 +9,7 @@ import { toQuery as toParams } from '@/features/applications/api'
 import { api, endpoints } from '@/lib/api'
 import { qk } from '@/lib/query-keys'
 import type {
+  Activity,
   JobCreateRequest,
   JobDetail,
   JobFacets,
@@ -37,6 +38,8 @@ export interface JobListParams {
   employment_type?: string[]
   work_mode?: string[]
   mine?: boolean
+  /** User roles of the JD creators to keep (the homepage "User level" filter). */
+  created_by_role?: string[]
   ordering?: string
 }
 
@@ -121,6 +124,18 @@ export async function runJobAction(id: string, action: JobLifecycleAction): Prom
 
 export async function setJobStatus(id: string, status: string, note = ''): Promise<JobDetail> {
   const { data } = await api.post<JobDetail>(endpoints.jobAction(id, 'status'), { status, note })
+  return data
+}
+
+/** `POST .../force-close/`: ends a draft, open or on-hold JD early (Enhancement.md 3). */
+export async function forceCloseJob(id: string, reason = ''): Promise<JobDetail> {
+  const { data } = await api.post<JobDetail>(endpoints.jobAction(id, 'force-close'), { reason })
+  return data
+}
+
+/** `POST .../comments/`: a remark that lands on the JD timeline; returns the new event. */
+export async function addJobComment(id: string, text: string): Promise<Activity> {
+  const { data } = await api.post<Activity>(endpoints.jobAction(id, 'comments'), { text })
   return data
 }
 
@@ -303,6 +318,27 @@ export function useSetJobStatus() {
       client.setQueryData(qk.jobs.detail(id), job)
       return invalidate(id)
     },
+  })
+}
+
+export function useForceCloseJob() {
+  const client = useQueryClient()
+  const invalidate = useInvalidateJob()
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) => forceCloseJob(id, reason),
+    onSuccess: (job, { id }) => {
+      client.setQueryData(qk.jobs.detail(id), job)
+      return invalidate(id)
+    },
+  })
+}
+
+export function useAddJobComment() {
+  const invalidate = useInvalidateJob()
+  return useMutation({
+    mutationFn: ({ id, text }: { id: string; text: string }) => addJobComment(id, text),
+    // The list rows carry the latest activity time, so they refresh with the timeline.
+    onSuccess: (_activity, { id }) => invalidate(id),
   })
 }
 

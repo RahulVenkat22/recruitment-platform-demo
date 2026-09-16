@@ -209,6 +209,8 @@ class JDStatus(models.TextChoices):
     OPEN = "open", "Open"
     ON_HOLD = "on_hold", "On Hold"
     CLOSED = "closed", "Closed"
+    # Closed early by an HR admin or the owner from draft / open / on hold (Enhancement.md 3).
+    FORCE_CLOSED = "force_closed", "Force Closed"
     ARCHIVED = "archived", "Archived"
 
 

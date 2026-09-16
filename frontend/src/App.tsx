@@ -7,7 +7,7 @@ export default function App() {
   return (
     <AppProviders>
       <AuthBootstrap>
-        <RouteErrorBoundary title="Aimious couldn't start">
+        <RouteErrorBoundary title="Buro Happold Recruitment couldn't start">
           <AppRoutes />
         </RouteErrorBoundary>
       </AuthBootstrap>

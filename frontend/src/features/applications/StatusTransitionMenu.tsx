@@ -32,9 +32,9 @@ export interface StatusTransitionMenuProps {
 
 /**
  * plan.md 8.4 StatusTransitionMenu: allowed next statuses grouped as Forward,
- * Back and Decisions. Plain forward moves apply at once; moves that need a
- * note or reason open `TransitionDialog`; Contacted, Interview Scheduled,
- * Offer Sent and Onboarding open their own dialogs.
+ * Back and Decisions. Every plain move opens `TransitionDialog` to confirm it
+ * with a reason (Enhancement.md 6); Contacted, Interview Scheduled, Offer Sent
+ * and Onboarding open their own dialogs.
  */
 export function StatusTransitionMenu({
   application,
@@ -60,8 +60,8 @@ export function StatusTransitionMenu({
     if (dialog === 'interview') return actions.scheduleInterview(application)
     if (dialog === 'offer') return actions.makeOffer(application)
     if (dialog === 'onboarding') return actions.startOnboarding(application)
-    if (move.requires) return actions.changeStatus(application, move.status)
-    return void actions.transitionTo(application, move.status)
+    // Every other move is confirmed with a reason in TransitionDialog (Enhancement.md 6).
+    return actions.changeStatus(application, move.status)
   }
 
   return (

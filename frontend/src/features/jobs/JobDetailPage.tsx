@@ -17,7 +17,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useJob, useJobAction, useSetJobStatus } from '@/features/jobs/api'
-import { jobSummaryLine, nextStatusOptions, participantsToPeople } from '@/features/jobs/job-utils'
+import {
+  isWorkable,
+  jobSummaryLine,
+  nextStatusOptions,
+  participantsToPeople,
+} from '@/features/jobs/job-utils'
 import { JobOverview } from '@/features/jobs/JobOverview'
 import { PeopleTab } from '@/features/jobs/PeopleTab'
 import { StatusNoteDialog } from '@/features/jobs/StatusNoteDialog'
@@ -242,7 +247,7 @@ export default function JobDetailPage() {
           breadcrumbs={crumbs}
           actions={
             <>
-              {detail.permissions.can_work_pipeline && !archived && (
+              {detail.permissions.can_work_pipeline && isWorkable(detail.status) && (
                 <Button asChild variant="outline">
                   <Link to={`/search?jd=${detail.id}`}>
                     <UserSearchIcon data-icon="inline-start" aria-hidden="true" />

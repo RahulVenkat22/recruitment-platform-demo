@@ -8,6 +8,8 @@ Every later phase asks these functions instead of re-deriving the rules::
     Edit/archive/duplicate, people  yes       creator or owner participant no           no
     Create JD                       yes       yes                          no           no
     Delete JD                       yes       creator only                 no           no
+    Force close JD                  yes       creator or owner participant no           no
+    Comment on a JD timeline        yes       when the JD is visible       no           no
     Search, transition, contact,    yes       creator or any participant   no           no
       schedule interview
     Submit interview feedback       yes       when the JD is visible       if assigned  no
@@ -171,6 +173,16 @@ def can_manage_participants(user: Any, jd: JobDescription) -> bool:
 
 def can_delete_job(user: Any, jd: JobDescription) -> bool:
     return is_hr_admin(user) or (is_hr(user) and is_creator(user, jd))
+
+
+def can_force_close_job(user: Any, jd: JobDescription) -> bool:
+    """Close a JD early from any active status: the people who may edit it (Enhancement.md 3)."""
+    return can_edit_job(user, jd)
+
+
+def can_comment_job(user: Any, jd: JobDescription) -> bool:
+    """Leave a remark on the JD timeline: HR staff who can see the JD (Enhancement.md 3)."""
+    return is_hr_staff(user) and can_view_job(user, jd)
 
 
 def can_work_pipeline(user: Any, jd: JobDescription) -> bool:

@@ -13,10 +13,10 @@ export default function NotFoundPage() {
         <code className="rounded-control bg-surface-2 px-1.5 py-0.5 text-small text-ink">
           {pathname}
         </code>
-        . Check the address or head back to the dashboard.
+        . Check the address or head back to the homepage.
       </p>
       <Button asChild className="mt-6">
-        <Link to="/dashboard">Go to dashboard</Link>
+        <Link to="/">Go to homepage</Link>
       </Button>
     </>
   )

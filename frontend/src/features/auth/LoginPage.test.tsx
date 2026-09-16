@@ -13,7 +13,7 @@ function renderLogin(route: InitialEntry = '/login') {
   return renderWithProviders(
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/dashboard" element={<p>Dashboard page</p>} />
+      <Route path="/" element={<p>Home page</p>} />
       <Route path="/jobs/:id" element={<p>Job detail page</p>} />
     </Routes>,
     { route },
@@ -138,20 +138,20 @@ describe('LoginPage', () => {
     expect(useAuthStore.getState()).toMatchObject({ user, accessToken: 'tok', status: 'authed' })
   })
 
-  it('goes to the dashboard by default after signing in', async () => {
+  it('goes to the homepage by default after signing in', async () => {
     const ui = userEvent.setup()
     vi.spyOn(api, 'post').mockResolvedValue({ data: { access: 'tok', user }, status: 200 })
     renderLogin()
 
     await fillAndSubmit(ui, 'rahul@aimious.demo', 'Demo@1234')
 
-    expect(await screen.findByText('Dashboard page')).toBeInTheDocument()
+    expect(await screen.findByText('Home page')).toBeInTheDocument()
   })
 
-  it('sends already signed-in users straight to the dashboard', () => {
+  it('sends already signed-in users straight to the homepage', () => {
     useAuthStore.getState().setSession({ user, accessToken: 'tok' })
     renderLogin()
-    expect(screen.getByText('Dashboard page')).toBeInTheDocument()
+    expect(screen.getByText('Home page')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Welcome back' })).not.toBeInTheDocument()
   })
 

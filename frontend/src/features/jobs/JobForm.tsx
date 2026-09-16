@@ -70,6 +70,24 @@ export interface JobFormProps {
 
 const SECTION_CLASS =
   'scroll-mt-28 rounded-card border border-line bg-surface p-5 shadow-card md:p-6'
+
+/**
+ * Scrolls only the content area (`#main`) so a rail jump never moves the page
+ * shell or any other ancestor (Enhancement.md 4, issue 2). Honours the section's
+ * scroll margin, the sticky page header, and the reduced-motion preference.
+ */
+function scrollSectionIntoView(section: HTMLElement | null) {
+  if (!section) return
+  const container = section.closest<HTMLElement>('#main') ?? section.parentElement
+  if (!container) return
+  const margin = parseFloat(getComputedStyle(section).scrollMarginTop || '0') || 0
+  const top =
+    section.getBoundingClientRect().top -
+    container.getBoundingClientRect().top +
+    container.scrollTop
+  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  container.scrollTo({ top: Math.max(0, top - margin), behavior: reduced ? 'auto' : 'smooth' })
+}
 const HEADING_CLASS = 'text-caption font-medium tracking-[0.08em] text-ink-subtle uppercase'
 
 /** The create / edit form of plan.md 9.5: rail, five sections, preview, autosave, unsaved guard. */
@@ -155,7 +173,7 @@ export function JobForm({
 
   function jump(id: FormSectionId) {
     setActive(id)
-    document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    scrollSectionIntoView(document.getElementById(`section-${id}`))
   }
 
   /** Saves through the page callback; reports failures and returns whether it worked. */

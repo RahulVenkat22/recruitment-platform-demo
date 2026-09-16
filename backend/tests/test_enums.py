@@ -148,7 +148,14 @@ def test_other_enums_have_the_plan_values():
         "observer",
     ]
     assert list(CandidateSource.values) == ["internal", "referral", "naukri", "linkedin"]
-    assert list(enums.JDStatus.values) == ["draft", "open", "on_hold", "closed", "archived"]
+    assert list(enums.JDStatus.values) == [
+        "draft",
+        "open",
+        "on_hold",
+        "closed",
+        "force_closed",
+        "archived",
+    ]
     assert list(enums.WorkMode.values) == ["onsite", "hybrid", "remote"]
     assert list(enums.EmploymentType.values) == [
         "full_time",

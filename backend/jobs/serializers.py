@@ -14,8 +14,10 @@ from accounts.models import User
 from accounts.serializers import UserSummarySerializer
 from common.enums import EmploymentType, JDStatus, ParticipantRole, WorkMode
 from common.permissions import (
+    can_comment_job,
     can_delete_job,
     can_edit_job,
+    can_force_close_job,
     can_manage_job,
     can_manage_participants,
     can_work_pipeline,
@@ -119,10 +121,14 @@ class JobPermissionsSerializer(serializers.Serializer):
     can_manage_participants = serializers.BooleanField()
     can_work_pipeline = serializers.BooleanField()
     can_manage = serializers.BooleanField()
+    can_force_close = serializers.BooleanField()
+    can_comment = serializers.BooleanField()
 
 
 class JobDescriptionRowSerializer(serializers.ModelSerializer):
-    """A list row: header fields, creator, participants preview and pipeline counts."""
+    """A list row: header fields, creator, participants preview, pipeline counts,
+    plus the homepage columns (Enhancement.md 3): the interviewer-role
+    participants, the latest timeline event and the completion percentage."""
 
     created_by = UserSummarySerializer(read_only=True)
     updated_by = UserSummarySerializer(read_only=True, allow_null=True)
@@ -136,6 +142,9 @@ class JobDescriptionRowSerializer(serializers.ModelSerializer):
     participants_preview = serializers.SerializerMethodField()
     participants_count = serializers.SerializerMethodField()
     counts = serializers.SerializerMethodField()
+    interviewers = serializers.SerializerMethodField()
+    last_activity_at = serializers.SerializerMethodField()
+    completion_pct = serializers.SerializerMethodField()
 
     class Meta:
         model = JobDescription
@@ -170,8 +179,31 @@ class JobDescriptionRowSerializer(serializers.ModelSerializer):
             "participants_preview",
             "participants_count",
             "counts",
+            "interviewers",
+            "last_activity_at",
+            "completion_pct",
         ]
         read_only_fields = fields
+
+    @extend_schema_field(UserSummarySerializer(many=True))
+    def get_interviewers(self, obj: JobDescription) -> list[dict[str, Any]]:
+        """Everyone listed with the Interviewer role, in the order they were added."""
+        users = [
+            row.user
+            for row in obj.participants.all()
+            if row.role_in_recruitment == ParticipantRole.INTERVIEWER
+        ]
+        return UserSummarySerializer(users, many=True, context=self.context).data
+
+    @extend_schema_field(serializers.DateTimeField())
+    def get_last_activity_at(self, obj: JobDescription) -> str:
+        """The latest timeline event (annotated by ``list_queryset``), else the last edit."""
+        value = getattr(obj, "last_activity_at", None) or obj.updated_at
+        return serializers.DateTimeField().to_representation(value)
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_completion_pct(self, obj: JobDescription) -> int:
+        return JobService.completion_pct(obj)
 
     @extend_schema_field(serializers.ListField(child=serializers.CharField()))
     def get_required_skill_names(self, obj: JobDescription) -> list[str]:
@@ -236,6 +268,8 @@ class JobDescriptionDetailSerializer(JobDescriptionRowSerializer):
             "can_manage_participants": can_manage_participants(user, obj),
             "can_work_pipeline": can_work_pipeline(user, obj),
             "can_manage": can_manage_job(user, obj),
+            "can_force_close": can_force_close_job(user, obj),
+            "can_comment": can_comment_job(user, obj),
         }
 
 
@@ -405,10 +439,24 @@ class StatusChangeSerializer(serializers.Serializer):
     note = serializers.CharField(required=False, allow_blank=True, max_length=500, default="")
 
 
+class ForceCloseSerializer(serializers.Serializer):
+    """``POST .../force-close/``: an optional reason, shown on the timeline."""
+
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=500, default="")
+
+
+class JobCommentSerializer(serializers.Serializer):
+    """``POST .../comments/``: the remark that becomes a ``jd.comment_added`` event."""
+
+    text = serializers.CharField(max_length=1000)
+
+
 __all__ = [
     "CONTENT_FIELDS",
     "METRIC_KEYS",
     "FacetOptionSerializer",
+    "ForceCloseSerializer",
+    "JobCommentSerializer",
     "JobDescriptionCreateSerializer",
     "JobDescriptionDetailSerializer",
     "JobDescriptionRowSerializer",

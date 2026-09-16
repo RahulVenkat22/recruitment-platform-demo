@@ -276,9 +276,19 @@ class ManualApplicationSerializer(serializers.Serializer):
 
 
 class TransitionSerializer(serializers.Serializer):
+    """``POST .../transition/``: every move through the API carries a reason
+    (Enhancement.md 6); ``note`` is accepted as the same thing for older clients."""
+
     status = serializers.ChoiceField(choices=ApplicationStatus.choices)
     note = serializers.CharField(required=False, allow_blank=True, max_length=1000, default="")
     reason = serializers.CharField(required=False, allow_blank=True, max_length=1000, default="")
+
+    def validate(self, attrs: dict) -> dict:
+        if not (attrs.get("reason") or "").strip() and not (attrs.get("note") or "").strip():
+            raise serializers.ValidationError(
+                {"reason": ["Give a reason for this status change."]}, code="required"
+            )
+        return attrs
 
 
 class BulkTransitionSerializer(serializers.Serializer):
