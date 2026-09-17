@@ -11,6 +11,7 @@ import { Link, useLocation, useMatch, useNavigate } from 'react-router'
 import { NAV_ITEMS, type NavItem } from '@/app/layout/nav'
 import { Avatar } from '@/components/shared/Avatar'
 import { BrandLogo } from '@/components/shared/BrandLogo'
+import { TalentOSLogo, TalentOSMark } from '@/components/shared/TalentOSLogo'
 import { UserChip } from '@/components/shared/UserChip'
 import { Button } from '@/components/ui/button'
 import {
@@ -147,13 +148,14 @@ function BrandLink({
       aria-label="Buro Happold homepage"
     >
       {collapsed ? (
-        <BrandLogo variant="mark" />
+        <span className="flex flex-col items-center gap-2">
+          <BrandLogo variant="mark" className="size-8" />
+          <TalentOSMark size={32} />
+        </span>
       ) : (
-        <span className="flex min-w-0 flex-col gap-1">
-          <BrandLogo variant="wordmark" on="dark" className="h-[22px]" />
-          <span className="text-[10px] font-medium tracking-[0.14em] text-ink-subtle uppercase">
-            Recruitment
-          </span>
+        <span className="flex min-w-0 flex-col gap-1.5">
+          <BrandLogo variant="wordmark" on="dark" className="h-[52px]" />
+          <TalentOSLogo on="dark" size="sm" className="pl-0.5" />
         </span>
       )}
     </Link>
@@ -183,7 +185,7 @@ export function Sidebar() {
     >
       <div
         className={cn(
-          'flex h-16 items-center border-b border-line px-4',
+          'flex h-[104px] items-center border-b border-line px-4',
           collapsed && 'justify-center px-0',
         )}
       >
@@ -253,7 +255,7 @@ export function MobileNav() {
       >
         <SheetTitle className="sr-only">Navigation</SheetTitle>
         <SheetDescription className="sr-only">Main sections of the app</SheetDescription>
-        <div className="flex h-16 items-center border-b border-line px-4">
+        <div className="flex h-[104px] items-center border-b border-line px-4">
           <BrandLink onNavigate={close} />
         </div>
         <nav aria-label="Primary" className="flex-1 space-y-0.5 px-2 pt-2">

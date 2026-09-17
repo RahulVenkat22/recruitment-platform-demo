@@ -1,28 +1,32 @@
 import { cn } from '@/lib/utils'
 
 export interface BrandLogoProps {
-  /** `wordmark` is the full Buro Happold logotype; `mark` the square monogram for tight spots. */
+  /** `wordmark` is the BURO HAPPOLD logotype between its lime bars; `mark` the lime "B" tile. */
   variant?: 'wordmark' | 'mark'
-  /** Which background the logo sits on; the wordmark swaps its letter colour. */
+  /** Which background the logo sits on; the wordmark's letters are black on light, white on dark. */
   on?: 'light' | 'dark'
   className?: string
 }
 
 const WORDMARK = {
-  light: '/brand/burohappold-wordmark-for-light-bg.svg',
-  dark: '/brand/burohappold-wordmark-for-dark-bg.svg',
+  light: '/brand/burohappold-logo.png',
+  dark: '/brand/burohappold-logo-for-dark-bg.png',
 }
 
-/** The Buro Happold logo (Enhancement.md 1): one component so every page uses the same assets. */
+/**
+ * The Buro Happold logo, from the supplied artwork (logo1 = wordmark, logo2 = "B"
+ * tile). The wordmark is 3:1 with the letters between two lime bars, so give it
+ * at least 48px of height for the name to stay readable.
+ */
 export function BrandLogo({ variant = 'wordmark', on = 'light', className }: BrandLogoProps) {
   if (variant === 'mark') {
     return (
       <img
-        src="/brand/burohappold-mark.svg"
+        src="/brand/burohappold-b-mark.png"
         alt="Buro Happold"
-        width={28}
-        height={28}
-        className={cn('size-7 rounded-[6px]', className)}
+        width={320}
+        height={320}
+        className={cn('size-7 shrink-0', className)}
       />
     )
   }
@@ -30,9 +34,9 @@ export function BrandLogo({ variant = 'wordmark', on = 'light', className }: Bra
     <img
       src={WORDMARK[on]}
       alt="Buro Happold"
-      width={230}
-      height={51}
-      className={cn('h-6 w-auto', className)}
+      width={1086}
+      height={362}
+      className={cn('h-12 w-auto', className)}
     />
   )
 }

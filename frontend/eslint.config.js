@@ -37,6 +37,13 @@ export default defineConfig([
     rules: { 'react-refresh/only-export-components': 'off' },
   },
   {
+    // The login scene drives three.js objects from React Three Fiber's frame loop, which
+    // mutates materials, geometries and positions every frame by design. The React Compiler
+    // rules assume React-owned state, so they stay off for that directory only.
+    files: ['src/features/auth/scene/**/*.{ts,tsx}'],
+    rules: { 'react-hooks/immutability': 'off', 'react-hooks/purity': 'off' },
+  },
+  {
     files: ['**/*.test.{ts,tsx}', 'src/test/**/*.{ts,tsx}'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
     rules: { 'react-refresh/only-export-components': 'off' },

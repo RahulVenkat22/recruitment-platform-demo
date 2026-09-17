@@ -13,11 +13,11 @@ export function BrandSplash({ label = 'Restoring your session' }: { label?: stri
       className="grid min-h-dvh place-items-center bg-bg"
     >
       <motion.img
-        src="/brand/burohappold-mark.svg"
+        src="/brand/burohappold-b-mark.png"
         alt=""
         width={48}
         height={48}
-        className="size-12 rounded-[10px]"
+        className="size-12"
         animate={reducedMotion ? undefined : { opacity: [0.55, 1, 0.55], scale: [1, 1.05, 1] }}
         transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
       />
