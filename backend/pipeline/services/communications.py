@@ -31,6 +31,12 @@ PRE_CONTACT: frozenset[str] = frozenset(
         ApplicationStatus.CONTACT_PENDING,
     }
 )
+# An outbound message that has not been answered yet moves an untouched
+# candidate to Contact Pending; a connection or a reply moves them to Contacted.
+SENT_OUTCOMES: frozenset[str] = frozenset({CommunicationOutcome.EMAIL_SENT})
+UNTOUCHED: frozenset[str] = frozenset(
+    {ApplicationStatus.NEW, ApplicationStatus.AI_SHORTLISTED, ApplicationStatus.HR_REVIEW}
+)
 
 
 def _outcome_label(outcome: str) -> str:
@@ -72,6 +78,8 @@ class CommunicationService:
         stamp(row, occurred_at)
         if outcome in CONNECTED_OUTCOMES and previous in PRE_CONTACT:
             advance(application, ApplicationStatus.CONTACTED, actor, when=when, notify=notify)
+        elif outcome in SENT_OUTCOMES and previous in UNTOUCHED:
+            advance(application, ApplicationStatus.CONTACT_PENDING, actor, when=when, notify=notify)
         else:
             touch(application, when)
         candidate = application.candidate

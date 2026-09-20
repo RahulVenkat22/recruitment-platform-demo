@@ -7,6 +7,7 @@ from rest_framework.routers import SimpleRouter
 from pipeline.views import (
     ApplicationViewSet,
     CommunicationViewSet,
+    EmailConfigView,
     InterviewViewSet,
     OfferViewSet,
     OnboardingViewSet,
@@ -24,5 +25,6 @@ router.register("onboardings", OnboardingViewSet, basename="onboarding")
 
 urlpatterns = [
     path("sources/", SourcesView.as_view(), name="sources"),
+    path("email/", EmailConfigView.as_view(), name="email-config"),
     *router.urls,
 ]

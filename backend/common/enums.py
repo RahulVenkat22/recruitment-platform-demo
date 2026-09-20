@@ -199,8 +199,6 @@ class CandidateSource(models.TextChoices):
     REFERRAL = "referral", "Referral"
     NAUKRI = "naukri", "Naukri"
     LINKEDIN = "linkedin", "LinkedIn"
-    # PDFs ingested by `manage.py ingest_resumes` and searched semantically (pgvector).
-    RESUME = "resume", "Resume Library"
 
 
 # -------------------------------------------------------------------------- jobs
@@ -405,7 +403,6 @@ SOURCE_COLORS: dict[str, ColorPair] = {
     CandidateSource.REFERRAL: ColorPair("#E3F3EA", "#1F7A4D", "emerald"),
     CandidateSource.NAUKRI: ColorPair("#EAF0FF", "#2F54EB", "blue"),
     CandidateSource.LINKEDIN: ColorPair("#E1EEF8", "#0A66C2", "linkedin"),
-    CandidateSource.RESUME: ColorPair("#F3EEDC", "#6B5300", "olive"),
 }
 
 # Timeline chip / dot colours. plan.md 6.4 names the palette per category; the

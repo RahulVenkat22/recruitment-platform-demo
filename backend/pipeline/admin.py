@@ -5,6 +5,7 @@ from pipeline.models import (
     CandidateMatch,
     Communication,
     Interview,
+    MessageTemplate,
     Offer,
     Onboarding,
     SearchRun,
@@ -150,4 +151,12 @@ class OnboardingAdmin(admin.ModelAdmin):
     list_filter = ["status"]
     search_fields = ["application__candidate__full_name", "buddy__email", "hr_contact__email"]
     autocomplete_fields = ["application", "buddy", "hr_contact"]
+    readonly_fields = ["created_at", "updated_at"]
+
+
+@admin.register(MessageTemplate)
+class MessageTemplateAdmin(admin.ModelAdmin):
+    list_display = ["name", "channel", "is_default", "is_active", "updated_at"]
+    list_filter = ["channel", "is_default", "is_active"]
+    search_fields = ["name", "subject", "body"]
     readonly_fields = ["created_at", "updated_at"]

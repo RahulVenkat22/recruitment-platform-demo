@@ -596,6 +596,14 @@ export default function SearchCandidatesPage() {
                   type="button"
                   size="sm"
                   variant="outline"
+                  onClick={() => actions.bulkEmail(selectedRows)}
+                >
+                  Email
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
                   className="text-danger"
                   onClick={() => actions.bulkReject(selectedRows)}
                 >

@@ -40,6 +40,7 @@ from pipeline.models import (
     CandidateMatch,
     Communication,
     Interview,
+    MessageTemplate,
     Offer,
     Onboarding,
     SearchRun,
@@ -777,3 +778,53 @@ class KanbanBoardSerializer(serializers.Serializer):
     tray = KanbanColumnDataSerializer()
     total = serializers.IntegerField()
     count = serializers.IntegerField()
+
+
+class MessageTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MessageTemplate
+        fields = ["id", "name", "channel", "subject", "body", "is_default"]
+        read_only_fields = fields
+
+
+class EmailConfigSerializer(serializers.Serializer):
+    """``GET /email/``: is outgoing mail configured, who it comes from, the templates."""
+
+    configured = serializers.BooleanField()
+    from_email = serializers.CharField()
+    reply_to = serializers.CharField(allow_blank=True)
+    safe_recipient = serializers.CharField(allow_blank=True)
+    company = serializers.CharField()
+    placeholders = serializers.ListField(child=serializers.CharField())
+    templates = MessageTemplateSerializer(many=True)
+
+
+class EmailPreviewRequestSerializer(serializers.Serializer):
+    template_id = serializers.PrimaryKeyRelatedField(
+        queryset=MessageTemplate.objects.filter(is_active=True), source="template"
+    )
+
+
+class EmailPreviewSerializer(serializers.Serializer):
+    to = serializers.CharField(allow_blank=True)
+    can_send = serializers.BooleanField()
+    reason = serializers.CharField(allow_blank=True)
+    subject = serializers.CharField(allow_blank=True)
+    body = serializers.CharField(allow_blank=True)
+
+
+class EmailSendSerializer(serializers.Serializer):
+    subject = serializers.CharField(max_length=200)
+    body = serializers.CharField(max_length=10000)
+
+
+class BulkEmailSerializer(serializers.Serializer):
+    ids = serializers.ListField(child=serializers.UUIDField(), min_length=1, max_length=50)
+    template_id = serializers.PrimaryKeyRelatedField(
+        queryset=MessageTemplate.objects.filter(is_active=True), source="template"
+    )
+
+
+class BulkEmailResultSerializer(serializers.Serializer):
+    sent = serializers.ListField(child=serializers.CharField())
+    skipped = serializers.DictField(child=serializers.CharField())

@@ -20,7 +20,7 @@ class ParsedExperience(BaseModel):
     location: str = ""
     # Industry when obvious (fintech, healthcare, ecommerce ...), else empty.
     industry: str = ""
-    # At most ~60 words, taken from the resume's own bullet points.
+    # One or two sentences (~40 words) summarising the role's own bullet points.
     description: str = ""
 
 

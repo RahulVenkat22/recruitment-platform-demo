@@ -265,7 +265,7 @@ AI_SHORTLIST_THRESHOLD = env.int("AI_SHORTLIST_THRESHOLD", default=80)
 SEARCH_RESULT_LIMIT_PER_SOURCE = env.int("SEARCH_RESULT_LIMIT_PER_SOURCE", default=60)
 CANDIDATE_SOURCE_PROVIDERS = env.list(
     "CANDIDATE_SOURCE_PROVIDERS",
-    default=["internal", "referral", "naukri", "linkedin", "resume"],
+    default=["internal", "referral", "naukri", "linkedin"],
 )
 
 # --------------------------------------------- resumes, the LLM and vector search
@@ -442,6 +442,40 @@ AWS_S3_ENDPOINT_URL = env.str("AWS_S3_ENDPOINT_URL", default="")
 RESUME_S3_BUCKET = env.str("RESUME_S3_BUCKET", default="")
 RESUME_S3_PREFIX = env.str("RESUME_S3_PREFIX", default="resumes/")
 RESUME_S3_URL_EXPIRY_SECONDS = env.int("RESUME_S3_URL_EXPIRY_SECONDS", default=900)
+
+# -------------------------------------------------------------------------- email
+# Candidate outreach from the search results and the candidate page. SMTP when
+# EMAIL_HOST is set, otherwise the console backend, which prints the mail in the
+# server log and makes the UI say "not configured". Zoho: smtp.zoho.com / .in /
+# .eu (match the account's region) with an app-specific password. env.str then
+# int(), like the LLM settings: an empty `EMAIL_PORT=` line means the default.
+EMAIL_HOST = env.str("EMAIL_HOST", default="").strip()
+EMAIL_PORT = int(env.str("EMAIL_PORT", default="").strip() or "587")
+EMAIL_USE_TLS = (env.str("EMAIL_USE_TLS", default="").strip() or "true").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+EMAIL_USE_SSL = env.str("EMAIL_USE_SSL", default="").strip().lower() in {"1", "true", "yes", "on"}
+EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default="").strip()
+EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default="")
+EMAIL_TIMEOUT = int(env.str("EMAIL_TIMEOUT", default="").strip() or "20")
+DEFAULT_FROM_EMAIL = (
+    env.str("DEFAULT_FROM_EMAIL", default="").strip() or EMAIL_HOST_USER or "talent@localhost"
+)
+EMAIL_BACKEND = (
+    "django.core.mail.backends.smtp.EmailBackend"
+    if EMAIL_HOST
+    else "django.core.mail.backends.console.EmailBackend"
+)
+# Replies go to one monitored mailbox: the demo staff accounts have no real addresses.
+EMAIL_REPLY_TO = env.str("EMAIL_REPLY_TO", default="").strip() or EMAIL_HOST_USER
+# Safe mode: while set, EVERY outgoing mail is delivered to this address instead
+# of the candidate, with the intended recipient named in the subject and body.
+EMAIL_SAFE_RECIPIENT = env.str("EMAIL_SAFE_RECIPIENT", default="").strip()
+# The organisation the outreach speaks for: `{company}` in the templates.
+EMAIL_COMPANY_NAME = env.str("EMAIL_COMPANY_NAME", default="").strip() or "Aimious"
 
 # --------------------------------------------------------------------------- seed
 SEED_RANDOM_SEED = env.int("SEED_RANDOM_SEED", default=42)

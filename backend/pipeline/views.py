@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any
 
 from django.db.models import Q, QuerySet
@@ -19,6 +20,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from common.enums import ApplicationStatus, CommunicationChannel
 from common.permissions import (
     can_log_contact,
     can_manage_job,
@@ -41,6 +43,7 @@ from pipeline.models import (
     Application,
     Communication,
     Interview,
+    MessageTemplate,
     Offer,
     Onboarding,
     SearchRun,
@@ -49,11 +52,17 @@ from pipeline.serializers import (
     ApplicationDetailSerializer,
     ApplicationRowSerializer,
     ApplicationUpdateSerializer,
+    BulkEmailResultSerializer,
+    BulkEmailSerializer,
     BulkTransitionResponseSerializer,
     BulkTransitionSerializer,
     CandidateMatchSerializer,
     CommunicationCreateSerializer,
     CommunicationSerializer,
+    EmailConfigSerializer,
+    EmailPreviewRequestSerializer,
+    EmailPreviewSerializer,
+    EmailSendSerializer,
     FeedbackSerializer,
     InterviewCancelSerializer,
     InterviewCreateSerializer,
@@ -77,12 +86,17 @@ from pipeline.serializers import (
     TransitionSerializer,
 )
 from pipeline.services import (
+    PLACEHOLDERS,
     CommunicationService,
     InterviewService,
     OfferService,
     OnboardingService,
+    OutreachService,
     PipelineService,
     allowed_moves,
+    email_config,
+    recipient_for,
+    render_template,
 )
 from pipeline.services.queries import application_queryset
 from sourcing.registry import available_providers
@@ -359,6 +373,103 @@ class ApplicationViewSet(
         return Response(
             BulkTransitionResponseSerializer(payload, context=self.get_serializer_context()).data
         )
+
+    @extend_schema(
+        operation_id="applications_email_preview",
+        summary="Render an outreach template for this candidate",
+        request=EmailPreviewRequestSerializer,
+        responses={200: EmailPreviewSerializer, 400: ERROR_ENVELOPE, 403: ERROR_ENVELOPE},
+        tags=["communications"],
+    )
+    @action(detail=True, methods=["post"], url_path="email/preview")
+    def email_preview(self, request: Request, pk: str | None = None) -> Response:
+        application = self.get_object()
+        if not can_log_contact(request.user, application.job_description):
+            raise PermissionDenied("You cannot email candidates for this job description.")
+        serializer = EmailPreviewRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        subject, body = render_template(
+            serializer.validated_data["template"], application, request.user
+        )
+        to = recipient_for(application.candidate)
+        active = str(application.status) in ApplicationStatus.ACTIVE
+        if not to:
+            reason = "This candidate has no email address."
+        elif not active:
+            reason = "The candidate is no longer active on this job."
+        else:
+            reason = ""
+        payload = {
+            "to": to,
+            "can_send": bool(to) and active,
+            "reason": reason,
+            "subject": subject,
+            "body": body,
+        }
+        return Response(EmailPreviewSerializer(payload).data)
+
+    @extend_schema(
+        operation_id="applications_email",
+        summary="Email the candidate and log it as a contact",
+        request=EmailSendSerializer,
+        responses={
+            201: CommunicationSerializer,
+            400: ERROR_ENVELOPE,
+            403: ERROR_ENVELOPE,
+            409: ERROR_ENVELOPE,
+            502: ERROR_ENVELOPE,
+        },
+        tags=["communications"],
+    )
+    @action(detail=True, methods=["post"], url_path="email")
+    def email(self, request: Request, pk: str | None = None) -> Response:
+        application = self.get_object()
+        if not can_log_contact(request.user, application.job_description):
+            raise PermissionDenied("You cannot email candidates for this job description.")
+        serializer = EmailSendSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        row = OutreachService.send_email(
+            application,
+            subject=serializer.validated_data["subject"],
+            body=serializer.validated_data["body"],
+            actor=request.user,
+        )
+        fresh = Communication.objects.select_related(
+            "application__candidate",
+            "application__owner",
+            "application__job_description__created_by",
+            "performed_by",
+        ).get(pk=row.pk)
+        return Response(
+            CommunicationSerializer(fresh, context=self.get_serializer_context()).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @extend_schema(
+        operation_id="applications_bulk_email",
+        summary="Email several candidates with one template, personalised per candidate",
+        request=BulkEmailSerializer,
+        responses={200: BulkEmailResultSerializer, 400: ERROR_ENVELOPE, 403: ERROR_ENVELOPE},
+        tags=["communications"],
+    )
+    @action(detail=False, methods=["post"], url_path="bulk-email")
+    def bulk_email(self, request: Request) -> Response:
+        serializer = BulkEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        applications = list(
+            self.get_queryset()
+            .filter(pk__in=data["ids"])
+            .select_related("candidate", "job_description__created_by")
+        )
+        for application in applications:
+            if not can_log_contact(request.user, application.job_description):
+                raise PermissionDenied("You cannot email one of these candidates.")
+        sent, skipped = OutreachService.send_bulk(
+            applications, template=data["template"], actor=request.user
+        )
+        payload = {"sent": [str(row.application_id) for row in sent], "skipped": skipped}
+        return Response(BulkEmailResultSerializer(payload).data)
 
     @extend_schema(
         operation_id="applications_rematch",
@@ -860,3 +971,25 @@ class OnboardingViewSet(
         self._require_manage(row.application)
         OnboardingService.complete(row, actor=request.user)
         return _refresh(self, row)
+
+
+class EmailConfigView(APIView):
+    """``GET /email/``: whether outreach mail is configured, the sender, and the templates."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="email_config",
+        summary="Outreach email settings and templates",
+        responses={200: EmailConfigSerializer},
+        tags=["communications"],
+    )
+    def get(self, request: Request) -> Response:
+        payload = {
+            **asdict(email_config()),
+            "placeholders": list(PLACEHOLDERS),
+            "templates": MessageTemplate.objects.filter(
+                is_active=True, channel=CommunicationChannel.EMAIL
+            ),
+        }
+        return Response(EmailConfigSerializer(payload).data)

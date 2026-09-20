@@ -75,6 +75,12 @@ export const qk = {
     all: ['communications'] as const,
     list: (filters?: QueryFilters) => ['communications', 'list', withFilters(filters)] as const,
   },
+  email: {
+    all: ['email'] as const,
+    config: () => ['email', 'config'] as const,
+    preview: (applicationId: string, templateId: string) =>
+      ['email', 'preview', applicationId, templateId] as const,
+  },
   offers: {
     all: ['offers'] as const,
     list: (filters?: QueryFilters) => ['offers', 'list', withFilters(filters)] as const,

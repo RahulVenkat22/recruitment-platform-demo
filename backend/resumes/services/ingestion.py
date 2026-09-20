@@ -342,7 +342,7 @@ def sync_profile(state: IngestionState) -> IngestionState:
     warnings = [*state.get("warnings", []), *identity_warnings]
     with transaction.atomic():
         dto = NormalizedCandidate(
-            source=CandidateSource.RESUME,
+            source=CandidateSource.INTERNAL,
             external_id=f"resume:{document.file_hash[:16]}",
             full_name=profile.full_name or "Unknown candidate",
             email=email,
@@ -357,7 +357,7 @@ def sync_profile(state: IngestionState) -> IngestionState:
             github_url=profile.github_url or None,
             # An empty value leaves the text an earlier ingest stored in place.
             resume_text=state.get("search_text", ""),
-            raw={"provider": "resume", "file": document.file_name, "hash": document.file_hash},
+            raw={"provider": "internal", "file": document.file_name, "hash": document.file_hash},
         )
         candidate, created = CandidateRepository.upsert_from_dto(dto, discovered_at=timezone.now())
         counts = ProfileSync.sync(candidate, profile, validated.skill_rows)

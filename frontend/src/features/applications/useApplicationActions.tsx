@@ -3,6 +3,7 @@ import {
   CalendarPlusIcon,
   FileSignatureIcon,
   ListChecksIcon,
+  MailIcon,
   PhoneCallIcon,
   RocketIcon,
   UserRoundIcon,
@@ -21,6 +22,10 @@ import {
   type PipelineTarget,
 } from '@/features/applications/pipeline-target'
 import { BulkTransitionDialog, TransitionDialog } from '@/features/applications/TransitionDialog'
+import {
+  BulkEmailDialog,
+  EmailCandidateDialog,
+} from '@/features/communications/EmailCandidateDialog'
 import { LogContactDialog } from '@/features/communications/LogContactDialog'
 import { useCancelInterview, useDeleteInterview } from '@/features/interviews/api'
 import { FeedbackDialog } from '@/features/interviews/FeedbackDialog'
@@ -48,6 +53,7 @@ export interface ApplicationActionsHandle {
   /** Opens the status dialog with "Rejected" preselected. */
   reject: (row: ApplicationRow) => void
   logContact: (row: PipelineTarget) => void
+  emailCandidate: (row: PipelineTarget) => void
   scheduleInterview: (row: PipelineTarget) => void
   rescheduleInterview: (interview: Interview) => void
   cancelInterview: (interview: Interview) => void
@@ -59,6 +65,7 @@ export interface ApplicationActionsHandle {
   startOnboarding: (row: PipelineTarget, defaultStartDate?: string | null) => void
   bulkShortlist: (rows: ApplicationRow[]) => void
   bulkReject: (rows: ApplicationRow[]) => void
+  bulkEmail: (rows: ApplicationRow[]) => void
   dialogs: ReactNode
 }
 
@@ -80,6 +87,8 @@ export function useApplicationActions(callbacks: { onBulkDone?: () => void } = {
     requireNote: boolean
   } | null>(null)
   const [contact, setContact] = useState<PipelineTarget | null>(null)
+  const [email, setEmail] = useState<PipelineTarget | null>(null)
+  const [bulkMail, setBulkMail] = useState<ApplicationRow[] | null>(null)
   const [schedule, setSchedule] = useState<PipelineTarget | null>(null)
   const [reschedule, setReschedule] = useState<Interview | null>(null)
   const [cancelling, setCancelling] = useState<Interview | null>(null)
@@ -139,6 +148,12 @@ export function useApplicationActions(callbacks: { onBulkDone?: () => void } = {
         label: 'Log contact…',
         icon: PhoneCallIcon,
         onSelect: () => setContact(toTarget(row)),
+      })
+      items.push({
+        key: 'email',
+        label: 'Email candidate…',
+        icon: MailIcon,
+        onSelect: () => setEmail(toTarget(row)),
       })
       items.push({
         key: 'interview',
@@ -202,6 +217,12 @@ export function useApplicationActions(callbacks: { onBulkDone?: () => void } = {
         onDone={callbacks.onBulkDone}
       />
       <LogContactDialog application={contact} onOpenChange={(open) => !open && setContact(null)} />
+      <EmailCandidateDialog application={email} onOpenChange={(open) => !open && setEmail(null)} />
+      <BulkEmailDialog
+        rows={bulkMail}
+        onOpenChange={(open) => !open && setBulkMail(null)}
+        onDone={callbacks.onBulkDone}
+      />
       <ScheduleInterviewDialog
         application={schedule}
         interview={reschedule}
@@ -260,6 +281,7 @@ export function useApplicationActions(callbacks: { onBulkDone?: () => void } = {
     changeStatus: (row: ApplicationRow, status?: string) => setDialog({ row, status }),
     reject: (row: ApplicationRow) => setDialog({ row, status: 'rejected' }),
     logContact: (row: PipelineTarget) => setContact(row),
+    emailCandidate: (row: PipelineTarget) => setEmail(row),
     scheduleInterview: (row: PipelineTarget) => setSchedule(row),
     rescheduleInterview: (interview: Interview) => setReschedule(interview),
     cancelInterview: (interview: Interview) => setCancelling(interview),
@@ -275,6 +297,7 @@ export function useApplicationActions(callbacks: { onBulkDone?: () => void } = {
       setBulk({ rows, status: 'hr_review', label: 'Shortlist', requireNote: false }),
     bulkReject: (rows: ApplicationRow[]) =>
       setBulk({ rows, status: 'rejected', label: 'Reject', requireNote: true }),
+    bulkEmail: (rows: ApplicationRow[]) => setBulkMail(rows),
     dialogs,
   } satisfies ApplicationActionsHandle
 }

@@ -345,3 +345,24 @@ class Onboarding(UUIDTimestampedModel):
 
     def __str__(self) -> str:
         return f"Onboarding of {self.application.candidate.full_name} ({self.get_status_display()})"
+
+
+class MessageTemplate(UUIDTimestampedModel):
+    """A reusable outreach message; `{placeholders}` are filled per candidate when sent."""
+
+    name = models.CharField(max_length=120, unique=True)
+    channel = models.CharField(
+        max_length=20,
+        choices=enums.CommunicationChannel.choices,
+        default=enums.CommunicationChannel.EMAIL,
+    )
+    subject = models.CharField(max_length=200, blank=True)
+    body = models.TextField()
+    is_default = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-is_default", "name"]
+
+    def __str__(self) -> str:
+        return self.name

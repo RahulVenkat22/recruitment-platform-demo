@@ -41,7 +41,7 @@ from resumes.engines import evaluation as evaluator
 from resumes.engines.embeddings import EmbeddingError, get_embedding_service
 from resumes.engines.llm import LLMError
 from resumes.engines.planner import QueryPlan, plan_for, structured_plan
-from resumes.engines.retrieval import Evidence, evidence_for, has_resume_chunks
+from resumes.engines.retrieval import Evidence, evidence_for, has_resume_chunks, library_size
 from resumes.engines.scoring import SemanticResult, blend, preliminary
 from sourcing.dtos import SearchCriteria
 from sourcing.exceptions import JobNotSearchable, NoSourcesSelected, UnknownSource
@@ -56,7 +56,6 @@ SOURCE_LABELS = {
     "referral": "Referral Email",
     "naukri": "Naukri",
     "linkedin": "LinkedIn",
-    "resume": "Resume Library",
 }
 TERMINAL_STATUSES: frozenset[str] = frozenset(
     {SearchRunStatus.COMPLETED, SearchRunStatus.PARTIAL, SearchRunStatus.FAILED}
@@ -206,7 +205,11 @@ class SearchService:
 
     @staticmethod
     def _analyse(run: SearchRun, jd: Any, keys: list[str], progress: RunProgress) -> QueryPlan:
-        semantic_needed = "resume" in keys or getattr(settings, "SEMANTIC_RERANK_ENABLED", False)
+        # The LLM query plan pays off when resume chunks can be searched with it:
+        # the internal pool holds the ingested resumes.
+        semantic_needed = getattr(settings, "SEMANTIC_RERANK_ENABLED", False) or (
+            "internal" in keys and library_size() > 0
+        )
         if not semantic_needed:
             plan = structured_plan(jd)
         else:

@@ -126,10 +126,20 @@ export function CommunicationsTab({
             : ''}
         </p>
         {canLog && (
-          <Button type="button" onClick={() => actions.logContact(toTarget(application))}>
-            <PhoneCallIcon data-icon="inline-start" aria-hidden="true" />
-            Log contact
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => actions.emailCandidate(toTarget(application))}
+            >
+              <MailIcon data-icon="inline-start" aria-hidden="true" />
+              Send email
+            </Button>
+            <Button type="button" onClick={() => actions.logContact(toTarget(application))}>
+              <PhoneCallIcon data-icon="inline-start" aria-hidden="true" />
+              Log contact
+            </Button>
+          </div>
         )}
       </div>
       {list.isPending ? (

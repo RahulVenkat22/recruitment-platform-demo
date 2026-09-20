@@ -70,7 +70,6 @@ def test_colour_tokens_for_statuses_sources_and_categories(payload):
         "referral",
         "naukri",
         "linkedin",
-        "resume",
     }
     assert set(colors["activity_category"]) == set(EXPECTED_CATEGORIES)
 

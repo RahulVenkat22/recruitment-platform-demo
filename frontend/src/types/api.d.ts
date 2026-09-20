@@ -594,6 +594,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/email/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Outreach email settings and templates
+         * @description ``GET /email/``: whether outreach mail is configured, the sender, and the templates.
+         */
+        get: operations["email_config"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/searches/": {
         parameters: {
             query?: never;
@@ -653,6 +673,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/applications/bulk-email/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Email several candidates with one template, personalised per candidate */
+        post: operations["applications_bulk_email"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/applications/bulk-transition/": {
         parameters: {
             query?: never;
@@ -686,6 +723,40 @@ export interface paths {
         head?: never;
         /** Change the owner, star or notes */
         patch: operations["applications_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/email/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Email the candidate and log it as a contact */
+        post: operations["applications_email"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/email/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Render an outreach template for this candidate */
+        post: operations["applications_email_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/applications/{id}/moves/": {
@@ -1457,6 +1528,17 @@ export interface components {
             access: string;
             user: components["schemas"]["User"];
         };
+        BulkEmailRequest: {
+            ids: string[];
+            /** Format: uuid */
+            template_id: string;
+        };
+        BulkEmailResult: {
+            sent: string[];
+            skipped: {
+                [key: string]: string;
+            };
+        };
         BulkTransitionRequest: {
             ids: string[];
             status: components["schemas"]["ApplicationStatusEnum"];
@@ -1669,10 +1751,9 @@ export interface components {
          *     * `referral` - Referral
          *     * `naukri` - Naukri
          *     * `linkedin` - LinkedIn
-         *     * `resume` - Resume Library
          * @enum {string}
          */
-        CandidateSourceEnum: "internal" | "referral" | "naukri" | "linkedin" | "resume";
+        CandidateSourceEnum: "internal" | "referral" | "naukri" | "linkedin";
         /** @description The candidate columns of a ranked row (plan.md 9.8); contact details masked by role. */
         CandidateSummary: {
             /** Format: uuid */
@@ -1821,6 +1902,31 @@ export interface components {
         };
         Detail: {
             detail: string;
+        };
+        /** @description ``GET /email/``: is outgoing mail configured, who it comes from, the templates. */
+        EmailConfig: {
+            configured: boolean;
+            from_email: string;
+            reply_to: string;
+            safe_recipient: string;
+            company: string;
+            placeholders: string[];
+            templates: components["schemas"]["MessageTemplate"][];
+        };
+        EmailPreview: {
+            to: string;
+            can_send: boolean;
+            reason: string;
+            subject: string;
+            body: string;
+        };
+        EmailPreviewRequestRequest: {
+            /** Format: uuid */
+            template_id: string;
+        };
+        EmailSendRequest: {
+            subject: string;
+            body: string;
         };
         /**
          * @description * `full_time` - Full-time
@@ -2243,6 +2349,15 @@ export interface components {
             candidate_id: string;
             /** Format: uuid */
             job_description_id: string;
+        };
+        MessageTemplate: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly channel: components["schemas"]["CommunicationChannelEnum"];
+            readonly subject: string;
+            readonly body: string;
+            readonly is_default: boolean;
         };
         /** @description ``GET /api/v1/meta/enums/`` body (plan.md 6.4, 7.2). */
         MetaEnums: {
@@ -4292,6 +4407,25 @@ export interface operations {
             };
         };
     };
+    email_config: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailConfig"];
+                };
+            };
+        };
+    };
     searches_list: {
         parameters: {
             query?: {
@@ -4479,6 +4613,45 @@ export interface operations {
             };
         };
     };
+    applications_bulk_email: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkEmailRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["BulkEmailRequest"];
+                "multipart/form-data": components["schemas"]["BulkEmailRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkEmailResult"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     applications_bulk_transition: {
         parameters: {
             query?: never;
@@ -4564,6 +4737,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApplicationDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    applications_email: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this application. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailSendRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["EmailSendRequest"];
+                "multipart/form-data": components["schemas"]["EmailSendRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Communication"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    applications_email_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this application. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailPreviewRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["EmailPreviewRequestRequest"];
+                "multipart/form-data": components["schemas"]["EmailPreviewRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailPreview"];
                 };
             };
             /** @description plan.md 6.10 error envelope */

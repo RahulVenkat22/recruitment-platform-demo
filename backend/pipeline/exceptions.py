@@ -34,3 +34,15 @@ class ApplicationExists(APIException):
     status_code = status.HTTP_409_CONFLICT
     default_detail = "This candidate is already attached to that job description."
     default_code = "application_exists"
+
+
+class NoRecipient(APIException):
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = "This candidate has no email address."
+    default_code = "no_recipient"
+
+
+class EmailDeliveryFailed(APIException):
+    status_code = status.HTTP_502_BAD_GATEWAY
+    default_detail = "The mail server rejected the message."
+    default_code = "email_delivery_failed"

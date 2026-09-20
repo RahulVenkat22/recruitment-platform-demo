@@ -92,7 +92,7 @@ export type ApplicationStatus =
   | 'withdrawn'
   | 'on_hold'
 
-export type CandidateSource = 'internal' | 'referral' | 'naukri' | 'linkedin' | 'resume'
+export type CandidateSource = 'internal' | 'referral' | 'naukri' | 'linkedin'
 
 export type ActivityCategory =
   | 'job_description'
@@ -285,6 +285,12 @@ export type Recommendation = Schemas['RecommendationEnum']
 
 export type Communication = Schemas['Communication']
 export type CommunicationCreateRequest = Schemas['CommunicationCreateRequest']
+export type EmailConfig = Schemas['EmailConfig']
+export type MessageTemplate = Schemas['MessageTemplate']
+export type EmailPreview = Schemas['EmailPreview']
+export type EmailSendRequest = Schemas['EmailSendRequest']
+export type BulkEmailRequest = Schemas['BulkEmailRequest']
+export type BulkEmailResult = Schemas['BulkEmailResult']
 
 export type Offer = Schemas['Offer']
 export type OfferCreateRequest = Schemas['OfferCreateRequest']

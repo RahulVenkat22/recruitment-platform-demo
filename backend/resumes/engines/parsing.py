@@ -165,10 +165,10 @@ PDF_ANSWER_TOKENS = 8192
 # otherwise look like a clean parse.
 UNREADABLE = "unreadable"
 
-# Descriptions are transcribed, not forbidden: the model is looking at the
-# page, so transcription is not invention -- and the descriptions are what give
-# the experience chunks any semantic surface at all when there is no text layer
-# to window over.
+# Each role's description is a short summary grounded in that role's own
+# bullets: the model is looking at the page, so summarising what is written is
+# not invention -- and the descriptions are what give the experience chunks
+# their semantic surface when there is no text layer to window over.
 _PDF_SYSTEM = SystemMessage(
     content=(
         "You are an expert technical recruiter reading a resume PDF and returning structured "
@@ -179,9 +179,11 @@ _PDF_SYSTEM = SystemMessage(
         "Write `summary` as 2-3 factual sentences about the candidate's profession, seniority, "
         "main technologies and industries. For each role return the company, the job title, the "
         "start and end dates exactly as written (end = 'Present' when current), the location and "
-        "the industry if obvious, and set `description` to that role's own bullet points, "
-        "transcribed verbatim and trimmed to about 60 words -- do not summarise, do not invent, "
-        "and leave it empty if the page is unreadable. List the most recent role first."
+        "the industry if obvious, and set `description` to a summary of that role in one or "
+        "two sentences, at most about 40 words: read every bullet point under the role and "
+        "state what the person did, the technologies used and the notable outcomes. Use only "
+        "facts written under that role -- do not invent and do not copy the bullets verbatim "
+        "-- and leave it empty if the page is unreadable. List the most recent role first."
     )
 )
 
@@ -312,6 +314,9 @@ def validate(parsed: ParsedResume) -> ValidatedResume:
         if start is None:
             warnings.append(f"experience without a start date skipped: {row.title or row.company}")
             continue
+        # A safety net under the prompt's "one or two sentences": the profile
+        # page shows this as one paragraph per role.
+        row.description = " ".join(row.description.split())[:600]
         kept.append(row)
     profile.experience = kept[:15]
     profile.education = [row for row in profile.education if row.degree or row.institution][:6]

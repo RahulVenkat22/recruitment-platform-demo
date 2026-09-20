@@ -15,5 +15,4 @@ REST_FRAMEWORK = {
     ],
 }
 
-# Email never leaves the machine in development.
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# Email follows base.py: SMTP when EMAIL_HOST is set in .env, the console otherwise.

@@ -15,7 +15,6 @@ PROVIDER_CLASSES: dict[str, str] = {
     "referral": "sourcing.providers.database.MockReferralProvider",
     "naukri": "sourcing.providers.database.MockNaukriProvider",
     "linkedin": "sourcing.providers.database.MockLinkedInProvider",
-    "resume": "sourcing.providers.resume.ResumeLibraryProvider",
 }
 
 
