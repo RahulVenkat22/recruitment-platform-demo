@@ -1,7 +1,7 @@
 ###############################################################################
 # Aimious AI Recruitment Platform -- full stack
 #
-#   postgres  ->  host 5434  (container 5432)   PostgreSQL 16
+#   postgres  ->  host 5434  (container 5432)   PostgreSQL 16 + pgvector
 #   api       ->  host 8200                     Django + DRF
 #   web       ->  host 8201  (container 80)     nginx serving the Vite build,
 #                                               proxying /api -> api
@@ -19,7 +19,10 @@ name: aimious-recruit
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # The official PostgreSQL 16 image plus the pgvector extension (resume
+    # embeddings). Same data volume and credentials as before; the extension
+    # itself is created by the resumes app's first migration.
+    image: pgvector/pgvector:pg16
     container_name: aimious-recruit-postgres
     restart: unless-stopped
     environment:

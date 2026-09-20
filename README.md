@@ -28,13 +28,28 @@ Requirements: Python 3.12, Node 24, Docker (for PostgreSQL).
 
 ```bash
 make setup      # copies .env, creates backend/.venv, installs Python and npm deps
-make db-up      # starts PostgreSQL 16 in Docker on host port 5434
+make db-up      # starts PostgreSQL 16 + pgvector in Docker on host port 5434
 make migrate    # applies Django migrations
 make seed       # loads the deterministic demo data set (about 20 seconds)
 make dev        # Django API on 8200 + Vite dev server on 5175 (Ctrl-C stops both)
 ```
 
 Open <http://localhost:5175> and sign in with a demo account below. `make help` lists every target.
+
+### Resume library (OpenAI or Gemini)
+
+Resume PDFs are parsed, embedded and searched through the provider named by `LLM_PROVIDER` in `.env`: `gemini` (`GEMINI_API_KEY`, `GEMINI_MODEL`) or `openai` (`OPENAI_API_KEY`, `OPENAI_MODEL`). The whole PDF -- every page, as it looks -- goes to that vendor, along with the job brief and the candidate excerpts at search time.
+
+```bash
+# set LLM_PROVIDER and the matching *_API_KEY in .env, point RESUME_STORAGE_PATH at a folder of PDFs, then:
+cd backend && .venv/bin/python manage.py ingest_resumes               # everything in the folder (already-ingested files are skipped by hash)
+cd backend && .venv/bin/python manage.py ingest_resumes --reprocess   # re-send everything, e.g. after changing the provider or embedding model
+cd backend && .venv/bin/python manage.py upload_resumes               # once the S3 credentials are in .env
+```
+
+The **PDF itself is sent** to the model, which returns the whole structured profile, so a scanned resume -- which has no text for anything else to read -- parses as well as a typed one. The first `RESUME_LLM_PDF_MAX_PAGES` pages (12) go, which bounds what a page-billed provider can cost on a document that turns out to be a portfolio; over the cap the extra pages are dropped and the document says so. The extracted text layer is never used for a field; it is only the candidate's searchable text, and a scan with no text layer is indexed on text rebuilt from the model's answer. When the model is busy (a 5xx or rate limit that outlives the retries) the parse falls back once to `GEMINI_FALLBACK_MODEL` / `OPENAI_FALLBACK_MODEL`, and the document records which model answered. A PDF the model cannot read, or that cannot be sent, is flagged `needs_review` with the reason and retried automatically the next time `ingest_resumes` runs over the same folder, while everything already parsed is skipped by hash, so nothing is paid for twice. **Embeddings run on the same provider** (`text-embedding-3-small` on OpenAI, `gemini-embedding-001` on Gemini, both at the 768-dimension width baked into the pgvector column), so a change of provider or embedding model is followed by `ingest_resumes --reprocess`.
+
+HR staff can also upload PDFs from the browser: **Candidates → Upload resumes** (`POST /api/v1/resumes/uploads/`, any number of files) validates and de-duplicates them, queues them through the same pipeline on a server worker thread, and shows each file's live status. Every PDF becomes a candidate (or refreshes an existing one, matched by email or phone), its text lands on the profile, and its sections are embedded into pgvector -- and when the PDF is a scan, that text is rebuilt from the model's structured answer, so the candidate is searchable like any other instead of sitting in the library with no vectors. The Search page then offers a "Resume Library" source: the job description is analysed by the LLM, searched semantically, filtered by the structured requirements, and the top candidates are reviewed by the LLM with a grounded explanation. Runs execute in the background and the page shows live progress. Ingestion is one model call per PDF plus the embeddings; a search runs a few LLM reviews (`SEMANTIC_RERANK_LIMIT`) on top of the vector query.
 
 ## One-command demo (Docker)
 
@@ -95,7 +110,16 @@ Everything comes from the repo-root `.env` (copied from [.env.example](.env.exam
 | Variable | Default | Effect |
 |---|---|---|
 | `AI_SHORTLIST_THRESHOLD` | `80` | Overall match at or above this becomes "AI Shortlisted" |
-| `CANDIDATE_SOURCE_PROVIDERS` | `internal,referral,naukri,linkedin` | Which providers the Search page offers |
+| `CANDIDATE_SOURCE_PROVIDERS` | `internal,referral,naukri,linkedin,resume` | Which providers the Search page offers |
+| `RESUME_STORAGE_PATH` | `<repo>/resumes` | Folder `ingest_resumes` scans for PDFs |
+| `LLM_PROVIDER` | `gemini` | Which provider parses, analyses, evaluates and embeds: `gemini` or `openai`. The PDF itself is sent, so scans parse too |
+| `RESUME_LLM_PDF_MAX_PAGES` | `12` | Pages of a PDF sent to the model; over the cap the first 12 go and the document records a warning |
+| `RESUME_LLM_PDF_MAX_MB` | `14` | Size ceiling for that request once the page cap is applied, set from Gemini's 20 MB inline-data limit less the base64 expansion (14 MiB → 18.7 MiB on the wire); over it the document is `needs_review` |
+| `OPENAI_API_KEY` / `GEMINI_API_KEY` | empty | The key for the chosen `LLM_PROVIDER`; `OPENAI_MODEL` / `GEMINI_MODEL` pick the chat model |
+| `EMBEDDING_MODEL` / `EMBEDDING_DIMENSIONS` | per provider / `768` | `text-embedding-3-small` on OpenAI, `gemini-embedding-001` on Gemini; the width is baked into the pgvector column, and changing the model means `ingest_resumes --reprocess` |
+| `SEMANTIC_RERANK_LIMIT` | `4` | Top candidates the LLM reviews per search (each costs one LLM call) |
+| `SEARCH_RUN_ASYNC` | `true` | Searches run in a background thread; the UI polls the run |
+| `RESUME_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | empty | S3 for the PDFs; empty = uploads deferred, "Open resume" explains why |
 | `MATCH_ENGINE` | `rule_based` | Engine key; a Claude-backed engine is the planned next step |
 | `SEED_ANCHOR_DATE` | `2026-09-11` | The day seeded timelines end on |
 | `JWT_REFRESH_REMEMBER_DAYS` | `14` | Refresh cookie lifetime with "Remember me" |
@@ -116,7 +140,7 @@ The backend layering rule (views → services → repositories/providers/engines
 
 ```
 backend/    Django project: config/, common/, accounts/, jobs/, candidates/, pipeline/,
-            sourcing/, matching/, activity/, notifications/, audit/, dashboard/, seed/, tests/
+            sourcing/, matching/, resumes/, activity/, notifications/, audit/, dashboard/, seed/, tests/
 frontend/   Vite + React + TypeScript SPA: src/app, src/lib, src/components, src/features
 scripts/    dev.sh (runs Postgres + API + Vite together)
 docs/       screenshots used above
@@ -124,4 +148,4 @@ docs/       screenshots used above
 
 ## What is deliberately mocked
 
-Naukri, LinkedIn and referral email are providers that read a seeded pool from PostgreSQL. No email is sent (forgot-password records a request and returns 202). Resumes are stored as text with a placeholder link. Search runs synchronously. See ARCHITECTURE.md section 4 for how each of these becomes real.
+Naukri, LinkedIn and referral email are providers that read a seeded pool from PostgreSQL. No email is sent (forgot-password records a request and returns 202). Seeded candidates carry resume text with a placeholder link; ingested PDFs are real, parsed and embedded by the configured `LLM_PROVIDER`, and open from S3 once the credentials are configured. See ARCHITECTURE.md section 4 for how each of these becomes real.

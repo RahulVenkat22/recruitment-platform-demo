@@ -11,6 +11,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   settings: 'Settings',
   new: 'New',
   edit: 'Edit',
+  upload: 'Upload resumes',
 }
 
 /** What a detail page under each section is called when it is the page you came from. */

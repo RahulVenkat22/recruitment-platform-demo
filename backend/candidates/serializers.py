@@ -22,6 +22,8 @@ from common.masking import PIIMaskingMixin
 from common.permissions import is_hr_staff
 from pipeline.models import Application
 from pipeline.serializers import JobRefSerializer
+from resumes.models import ResumeStatus
+from resumes.serializers import ResumeDocumentSummarySerializer
 
 ROW_SKILLS = 6
 
@@ -169,6 +171,7 @@ class CandidateDetailSerializer(CandidateRowSerializer):
     education = CandidateEducationSerializer(many=True, read_only=True)
     certifications = CandidateCertificationSerializer(many=True, read_only=True)
     source_details = CandidateSourceSerializer(source="sources", many=True, read_only=True)
+    resume = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
 
     class Meta(CandidateRowSerializer.Meta):
@@ -176,6 +179,7 @@ class CandidateDetailSerializer(CandidateRowSerializer):
             "summary",
             "resume_text",
             "resume_url",
+            "resume",
             "linkedin_url",
             "github_url",
             "current_ctc",
@@ -188,6 +192,15 @@ class CandidateDetailSerializer(CandidateRowSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+    @extend_schema_field(ResumeDocumentSummarySerializer(allow_null=True))
+    def get_resume(self, obj: Candidate) -> dict[str, Any] | None:
+        """The ingested PDF behind this profile (opened through ``/resume-link/``)."""
+        documents = [row for row in obj.resume_documents.all() if row.status == ResumeStatus.PARSED]
+        if not documents:
+            return None
+        latest = max(documents, key=lambda row: row.ingested_at or row.created_at)
+        return ResumeDocumentSummarySerializer(latest).data
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)

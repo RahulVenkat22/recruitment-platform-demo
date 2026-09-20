@@ -92,7 +92,7 @@ export type ApplicationStatus =
   | 'withdrawn'
   | 'on_hold'
 
-export type CandidateSource = 'internal' | 'referral' | 'naukri' | 'linkedin'
+export type CandidateSource = 'internal' | 'referral' | 'naukri' | 'linkedin' | 'resume'
 
 export type ActivityCategory =
   | 'job_description'
@@ -178,6 +178,58 @@ export type CandidateRef = Schemas['CandidateRef']
 
 export type ProviderHealth = Schemas['ProviderHealth']
 export type SearchRun = Schemas['SearchRun']
+export type SearchRunStatus = Schemas['SearchRunStatusEnum']
+
+/** Where a background search run is; `SearchRun.phase` is one of these (or '' before it starts). */
+export type SearchRunPhase =
+  'queued' | 'analysing' | 'retrieving' | 'scoring' | 'evaluating' | 'finalising' | 'done'
+
+/** `SearchRun.progress`: the live line the loader shows, with a counter when there is one. */
+export interface SearchProgress {
+  message?: string
+  current?: number
+  total?: number
+}
+
+/** `SearchRun.query_plan`: what the AI read in the job description before searching. */
+export interface QueryPlan {
+  title?: string
+  required_skills?: string[]
+  preferred_skills?: string[]
+  inferred_skills?: string[]
+  min_years?: number
+  max_years?: number
+  domains?: string[]
+  seniority?: string
+  ideal_candidate?: string
+  queries?: string[]
+  source?: 'llm' | 'structured'
+  model?: string
+  error?: string
+}
+
+/** One resume excerpt the evaluator was shown. */
+export interface SemanticEvidence {
+  section: string
+  excerpt: string
+  similarity?: number
+}
+
+/** `CandidateMatch.semantic_details`: the signals and findings behind a hybrid match. */
+export interface SemanticDetails {
+  rule_pct?: number
+  retrieval_score?: number | null
+  llm_score?: number | null
+  matched_skills?: string[]
+  missing_skills?: string[]
+  matching_experience?: string[]
+  concerns?: string[]
+  meets_experience_requirement?: boolean
+  dropped_claims?: string[]
+  evidence?: SemanticEvidence[]
+  model?: string
+  seconds?: number
+}
 export type SearchResponse = Schemas['SearchResponse']
 export type JobRef = Schemas['JobRef']
 export type CandidateSkillRef = Schemas['CandidateSkillRef']
@@ -204,6 +256,16 @@ export type CandidateEducation = Schemas['CandidateEducation']
 export type CandidateCertification = Schemas['CandidateCertification']
 export type CandidateSourceDetail = Schemas['CandidateSource']
 export type CandidateWriteRequest = Schemas['CandidateWriteRequest']
+export type ResumeDocumentSummary = Schemas['ResumeDocumentSummary']
+export type ResumeLink = Schemas['ResumeLink']
+
+// ------------------------------------------------------------- resume uploads
+
+export type IntakeFile = Schemas['IntakeFile']
+export type IntakeResult = Schemas['IntakeResult']
+export type UploadedDocument = Schemas['UploadedDocument']
+export type UploadBatch = Schemas['UploadBatch']
+export type UploadBatchSummary = Schemas['UploadBatchSummary']
 export type CandidatePatch = Schemas['PatchedCandidateWriteRequest']
 
 // ------------------------------- interviews, communications, offers, onboardings (plan.md 6.10)

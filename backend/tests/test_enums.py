@@ -147,7 +147,7 @@ def test_other_enums_have_the_plan_values():
         "interviewer",
         "observer",
     ]
-    assert list(CandidateSource.values) == ["internal", "referral", "naukri", "linkedin"]
+    assert list(CandidateSource.values) == ["internal", "referral", "naukri", "linkedin", "resume"]
     assert list(enums.JDStatus.values) == [
         "draft",
         "open",

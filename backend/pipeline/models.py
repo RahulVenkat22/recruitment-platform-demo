@@ -62,6 +62,13 @@ class SearchRun(UUIDTimestampedModel):
     finished_at = models.DateTimeField(null=True, blank=True)
     duration_ms = models.PositiveIntegerField(null=True, blank=True)
     error = models.TextField(null=True, blank=True)
+    # Where an in-flight run is (queued, analysing, retrieving, scoring, evaluating,
+    # finalising, done) and a human-readable line for the loader; the run executes
+    # in a background thread and the UI polls these.
+    phase = models.CharField(max_length=20, blank=True, default="")
+    progress = models.JSONField(null=True, blank=True)
+    # The JD analysis behind this run (resumes.engines.planner.QueryPlan.as_dict()).
+    query_plan = models.JSONField(null=True, blank=True)
 
     class Meta:
         ordering = ["-started_at"]
@@ -159,6 +166,14 @@ class CandidateMatch(UUIDTimestampedModel):
     engine = models.CharField(max_length=40)
     engine_version = models.CharField(max_length=20)
     computed_at = models.DateTimeField(default=timezone.now)
+    # Semantic search signals (null when the match came from the rules alone):
+    # how strongly the resume text matched the job (0..1) and the LLM's score (0..100).
+    retrieval_score = models.DecimalField(max_digits=5, decimal_places=4, null=True, blank=True)
+    rerank_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    # The LLM's grounded explanation, plus its matched/missing skills, concerns,
+    # the resume excerpts it was shown and the model that wrote it.
+    explanation = models.TextField(blank=True, default="")
+    semantic_details = models.JSONField(null=True, blank=True)
 
     class Meta:
         ordering = ["-overall_pct"]

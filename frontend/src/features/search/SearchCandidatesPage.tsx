@@ -3,6 +3,7 @@ import {
   BriefcaseIcon,
   CheckIcon,
   DatabaseIcon,
+  FileTextIcon,
   LayoutGridIcon,
   LinkIcon,
   ListIcon,
@@ -16,7 +17,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -38,8 +39,11 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  isRunFinished,
   useApplications,
+  useInvalidatePipeline,
   useRunSearch,
+  useSearchRun,
   useSearchRuns,
   useSources,
 } from '@/features/applications/api'
@@ -52,6 +56,7 @@ import { ApplicationsTable } from '@/features/applications/ApplicationsTable'
 import { useApplicationActions } from '@/features/applications/useApplicationActions'
 import { useJob, useJobList } from '@/features/jobs/api'
 import { isWorkable, jobSummaryLine, skillChips } from '@/features/jobs/job-utils'
+import { skillLabel } from '@/features/jobs/job-utils'
 import { AISearchLoader } from '@/features/search/AISearchLoader'
 import { useEnumOptions } from '@/lib/enums'
 import { describeError } from '@/lib/errors'
@@ -61,7 +66,14 @@ import { focusRovingSibling, rovingIndex } from '@/lib/keyboard'
 import { EASE_BRAND } from '@/lib/motion'
 import { useUiStore, type PageSize } from '@/lib/ui-store'
 import { cn } from '@/lib/utils'
-import { personFromUser, type JobRow, type SearchResponse } from '@/types/domain'
+import {
+  personFromUser,
+  type JobRow,
+  type QueryPlan,
+  type SearchProgress,
+  type SearchResponse,
+  type SearchRun,
+} from '@/types/domain'
 
 const SEARCH_SPEC = {
   jd: param.string(''),
@@ -79,6 +91,7 @@ const SOURCE_ICONS: Record<string, LucideIcon> = {
   referral: MailIcon,
   naukri: BriefcaseIcon,
   linkedin: LinkIcon,
+  resume: FileTextIcon,
 }
 
 const STATUS_RANK: Record<string, number> = {
@@ -113,6 +126,37 @@ function StepLabel({ step, children }: { step: number; children: React.ReactNode
 function formatDuration(ms: number | null | undefined): string {
   if (!ms) return ''
   return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`
+}
+
+/** What the AI read in the job description before searching (SearchRun.query_plan). */
+function AIBrief({ plan }: { plan: QueryPlan | null }) {
+  if (!plan || plan.source !== 'llm') return null
+  const inferred = plan.inferred_skills ?? []
+  if (!plan.ideal_candidate && inferred.length === 0) return null
+  return (
+    <div
+      data-slot="ai-brief"
+      className="rounded-card border border-line bg-surface px-4 py-3 text-small shadow-card"
+    >
+      <p className="flex items-start gap-2 text-ink">
+        <SparklesIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-accent-ink" />
+        <span>
+          <span className="font-medium">AI brief: </span>
+          {plan.ideal_candidate}
+        </span>
+      </p>
+      {inferred.length > 0 && (
+        <p className="mt-2 flex flex-wrap items-center gap-1.5 text-caption text-ink-muted">
+          <span>Also looked for</span>
+          {inferred.map((key) => (
+            <span key={key} className="rounded-pill bg-surface-2 px-2 py-0.5 text-ink">
+              {skillLabel(key)}
+            </span>
+          ))}
+        </p>
+      )}
+    </div>
+  )
 }
 
 /** The search failed: say so plainly and offer to run it again (Enhancement.md 7). */
@@ -170,11 +214,17 @@ export default function SearchCandidatesPage() {
   const runs = useSearchRuns(state.jd || undefined)
   const sources = useSources()
   const runSearch = useRunSearch()
+  const invalidatePipeline = useInvalidatePipeline()
   const sourceOptions = useEnumOptions('candidate_source')
   const [selected, setSelected] = useState<string[] | null>(null)
   const [lastResponse, setLastResponse] = useState<SearchResponse | null>(null)
   const [searchError, setSearchError] = useState<unknown>(null)
   const [startedAt, setStartedAt] = useState(0)
+  // A run executing in the background (202 from POST /searches/): polled until final.
+  const [activeRunId, setActiveRunId] = useState<string | null>(null)
+  const activeRun = useSearchRun(activeRunId ?? undefined)
+  const liveRun: SearchRun | null = activeRunId ? (activeRun.data ?? null) : null
+  const finishedRunRef = useRef<string | null>(null)
   const [draft, setDraft] = useState(state.q)
   const debounced = useDebounce(draft, 300)
   const [selection, setSelection] = useState<RowSelectionState>({})
@@ -201,6 +251,13 @@ export default function SearchCandidatesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounced])
 
+  // Polling itself failed (network, sign-out): the run is not awaited any further.
+  const pollError = activeRunId && activeRun.isError ? activeRun.error : null
+  const inFlight = Boolean(activeRunId) && !pollError && !isRunFinished(liveRun)
+  // Retrieval writes the applications before the AI evaluation starts, so the
+  // table can fill in live while the last phases run.
+  const partialResults =
+    inFlight && (liveRun?.phase === 'evaluating' || liveRun?.phase === 'finalising')
   const list = useApplications(
     {
       job_description: state.jd,
@@ -213,44 +270,75 @@ export default function SearchCandidatesPage() {
       ordering: state.sort,
     },
     Boolean(state.jd),
+    { refetchInterval: partialResults ? 2500 : false },
   )
   const rows = list.data?.results ?? []
   const total = list.data?.count ?? 0
   const lastRun = lastResponse?.run ?? runs.data?.[0] ?? null
   const canSearch =
     Boolean(job.data?.permissions.can_work_pipeline) && isWorkable(job.data?.status ?? '')
-  const searching = runSearch.isPending
+  const searching = runSearch.isPending || inFlight
   const view = mobile ? 'cards' : state.view
   const filtered =
     state.group !== 'all' || state.source.length > 0 || state.min > 0 || state.q !== ''
   const selectedJob: JobRow | undefined = sortedJobs.find((row) => row.id === state.jd)
 
+  function finishRun(run: SearchRun, errors: Record<string, string>) {
+    setLastResponse({ run, results: [], errors })
+    setSelection({})
+    setState({ page: 1 })
+    if (run.status === 'failed') {
+      setSearchError(new Error(run.error || 'The search failed before any candidate was found.'))
+      return
+    }
+    const unavailable = Object.keys(errors).length
+      ? Object.keys(errors)
+      : run.error
+        ? run.error.split('; ').map((item) => item.split(':')[0])
+        : []
+    toast.success(
+      `${run.total_found} candidates found, ${run.shortlisted} AI shortlisted` +
+        (unavailable.length ? ` (${unavailable.join(', ')} unavailable)` : ''),
+    )
+  }
+
   async function search() {
     // One search at a time: the button is disabled while a run is in flight and
     // a second call is ignored (Enhancement.md 7).
-    if (!state.jd || chosen.length === 0 || runSearch.isPending) return
+    if (!state.jd || chosen.length === 0 || searching) return
     setSearchError(null)
     setStartedAt(Date.now())
     try {
       const response = await runSearch.mutateAsync({ jobId: state.jd, sources: chosen })
-      setLastResponse(response)
-      setSelection({})
-      setState({ page: 1 })
-      toast.success(
-        `${response.run.total_found} candidates found, ${response.run.shortlisted} AI shortlisted` +
-          (Object.keys(response.errors).length
-            ? ` (${Object.keys(response.errors).join(', ')} unavailable)`
-            : ''),
-      )
+      if (!isRunFinished(response.run)) {
+        // 202: the run continues in the background; useSearchRun polls it.
+        finishedRunRef.current = null
+        setActiveRunId(response.run.id)
+        return
+      }
+      finishRun(response.run, response.errors)
     } catch (error) {
       setSearchError(error)
     }
   }
 
+  // The background run reached its final status: refresh everything once and report.
+  useEffect(() => {
+    if (!activeRunId || !liveRun || !isRunFinished(liveRun)) return
+    if (finishedRunRef.current === liveRun.id) return
+    finishedRunRef.current = liveRun.id
+    void invalidatePipeline(state.jd || undefined).then(() => {
+      setActiveRunId(null)
+      finishRun(liveRun, {})
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRunId, liveRun])
+
   function pickJob(jd: string) {
     setLastResponse(null)
     setSearchError(null)
     setSelection({})
+    setActiveRunId(null)
     setState({ jd, page: 1, group: 'all', source: [], min: 0 })
   }
 
@@ -380,24 +468,32 @@ export default function SearchCandidatesPage() {
         </div>
       </motion.section>
     )
-  } else if (searching) {
+  } else if (searching && !partialResults) {
     results = (
       <motion.section key="loading" {...fade} aria-label="Results">
         <AISearchLoader
           sources={chosenLabels}
           jobTitle={selectedJob?.title}
           startedAt={startedAt}
+          phase={liveRun?.phase || (activeRunId ? 'queued' : null)}
+          progress={(liveRun?.progress as SearchProgress | null) ?? null}
         />
       </motion.section>
     )
-  } else if (searchError) {
+  } else if (searchError || pollError) {
     results = (
       <motion.section key="error" {...fade} aria-label="Results">
         <SearchFailed
-          error={searchError}
+          error={searchError ?? pollError}
           retrying={searching}
-          onRetry={() => void search()}
-          onDismiss={() => setSearchError(null)}
+          onRetry={() => {
+            setActiveRunId(null)
+            void search()
+          }}
+          onDismiss={() => {
+            setActiveRunId(null)
+            setSearchError(null)
+          }}
         />
       </motion.section>
     )
@@ -409,6 +505,27 @@ export default function SearchCandidatesPage() {
         aria-label="Results"
         className="space-y-3"
       >
+        {partialResults && (
+          <div
+            role="status"
+            aria-live="polite"
+            data-slot="search-live-banner"
+            className="flex flex-wrap items-center gap-3 rounded-card border border-accent/60 bg-accent-soft px-4 py-3 text-small text-ink"
+          >
+            <SparklesIcon
+              aria-hidden="true"
+              className="size-4 shrink-0 animate-pulse text-accent-ink"
+            />
+            <span className="font-medium">
+              {(liveRun?.progress as SearchProgress | null)?.message ??
+                'AI evaluation in progress…'}
+            </span>
+            <span className="text-ink-muted">
+              Candidates are listed by the rules and resume similarity; the AI explanations and
+              final scores update as each review lands.
+            </span>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h2 className="text-h3 text-ink">Results</h2>
           {lastResponse ? (
@@ -435,6 +552,7 @@ export default function SearchCandidatesPage() {
             </p>
           )}
         </div>
+        <AIBrief plan={(lastRun?.query_plan as QueryPlan | null) ?? null} />
         {list.isError ? (
           <ErrorState
             title="Couldn't load results"

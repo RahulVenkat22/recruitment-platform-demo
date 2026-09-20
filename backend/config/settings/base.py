@@ -11,6 +11,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 # backend/ (contains manage.py)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -63,6 +64,7 @@ LOCAL_APPS = [
     "pipeline",
     "sourcing",
     "matching",
+    "resumes",
     "activity",
     "notifications",
     "audit",
@@ -263,8 +265,183 @@ AI_SHORTLIST_THRESHOLD = env.int("AI_SHORTLIST_THRESHOLD", default=80)
 SEARCH_RESULT_LIMIT_PER_SOURCE = env.int("SEARCH_RESULT_LIMIT_PER_SOURCE", default=60)
 CANDIDATE_SOURCE_PROVIDERS = env.list(
     "CANDIDATE_SOURCE_PROVIDERS",
-    default=["internal", "referral", "naukri", "linkedin"],
+    default=["internal", "referral", "naukri", "linkedin", "resume"],
 )
+
+# --------------------------------------------- resumes, the LLM and vector search
+# Folder scanned by `manage.py ingest_resumes` when no path is given; point it at
+# any directory of PDFs. Files are never moved or modified.
+RESUME_STORAGE_PATH = env.str("RESUME_STORAGE_PATH", default=str(REPO_ROOT / "resumes"))
+# A PDF yielding fewer characters than this has no usable text layer: it is
+# scanned, or empty. The PDF file itself goes to the model either way, so the
+# resume still parses; this threshold decides only whether the text layer is
+# indexed as the candidate's searchable text or the text is rebuilt from the
+# model's answer (resumes/services/ingestion.py). No field comes from it.
+RESUME_MIN_TEXT_CHARS = env.int("RESUME_MIN_TEXT_CHARS", default=200)
+RESUME_CHUNK_SIZE = env.int("RESUME_CHUNK_SIZE", default=1200)
+RESUME_CHUNK_OVERLAP = env.int("RESUME_CHUNK_OVERLAP", default=150)
+# Pages of the PDF sent to the model. A page is billed as an image, so an
+# unbounded document is an unbounded invoice, and a 60-page PDF is almost never
+# a 60-page resume: it is a resume with transcripts or a portfolio stapled to
+# it. Over the cap the FIRST N pages are sent and a warning naming the cap is
+# recorded, so no file ever dead-ends for being long. 12 covers the
+# six-to-eight-page resumes this library holds with room to spare. At least 1,
+# because the model is the only parser: "send nothing" would shelve every
+# document, and a non-positive value can only be a typo.
+RESUME_LLM_PDF_MAX_PAGES = max(1, env.int("RESUME_LLM_PDF_MAX_PAGES", default=12))
+# Megabytes that PDF may occupy AFTER the page cap has been applied. Not a
+# second cost limit -- the request limit, since an inline attachment travels
+# base64-encoded (1.3333x) inside one request body. A PDF whose first 12 pages
+# are still larger than this is 600-dpi scans rather than a document; it is
+# shelved as needs_review with the size and this setting named in the reason.
+#
+# The default is set from the REQUEST limit, not from anything local: Gemini
+# caps an inline-data request at 20 MB, and base64 costs 4 bytes per 3, so the
+# cap must leave that expansion room. The two units are NOT the same unit and
+# mixing them is how this margin was overstated: this setting is read in MiB
+# (max_mb * 1024 * 1024, as `load_pdf_for_model` computes it) and the provider
+# limit is 20 decimal MB = 20,000,000 bytes. 14 MiB = 14,680,064 bytes encodes
+# to 19,573,420 bytes = 19.57 MB, which clears the limit by about 0.43 MB --
+# roughly 2%, not the 1.33 MiB a MiB-against-MiB reading suggests. The previous
+# 15 MiB encoded to 20,971,520 bytes = 20.97 MB and did not clear it, which made
+# the very largest PDFs this setting admitted the ones guaranteed to fail at the
+# provider. Raise the default only against a measured provider limit: at 15 MiB
+# the margin is already negative.
+#
+# RESUME_UPLOAD_MAX_MB (20) is a SEPARATE, larger limit and does not protect
+# this one -- a 17 MB PDF is a perfectly legal upload and is refused here. That
+# is intended: the document then records the size and this setting by name.
+RESUME_LLM_PDF_MAX_MB = max(0, env.int("RESUME_LLM_PDF_MAX_MB", default=14))
+# Upload API: per-file size cap, files per request, and whether a batch is
+# processed by the in-process worker thread (false = inline, for scripts/tests).
+RESUME_UPLOAD_MAX_MB = env.int("RESUME_UPLOAD_MAX_MB", default=20)
+RESUME_UPLOAD_MAX_FILES = env.int("RESUME_UPLOAD_MAX_FILES", default=200)
+RESUME_INGEST_ASYNC = env.bool("RESUME_INGEST_ASYNC", default=True)
+# Django's own multipart limits, raised so a whole folder can be dropped at once.
+DATA_UPLOAD_MAX_NUMBER_FILES = RESUME_UPLOAD_MAX_FILES + 10
+
+# Which provider runs resume parsing, JD analysis, candidate evaluation AND the
+# embeddings: "openai" or "gemini". Only the clients change -- the prompts and
+# the Pydantic schemas are the same for both (only the structured-output
+# mechanism differs, see resumes/engines/llm.py), so switching providers changes
+# answer quality and nothing else -- except the embedding space, which is why a
+# switch is followed by `ingest_resumes --reprocess` (see EMBEDDING_MODEL).
+# An unknown value stops the process here rather than degrading silently at the
+# first parse: unlike MATCH_ENGINE, which matching/registry.py validates lazily
+# inside get_engine(), LLM_PROVIDER is read by settings themselves (LLM_MODEL
+# below branches on it), so there is no later moment at which a typo could be
+# caught with the same information.
+LLM_PROVIDERS = ("openai", "gemini")
+LLM_PROVIDER = env.str("LLM_PROVIDER", default="gemini").strip().lower() or "gemini"
+if LLM_PROVIDER not in LLM_PROVIDERS:
+    raise ImproperlyConfigured(
+        f"LLM_PROVIDER={LLM_PROVIDER!r} is not one of {', '.join(LLM_PROVIDERS)}"
+    )
+
+# The *_SEARCH_MODEL split is a cheaper model for the interactive search path.
+# OpenAI falls back to the main model when it is left empty; Gemini is the
+# exception -- its default search model is the cheaper -lite tier, so raising
+# GEMINI_MODEL alone does not silently raise the per-search bill. Set
+# GEMINI_SEARCH_MODEL explicitly to use one model for both.
+# The keys come from the environment; .env.example ships them empty, and a
+# missing key is reported when a call is made, not at startup, so a container
+# can still migrate with the key injected later. OPENAI_BASE_URL is only for
+# OpenAI-compatible gateways; empty means api.openai.com.
+# .strip() before the fallback, here and for every other model name: a line
+# left as `OPENAI_MODEL= ` (or with a trailing space) otherwise reaches the
+# client as a name with whitespace in it, which fails at the first call instead
+# of falling back to the documented default.
+OPENAI_API_KEY = env.str("OPENAI_API_KEY", default="")
+OPENAI_MODEL = env.str("OPENAI_MODEL", default="").strip() or "gpt-4o-mini"
+OPENAI_SEARCH_MODEL = env.str("OPENAI_SEARCH_MODEL", default="").strip() or OPENAI_MODEL
+OPENAI_BASE_URL = env.str("OPENAI_BASE_URL", default="")
+# GEMINI_API_KEY, not GOOGLE_API_KEY: the key is passed to the client explicitly,
+# never picked up from an ambient GOOGLE_API_KEY belonging to another tool. The
+# defaults must be models the pinned langchain-google-genai knows: the 1.5 and
+# 2.0 families are gone from its model profiles, so gemini-2.5-flash is the
+# oldest flash still recognised, with the cheaper -lite on the search path.
+GEMINI_API_KEY = env.str("GEMINI_API_KEY", default="")
+GEMINI_MODEL = env.str("GEMINI_MODEL", default="").strip() or "gemini-2.5-flash"
+GEMINI_SEARCH_MODEL = env.str("GEMINI_SEARCH_MODEL", default="").strip() or "gemini-2.5-flash-lite"
+# A second model for the resume parse when the main one is busy -- a 5xx or a
+# rate limit that outlived LLM_MAX_RETRIES. Tried once; the document records
+# which model answered (ResumeDocument.llm_model plus a warning). Empty disables
+# it. The search path does not use it: it already runs on the *_SEARCH_MODEL.
+OPENAI_FALLBACK_MODEL = env.str("OPENAI_FALLBACK_MODEL", default="").strip()
+GEMINI_FALLBACK_MODEL = env.str("GEMINI_FALLBACK_MODEL", default="").strip()
+
+# Resolved once, here: resumes.engines.llm, the JD planner, sourcing.services and
+# the ingestion graph read LLM_MODEL / LLM_SEARCH_MODEL / LLM_TIMEOUT_SECONDS and
+# never ask which provider is configured.
+if LLM_PROVIDER == "openai":
+    LLM_MODEL, LLM_SEARCH_MODEL = OPENAI_MODEL, OPENAI_SEARCH_MODEL
+    LLM_FALLBACK_MODEL = OPENAI_FALLBACK_MODEL
+else:
+    LLM_MODEL, LLM_SEARCH_MODEL = GEMINI_MODEL, GEMINI_SEARCH_MODEL
+    LLM_FALLBACK_MODEL = GEMINI_FALLBACK_MODEL
+# Seconds allowed for one structured answer. env.str then int(), not env.int:
+# an empty `LLM_TIMEOUT_SECONDS=` line means "use the default", and env.int("")
+# raises ValueError. Reading a 12-page PDF takes the hosted models well under a
+# minute; 120 leaves room for a busy hour.
+_llm_timeout = env.str("LLM_TIMEOUT_SECONDS", default="").strip() or "120"
+try:
+    LLM_TIMEOUT_SECONDS = int(_llm_timeout)
+except ValueError as exc:
+    raise ImproperlyConfigured(
+        f"LLM_TIMEOUT_SECONDS={_llm_timeout!r} is not a whole number of seconds"
+    ) from exc
+# Retries the clients make before raising, counted as retries after the first
+# attempt (resumes.engines.llm translates it to the shape each client wants;
+# Gemini counts total attempts, not retries, and its own default is 6, which
+# against a long timeout is a multi-minute hang on the search path).
+# env.str then int(), like LLM_TIMEOUT_SECONDS above: an empty
+# `LLM_MAX_RETRIES=` line means "use the default", and env.int("") raises a raw
+# ValueError out of django-environ at import time.
+_llm_max_retries = env.str("LLM_MAX_RETRIES", default="").strip() or "2"
+try:
+    LLM_MAX_RETRIES = int(_llm_max_retries)
+except ValueError as exc:
+    raise ImproperlyConfigured(
+        f"LLM_MAX_RETRIES={_llm_max_retries!r} is not a whole number of retries"
+    ) from exc
+
+# Embeddings run on the same provider as the chat model and are stored in
+# PostgreSQL (pgvector). EMBEDDING_DIMENSIONS is baked into the
+# resumes_resumechunk column, so both defaults are asked for 768-wide vectors
+# (OpenAI's `dimensions`, Gemini's `output_dimensionality` -- both models
+# support a reduced width natively). Two models' vector spaces are not
+# comparable, so changing the provider or the model means `ingest_resumes
+# --reprocess`; changing the WIDTH additionally needs a resumes migration.
+_EMBEDDING_DEFAULTS = {"openai": "text-embedding-3-small", "gemini": "gemini-embedding-001"}
+EMBEDDING_MODEL = (
+    env.str("EMBEDDING_MODEL", default="").strip() or _EMBEDDING_DEFAULTS[LLM_PROVIDER]
+)
+EMBEDDING_DIMENSIONS = env.int("EMBEDDING_DIMENSIONS", default=768)
+EMBEDDING_BATCH_SIZE = env.int("EMBEDDING_BATCH_SIZE", default=32)
+
+# Semantic candidate search: chunks fetched per query vector, candidates returned,
+# and how many of the top candidates the LLM evaluates (each costs one LLM call).
+VECTOR_SEARCH_LIMIT = env.int("VECTOR_SEARCH_LIMIT", default=60)
+CANDIDATE_RESULT_LIMIT = env.int("CANDIDATE_RESULT_LIMIT", default=10)
+SEMANTIC_JD_ANALYSIS_ENABLED = env.bool("SEMANTIC_JD_ANALYSIS_ENABLED", default=True)
+SEMANTIC_RERANK_ENABLED = env.bool("SEMANTIC_RERANK_ENABLED", default=True)
+SEMANTIC_RERANK_LIMIT = env.int("SEMANTIC_RERANK_LIMIT", default=4)
+# Search runs execute in a background thread and the UI polls GET /searches/{id}/;
+# false runs them inside the request (tests, scripts).
+SEARCH_RUN_ASYNC = env.bool("SEARCH_RUN_ASYNC", default=True)
+
+# Resume PDFs are pushed to S3 after ingestion and opened through pre-signed URLs.
+# Leave the bucket and keys empty until the credentials exist: ingestion still
+# works, documents wait as pending_upload, and `manage.py upload_resumes` pushes
+# them later.
+AWS_ACCESS_KEY_ID = env.str("AWS_ACCESS_KEY_ID", default="")
+AWS_SECRET_ACCESS_KEY = env.str("AWS_SECRET_ACCESS_KEY", default="")
+AWS_REGION = env.str("AWS_REGION", default="ap-south-1")
+# Optional, for S3-compatible stores (MinIO, LocalStack).
+AWS_S3_ENDPOINT_URL = env.str("AWS_S3_ENDPOINT_URL", default="")
+RESUME_S3_BUCKET = env.str("RESUME_S3_BUCKET", default="")
+RESUME_S3_PREFIX = env.str("RESUME_S3_PREFIX", default="resumes/")
+RESUME_S3_URL_EXPIRY_SECONDS = env.int("RESUME_S3_URL_EXPIRY_SECONDS", default=900)
 
 # --------------------------------------------------------------------------- seed
 SEED_RANDOM_SEED = env.int("SEED_RANDOM_SEED", default=42)
@@ -284,5 +461,7 @@ LOGGING = {
     "loggers": {
         "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "httpx": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "botocore": {"handlers": ["console"], "level": "WARNING", "propagate": False},
     },
 }

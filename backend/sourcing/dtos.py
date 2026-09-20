@@ -19,6 +19,10 @@ class SearchCriteria:
     location: str
     domain: str | None
     limit: int
+    # Output of resumes.engines.planner for this run (skills, queries, brief); None
+    # when JD analysis is disabled or failed, in which case providers derive their
+    # own queries from the structured JD fields.
+    query_plan: dict[str, Any] | None = None
 
 
 @dataclass

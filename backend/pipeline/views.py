@@ -86,7 +86,7 @@ from pipeline.services import (
 )
 from pipeline.services.queries import application_queryset
 from sourcing.registry import available_providers
-from sourcing.services import SearchService
+from sourcing.services import TERMINAL_STATUSES, SearchService
 
 ERROR_ENVELOPE = OpenApiResponse(description="plan.md 6.10 error envelope")
 
@@ -121,9 +121,17 @@ class SourcesView(APIView):
     create=extend_schema(
         operation_id="searches_create",
         summary="Run a candidate search for a job description",
+        description=(
+            "With SEARCH_RUN_ASYNC (the default) the run executes in the background: the "
+            "response is 202 with the run in status pending/running and an empty results "
+            "list; poll GET /searches/{id}/ (phase, progress) until status is completed, "
+            "partial or failed, then list applications with search_run={id}. Otherwise the "
+            "run executes inline and the response is 201 with the ranked results."
+        ),
         request=SearchRequestSerializer,
         responses={
             201: SearchResponseSerializer,
+            202: SearchResponseSerializer,
             400: ERROR_ENVELOPE,
             403: ERROR_ENVELOPE,
             409: ERROR_ENVELOPE,
@@ -154,15 +162,16 @@ class SearchRunViewSet(
         jd = serializer.validated_data["job_description"]
         if not can_run_search(request.user, jd):
             raise PermissionDenied("You cannot search candidates for this job description.")
-        outcome = SearchService.run(jd, serializer.validated_data["sources"], request.user)
+        outcome = SearchService.start(jd, serializer.validated_data["sources"], request.user)
         ids = [application.pk for application in outcome.applications]
         rows = list(
             application_queryset(request.user).filter(pk__in=ids).order_by("-match__overall_pct")
         )
         payload = {"run": outcome.run, "results": rows, "errors": outcome.errors}
+        in_flight = str(outcome.run.status) not in TERMINAL_STATUSES
         return Response(
             SearchResponseSerializer(payload, context=self.get_serializer_context()).data,
-            status=status.HTTP_201_CREATED,
+            status=status.HTTP_202_ACCEPTED if in_flight else status.HTTP_201_CREATED,
         )
 
 

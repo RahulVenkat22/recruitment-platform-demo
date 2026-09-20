@@ -604,7 +604,10 @@ export interface paths {
         /** Search history (newest first); filter with job_description */
         get: operations["searches_list"];
         put?: never;
-        /** Run a candidate search for a job description */
+        /**
+         * Run a candidate search for a job description
+         * @description With SEARCH_RUN_ASYNC (the default) the run executes in the background: the response is 202 with the run in status pending/running and an empty results list; poll GET /searches/{id}/ (phase, progress) until status is completed, partial or failed, then list applications with search_run={id}. Otherwise the run executes inline and the response is 201 with the ranked results.
+         */
         post: operations["searches_create"];
         delete?: never;
         options?: never;
@@ -1039,6 +1042,67 @@ export interface paths {
         patch: operations["candidates_partial_update"];
         trace?: never;
     };
+    "/api/v1/candidates/{id}/resume-link/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A short-lived link to open the candidate's resume PDF from S3
+         * @description 404 when no resume was ingested, 503 while S3 is not configured, 409 when the file has not been uploaded yet, 502 when S3 cannot sign the link.
+         */
+        get: operations["candidates_resume_link"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resumes/uploads/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent upload batches with their per-status counts
+         * @description ``POST``: accept PDFs and queue them; ``GET``: recent upload batches.
+         */
+        get: operations["resumes_upload_batches"];
+        put?: never;
+        /**
+         * Upload resume PDFs (any number) and ingest them in the background
+         * @description Multipart body with one or more `files` parts. Each PDF is validated, de-duplicated by content hash and queued through the ingestion pipeline (text extraction, parsing, candidate upsert, embeddings). Poll `GET /resumes/uploads/{batch_id}/` for per-file progress.
+         */
+        post: operations["resumes_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resumes/uploads/{batch_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Progress of one upload batch: every file with its status, reason and candidate */
+        get: operations["resumes_upload_batch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications/": {
         parameters: {
             query?: never;
@@ -1461,6 +1525,7 @@ export interface components {
             readonly summary: string;
             readonly resume_text: string;
             readonly resume_url: string | null;
+            readonly resume: components["schemas"]["ResumeDocumentSummary"] | null;
             readonly linkedin_url: string | null;
             readonly github_url: string | null;
             readonly current_ctc: number | null;
@@ -1521,6 +1586,12 @@ export interface components {
             readonly engine_version: string;
             /** Format: date-time */
             readonly computed_at: string;
+            /** Format: double */
+            readonly retrieval_score: number | null;
+            /** Format: double */
+            readonly rerank_score: number | null;
+            readonly explanation: string;
+            readonly semantic_details: unknown;
         };
         CandidatePermissions: {
             can_edit: boolean;
@@ -1598,9 +1669,10 @@ export interface components {
          *     * `referral` - Referral
          *     * `naukri` - Naukri
          *     * `linkedin` - LinkedIn
+         *     * `resume` - Resume Library
          * @enum {string}
          */
-        CandidateSourceEnum: "internal" | "referral" | "naukri" | "linkedin";
+        CandidateSourceEnum: "internal" | "referral" | "naukri" | "linkedin" | "resume";
         /** @description The candidate columns of a ranked row (plan.md 9.8); contact details masked by role. */
         CandidateSummary: {
             /** Format: uuid */
@@ -1794,6 +1866,30 @@ export interface components {
         Health: {
             status: string;
             database: string;
+        };
+        IntakeFile: {
+            file_name: string;
+            status: components["schemas"]["IntakeFileStatusEnum"];
+            reason: string;
+            /** Format: uuid */
+            document_id: string | null;
+            /** Format: uuid */
+            candidate_id: string | null;
+            candidate_name: string;
+        };
+        /**
+         * @description * `accepted` - accepted
+         *     * `duplicate` - duplicate
+         *     * `rejected` - rejected
+         * @enum {string}
+         */
+        IntakeFileStatusEnum: "accepted" | "duplicate" | "rejected";
+        IntakeResult: {
+            /** Format: uuid */
+            batch_id: string;
+            accepted: components["schemas"]["IntakeFile"][];
+            duplicates: components["schemas"]["IntakeFile"][];
+            rejected: components["schemas"]["IntakeFile"][];
         };
         Interview: {
             /** Format: uuid */
@@ -2684,6 +2780,35 @@ export interface components {
             /** @description For clients without cookies; the aimious_refresh cookie wins when present. */
             refresh?: string;
         };
+        /** @description What a candidate profile shows about the PDF behind it. */
+        ResumeDocumentSummary: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly file_name: string;
+            readonly page_count: number;
+            readonly status: components["schemas"]["StatusDeeEnum"];
+            readonly status_label: string;
+            readonly storage_status: components["schemas"]["StorageStatusEnum"];
+            readonly storage_status_label: string;
+            readonly is_uploaded: boolean;
+            readonly parse_source: string;
+            readonly chunk_count: number;
+            /** Format: date-time */
+            readonly ingested_at: string | null;
+        };
+        ResumeLink: {
+            /** Format: uri */
+            url: string;
+            /** Format: date-time */
+            expires_at: string;
+            file_name: string;
+            /** Format: uuid */
+            document_id: string;
+        };
+        /** @description ``POST /resumes/uploads/`` multipart body: one or many ``files`` parts. */
+        ResumeUploadRequestRequest: {
+            files: string[];
+        };
         /** @description ``POST /searches/``: ``{job_description_id, sources: ["naukri", "linkedin"] | ["all"]}``. */
         SearchRequestRequest: {
             /** Format: uuid */
@@ -2716,6 +2841,9 @@ export interface components {
             readonly finished_at: string | null;
             readonly duration_ms: number | null;
             readonly error: string | null;
+            readonly phase: string;
+            readonly progress: unknown;
+            readonly query_plan: unknown;
         };
         /**
          * @description * `pending` - Pending
@@ -2737,11 +2865,27 @@ export interface components {
             /** @default  */
             note: string;
         };
+        /**
+         * @description * `pending` - Pending
+         *     * `parsed` - Parsed
+         *     * `needs_review` - Needs review
+         *     * `failed` - Failed
+         *     * `superseded` - Superseded
+         * @enum {string}
+         */
+        StatusDeeEnum: "pending" | "parsed" | "needs_review" | "failed" | "superseded";
         StatusGroups: {
             active: string[];
             tray: string[];
             terminal: string[];
         };
+        /**
+         * @description * `pending_upload` - Pending upload
+         *     * `uploaded` - Uploaded
+         *     * `failed` - Upload failed
+         * @enum {string}
+         */
+        StorageStatusEnum: "pending_upload" | "uploaded" | "failed";
         /**
          * @description ``POST .../transition/``: every move through the API carries a reason
          *     (Enhancement.md 6); ``note`` is accepted as the same thing for older clients.
@@ -2759,6 +2903,64 @@ export interface components {
         };
         UnreadCount: {
             unread: number;
+        };
+        UploadBatch: {
+            /** Format: uuid */
+            batch_id: string;
+            /** Format: date-time */
+            created_at: string;
+            uploaded_by: components["schemas"]["UserSummary"] | null;
+            total: number;
+            done: number;
+            counts: components["schemas"]["UploadBatchCounts"];
+            running: boolean;
+            stalled: boolean;
+            queue_position: number;
+            documents: components["schemas"]["UploadedDocument"][];
+        };
+        UploadBatchCounts: {
+            pending: number;
+            parsed: number;
+            needs_review: number;
+            failed: number;
+            superseded: number;
+        };
+        UploadBatchSummary: {
+            /** Format: uuid */
+            batch_id: string;
+            /** Format: date-time */
+            created_at: string;
+            total: number;
+            parsed: number;
+            needs_review: number;
+            failed: number;
+            pending: number;
+            /** Format: date-time */
+            last_activity: string;
+        };
+        UploadedCandidateRef: {
+            /** Format: uuid */
+            id: string;
+            full_name: string;
+        };
+        /** @description One file of an upload batch, as the upload page shows it while polling. */
+        UploadedDocument: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly file_name: string;
+            readonly file_size: number;
+            readonly page_count: number;
+            readonly status: components["schemas"]["StatusDeeEnum"];
+            readonly status_label: string;
+            readonly status_reason: string;
+            readonly warnings: string[];
+            readonly candidate: components["schemas"]["UploadedCandidateRef"] | null;
+            readonly chunk_count: number;
+            readonly parse_source: string;
+            readonly storage_status: components["schemas"]["StorageStatusEnum"];
+            /** Format: date-time */
+            readonly ingested_at: string | null;
+            readonly processing_ms: number | null;
         };
         /** @description The profile returned by login, refresh, ``auth/me`` and ``users/{id}``. */
         User: {
@@ -4135,6 +4337,14 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5577,6 +5787,142 @@ export interface operations {
             };
             /** @description plan.md 6.10 error envelope */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    candidates_resume_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this candidate. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeLink"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    resumes_upload_batches: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadBatchSummary"][];
+                };
+            };
+        };
+    };
+    resumes_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ResumeUploadRequestRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeResult"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    resumes_upload_batch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadBatch"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

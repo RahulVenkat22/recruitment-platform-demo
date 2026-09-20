@@ -434,9 +434,11 @@ def test_candidate_skills_spread_across_every_role_pool(seeded):
 
 @pytest.mark.django_db
 def test_sources_are_balanced_and_shaped_like_real_references(seeded):
+    # The resume library is filled by `ingest_resumes`, never by the seed.
     per_source = {
         key: CandidateSource.objects.filter(source=key).count()
         for key in enums.CandidateSource.values
+        if key != enums.CandidateSource.RESUME
     }
     assert all(count >= 45 for count in per_source.values()), per_source
 

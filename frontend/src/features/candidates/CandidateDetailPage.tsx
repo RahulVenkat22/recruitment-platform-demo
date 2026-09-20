@@ -2,7 +2,6 @@ import {
   BriefcaseIcon,
   CalendarPlusIcon,
   ExternalLinkIcon,
-  FileTextIcon,
   ListChecksIcon,
   LockIcon,
   MailIcon,
@@ -42,7 +41,8 @@ import { StatusTransitionMenu } from '@/features/applications/StatusTransitionMe
 import { useApplicationActions } from '@/features/applications/useApplicationActions'
 import { AddToJobDialog } from '@/features/candidates/AddToJobDialog'
 import { useCandidate } from '@/features/candidates/api'
-import { isMasked, pickContext } from '@/features/candidates/candidate-utils'
+import { OpenResumeButton } from '@/features/candidates/OpenResumeButton'
+import { isMasked, isPlaceholderEmail, pickContext } from '@/features/candidates/candidate-utils'
 import { CandidateInterviewsTab } from '@/features/candidates/CandidateInterviewsTab'
 import { CandidateTimelineTab } from '@/features/candidates/CandidateTimelineTab'
 import { CommunicationsTab } from '@/features/candidates/CommunicationsTab'
@@ -244,7 +244,11 @@ export default function CandidateDetailPage() {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <span className="inline-flex items-center gap-1.5">
                   <MailIcon aria-hidden="true" className="size-3.5" />
-                  {person.email}
+                  {isPlaceholderEmail(person.email) ? (
+                    <span className="text-ink-subtle">No email in the resume</span>
+                  ) : (
+                    person.email
+                  )}
                 </span>
                 {person.phone && (
                   <span className="inline-flex items-center gap-1.5">
@@ -284,17 +288,12 @@ export default function CandidateDetailPage() {
                     <span className="sr-only">(opens in a new tab)</span>
                   </a>
                 )}
-                {person.resume_url && (
-                  <a
-                    href={person.resume_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-primary hover:underline"
-                  >
-                    <FileTextIcon aria-hidden="true" className="size-3.5" /> Resume
-                    <span className="sr-only">(opens in a new tab)</span>
-                  </a>
-                )}
+                <OpenResumeButton
+                  candidateId={person.id}
+                  resume={person.resume}
+                  fallbackUrl={person.resume_url}
+                  variant="link"
+                />
               </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <span className="inline-flex items-center gap-1.5">

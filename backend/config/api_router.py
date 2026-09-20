@@ -14,7 +14,8 @@ Registration list, in the order of the API table in plan.md 6.10:
                    versions, participants, metrics, kanban)
     pipeline       searches/, applications/, interviews/, communications/, offers/,
                    onboardings/
-    candidates     candidates/
+    candidates     candidates/ (+ resume-link)
+    resumes        resumes/uploads/ (multi-file PDF intake and batch status)
     activity       activities/
     notifications  notifications/, notifications/unread-count/, notifications/read-all/
     dashboard      meta/enums/                                (registered below)
@@ -32,6 +33,7 @@ urlpatterns = [
     path("", include("activity.urls")),
     path("", include("pipeline.urls")),
     path("", include("candidates.urls")),
+    path("", include("resumes.urls")),
     path("", include("notifications.urls")),
     path("", include("dashboard.urls")),
 ]

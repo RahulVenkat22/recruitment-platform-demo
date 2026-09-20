@@ -1,4 +1,4 @@
-import { BriefcaseIcon, DatabaseIcon, MailIcon, type LucideIcon } from 'lucide-react'
+import { BriefcaseIcon, DatabaseIcon, FileTextIcon, MailIcon, type LucideIcon } from 'lucide-react'
 import type { ComponentProps, CSSProperties } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useEnumsStore, enumMeta } from '@/lib/enums'
@@ -20,6 +20,7 @@ const ICONS: Record<string, SourceIcon> = {
   referral: MailIcon,
   naukri: BriefcaseIcon,
   linkedin: LinkedInGlyph,
+  resume: FileTextIcon,
 }
 
 export interface SourceBadgeProps {

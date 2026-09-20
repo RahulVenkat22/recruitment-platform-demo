@@ -164,7 +164,10 @@ def _owner_for(
 
 
 def _pick_sources(ctx: SeedContext, title: str) -> list[str]:
-    keys = provider_keys()
+    # Only the providers with a seeded pool. The resume library is filled by
+    # `ingest_resumes`, never by the seed, and searching it here would mean an
+    # embedding call to the configured provider per seeded job for nothing.
+    keys = [key for key in provider_keys() if key in SOURCE_LABELS]
     count = ctx.rng.randint(2, len(keys))
     chosen = ctx.rng.sample(keys, count)
     return [key for key in keys if key in chosen]

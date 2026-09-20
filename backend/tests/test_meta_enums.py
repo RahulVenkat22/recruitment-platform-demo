@@ -65,7 +65,13 @@ def test_colour_tokens_for_statuses_sources_and_categories(payload):
     colors = payload["colors"]
     assert set(colors) == {"application_status", "candidate_source", "activity_category"}
     assert set(colors["application_status"]) == set(EXPECTED_STATUS_ORDER)
-    assert set(colors["candidate_source"]) == {"internal", "referral", "naukri", "linkedin"}
+    assert set(colors["candidate_source"]) == {
+        "internal",
+        "referral",
+        "naukri",
+        "linkedin",
+        "resume",
+    }
     assert set(colors["activity_category"]) == set(EXPECTED_CATEGORIES)
 
     for group in colors.values():

@@ -76,6 +76,9 @@ class SearchRunSerializer(serializers.ModelSerializer):
             "finished_at",
             "duration_ms",
             "error",
+            "phase",
+            "progress",
+            "query_plan",
         ]
         read_only_fields = fields
 
@@ -152,6 +155,8 @@ class CandidateMatchSerializer(serializers.ModelSerializer):
     matched_preferred_skill_names = serializers.SerializerMethodField()
     strengths = serializers.ListField(child=serializers.CharField(), read_only=True)
     gaps = serializers.ListField(child=serializers.CharField(), read_only=True)
+    retrieval_score = serializers.FloatField(read_only=True, allow_null=True)
+    rerank_score = serializers.FloatField(read_only=True, allow_null=True)
 
     class Meta:
         model = CandidateMatch
@@ -173,6 +178,10 @@ class CandidateMatchSerializer(serializers.ModelSerializer):
             "engine",
             "engine_version",
             "computed_at",
+            "retrieval_score",
+            "rerank_score",
+            "explanation",
+            "semantic_details",
         ]
         read_only_fields = fields
 

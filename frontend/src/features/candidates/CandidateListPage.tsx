@@ -1,7 +1,7 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { LockIcon, PlusIcon, SearchIcon, SearchXIcon, UsersIcon } from 'lucide-react'
+import { LockIcon, PlusIcon, SearchIcon, SearchXIcon, UploadIcon, UsersIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, Link } from 'react-router'
 import { Avatar } from '@/components/shared/Avatar'
 import { DataTable } from '@/components/shared/DataTable'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -317,10 +317,18 @@ export default function CandidateListPage() {
         breadcrumbs={[{ label: 'Candidates' }]}
         actions={
           canAdd ? (
-            <Button type="button" onClick={() => setAdding(true)}>
-              <PlusIcon data-icon="inline-start" aria-hidden="true" />
-              Add candidate
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild variant="outline">
+                <Link to="/candidates/upload">
+                  <UploadIcon data-icon="inline-start" aria-hidden="true" />
+                  Upload resumes
+                </Link>
+              </Button>
+              <Button type="button" onClick={() => setAdding(true)}>
+                <PlusIcon data-icon="inline-start" aria-hidden="true" />
+                Add candidate
+              </Button>
+            </div>
           ) : undefined
         }
       />

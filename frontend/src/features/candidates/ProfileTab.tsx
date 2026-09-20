@@ -1,6 +1,12 @@
-import { ExternalLinkIcon, FileTextIcon, CodeIcon, LockIcon } from 'lucide-react'
+import { CodeIcon, ExternalLinkIcon, LockIcon } from 'lucide-react'
 import { RichText } from '@/components/shared/RichText'
-import { formatCtc, groupSkills, isMasked } from '@/features/candidates/candidate-utils'
+import {
+  formatCtc,
+  groupSkills,
+  isMasked,
+  parsedWithAi,
+} from '@/features/candidates/candidate-utils'
+import { OpenResumeButton } from '@/features/candidates/OpenResumeButton'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { CandidateDetail } from '@/types/domain'
@@ -144,28 +150,27 @@ export function ProfileTab({ candidate }: { candidate: CandidateDetail }) {
           </Card>
         </div>
         <Card title="Resume">
-          {candidate.resume_text ? (
-            <>
-              <pre className="max-h-80 overflow-y-auto rounded-control bg-surface-2 p-4 font-sans text-small whitespace-pre-wrap text-ink">
-                {candidate.resume_text}
-              </pre>
-              {candidate.resume_url && (
-                <a
-                  href={candidate.resume_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-3 inline-flex items-center gap-1.5 text-small font-medium text-primary hover:underline"
-                >
-                  <FileTextIcon aria-hidden="true" className="size-4" />
-                  Open resume
-                  <ExternalLinkIcon aria-hidden="true" className="size-3" />
-                  <span className="sr-only">(opens in a new tab)</span>
-                </a>
-              )}
-            </>
-          ) : (
-            <p className="text-small text-ink-subtle">No resume on file.</p>
+          {candidate.resume && (
+            <p className="mb-3 text-small text-ink-muted">
+              <span className="font-medium text-ink">{candidate.resume.file_name}</span>
+              {candidate.resume.page_count ? ` · ${candidate.resume.page_count} pages` : ''}
+              {' · '}
+              {candidate.resume.is_uploaded ? 'stored in S3' : 'S3 upload pending'}
+              {parsedWithAi(candidate.resume.parse_source) ? ' · parsed with AI' : ''}
+            </p>
           )}
+          {candidate.resume_text ? (
+            <pre className="max-h-80 overflow-y-auto rounded-control bg-surface-2 p-4 font-sans text-small whitespace-pre-wrap text-ink">
+              {candidate.resume_text}
+            </pre>
+          ) : !candidate.resume ? (
+            <p className="text-small text-ink-subtle">No resume on file.</p>
+          ) : null}
+          <OpenResumeButton
+            candidateId={candidate.id}
+            resume={candidate.resume}
+            fallbackUrl={candidate.resume_url}
+          />
         </Card>
       </div>
 

@@ -1,6 +1,8 @@
 import {
+  BotIcon,
   CheckIcon,
   Loader2Icon,
+  QuoteIcon,
   RefreshCwIcon,
   SparklesIcon,
   TriangleAlertIcon,
@@ -20,6 +22,7 @@ import { skillLabel } from '@/features/jobs/job-utils'
 import { describeError } from '@/lib/errors'
 import { formatRelative } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import type { CandidateMatch, SemanticDetails } from '@/types/domain'
 
 const BREAKDOWN: {
   key:
@@ -94,6 +97,130 @@ function Coverage({
         ))}
       </ul>
     </div>
+  )
+}
+
+function Signal({ label, value, suffix = '' }: { label: string; value: number; suffix?: string }) {
+  return (
+    <span className="inline-flex h-7 items-center gap-1.5 rounded-pill bg-surface-2 px-2.5 text-small tabular-nums">
+      <span className="text-ink-muted">{label}</span>
+      <span className="font-medium text-ink">
+        {value}
+        {suffix}
+      </span>
+    </span>
+  )
+}
+
+/**
+ * The LLM's verdict for a hybrid match (engine `hybrid_semantic`): the
+ * grounded explanation, what it found and missed, the resume excerpts it was
+ * shown, and the three signals that were blended into the overall score.
+ */
+function AIEvaluation({ match }: { match: CandidateMatch }) {
+  const details = (match.semantic_details ?? null) as SemanticDetails | null
+  if (!match.explanation && !details) return null
+  const matched = details?.matched_skills ?? []
+  const missing = details?.missing_skills ?? []
+  const evidence = details?.evidence ?? []
+  const evaluated = details?.llm_score !== null && details?.llm_score !== undefined
+  return (
+    <Card title="AI evaluation" className="border-accent/50">
+      <div className="space-y-4">
+        {match.explanation ? (
+          <p className="flex items-start gap-2 text-[15px]/[24px] text-ink">
+            <BotIcon aria-hidden="true" className="mt-1 size-4 shrink-0 text-accent-ink" />
+            <span>{match.explanation}</span>
+          </p>
+        ) : (
+          <p className="text-small text-ink-muted">
+            This candidate was ranked by the rules and resume similarity; the AI reviewed only the
+            top of the pool for this search.
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {typeof details?.rule_pct === 'number' && (
+            <Signal label="Rules" value={Math.round(details.rule_pct)} suffix="%" />
+          )}
+          {typeof details?.retrieval_score === 'number' && (
+            <Signal
+              label="Resume similarity"
+              value={Math.round(details.retrieval_score * 100)}
+              suffix="%"
+            />
+          )}
+          {evaluated && (
+            <Signal label="AI score" value={Math.round(details!.llm_score as number)} suffix="%" />
+          )}
+          {details?.meets_experience_requirement !== undefined && evaluated && (
+            <span
+              className={cn(
+                'inline-flex h-7 items-center gap-1 rounded-pill px-2.5 text-small',
+                details.meets_experience_requirement
+                  ? 'bg-success-soft text-success'
+                  : 'bg-warning-soft text-warning',
+              )}
+            >
+              {details.meets_experience_requirement ? (
+                <CheckIcon aria-hidden="true" className="size-3" />
+              ) : (
+                <TriangleAlertIcon aria-hidden="true" className="size-3" />
+              )}
+              {details.meets_experience_requirement ? 'Experience fits' : 'Experience below ask'}
+            </span>
+          )}
+        </div>
+        {(matched.length > 0 || missing.length > 0) && (
+          <dl className="divide-y divide-line">
+            <Coverage
+              label="Found"
+              chips={matched.map((name) => ({ name, state: 'matched' as const }))}
+            />
+            <Coverage
+              label="Not found"
+              chips={missing.map((name) => ({ name, state: 'missing' as const }))}
+            />
+          </dl>
+        )}
+        {evidence.length > 0 && (
+          <div>
+            <h4 className="mb-2 text-caption font-medium tracking-[0.08em] text-ink-subtle uppercase">
+              Resume evidence
+            </h4>
+            <ul className="space-y-2">
+              {evidence.slice(0, 3).map((item, index) => (
+                <li
+                  key={`${item.section}-${index}`}
+                  className="flex items-start gap-2 rounded-control bg-surface-2 p-3 text-small text-ink"
+                >
+                  <QuoteIcon
+                    aria-hidden="true"
+                    className="mt-0.5 size-3.5 shrink-0 text-ink-subtle"
+                  />
+                  <span>
+                    <span className="mr-1.5 rounded-pill bg-surface px-1.5 py-0.5 text-caption text-ink-muted capitalize">
+                      {item.section}
+                    </span>
+                    {item.excerpt}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {details?.model && (
+          <p className="text-caption text-ink-subtle">
+            Evaluated by {details.model}
+            {details.seconds ? ` in ${Math.round(details.seconds)}s` : ''} · only the supplied
+            profile and excerpts were used
+            {details.dropped_claims?.length
+              ? `; ${details.dropped_claims.length} unsupported claim(s) were discarded`
+              : ''}
+            .
+          </p>
+        )}
+      </div>
+    </Card>
   )
 }
 
@@ -211,6 +338,7 @@ export function MatchAnalysisTab({
           </div>
         </Card>
       </div>
+      <AIEvaluation match={match} />
       <div className="grid gap-5 md:grid-cols-2">
         <Card title="Strengths">
           {match.strengths.length === 0 ? (

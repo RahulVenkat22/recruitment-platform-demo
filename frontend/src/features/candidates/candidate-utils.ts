@@ -78,6 +78,11 @@ export function isMasked(value: string | null | undefined): boolean {
   return Boolean(value && (value.includes('***') || /x{2,}/i.test(value)))
 }
 
+/** Ingested resumes without contact details get a `resume-<hash>@no-email.invalid` key. */
+export function isPlaceholderEmail(value: string | null | undefined): boolean {
+  return Boolean(value && value.endsWith('@no-email.invalid'))
+}
+
 /** The application to open a candidate in: the `?jd=` one, else the most recently active. */
 export function pickContext(
   applications: readonly CandidateApplication[],
@@ -103,4 +108,17 @@ export function formatCtc(value: number | null | undefined): string {
     currency: 'INR',
     maximumFractionDigits: 0,
   }).format(value)
+}
+
+/**
+ * Was this resume parsed by a model?
+ *
+ * Every document ingested today carries `"llm_pdf"` (the model read the PDF
+ * file itself). Rows from the earlier text pipeline still hold `"heuristic"`
+ * (regex only) or `"llm"` (the model refined a text digest) until they are
+ * re-ingested. One predicate rather than an equality test in every view, so
+ * the badge does not silently vanish on a document the AI did read.
+ */
+export function parsedWithAi(parseSource: string): boolean {
+  return parseSource.startsWith('llm')
 }

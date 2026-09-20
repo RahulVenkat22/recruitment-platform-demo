@@ -17,6 +17,7 @@ from drf_spectacular.utils import (
     extend_schema_view,
 )
 from rest_framework import mixins, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -31,6 +32,9 @@ from candidates.serializers import (
 )
 from common.permissions import IsHrStaff, is_hr_staff, visible_job_descriptions_for
 from pipeline.models import Application
+from resumes.models import ResumeDocument
+from resumes.serializers import ResumeLinkSerializer
+from resumes.services.links import resume_link_for
 
 ERROR_ENVELOPE = OpenApiResponse(description="plan.md 6.10 error envelope")
 
@@ -51,6 +55,22 @@ def candidate_queryset(user: Any) -> QuerySet[Candidate]:
             ),
         ),
         Prefetch("applications", queryset=applications),
+        Prefetch(
+            "resume_documents",
+            queryset=ResumeDocument.objects.only(
+                "id",
+                "candidate_id",
+                "file_name",
+                "page_count",
+                "status",
+                "storage_status",
+                "storage_key",
+                "parse_source",
+                "chunk_count",
+                "ingested_at",
+                "created_at",
+            ),
+        ),
         "experiences",
         "education",
         "certifications",
@@ -170,3 +190,25 @@ class CandidateViewSet(
         serializer.is_valid(raise_exception=True)
         services.update_candidate(candidate, dict(serializer.validated_data), request.user)
         return self._detail(candidate)
+
+    @extend_schema(
+        operation_id="candidates_resume_link",
+        summary="A short-lived link to open the candidate's resume PDF from S3",
+        description=(
+            "404 when no resume was ingested, 503 while S3 is not configured, 409 when the "
+            "file has not been uploaded yet, 502 when S3 cannot sign the link."
+        ),
+        responses={
+            200: ResumeLinkSerializer,
+            404: ERROR_ENVELOPE,
+            409: ERROR_ENVELOPE,
+            502: ERROR_ENVELOPE,
+            503: ERROR_ENVELOPE,
+        },
+        tags=["candidates"],
+    )
+    @action(detail=True, methods=["get"], url_path="resume-link")
+    def resume_link(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        candidate = self.get_object()
+        link = resume_link_for(candidate)
+        return Response(ResumeLinkSerializer(link).data)

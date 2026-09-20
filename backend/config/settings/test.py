@@ -1,7 +1,7 @@
 """pytest settings: same PostgreSQL server (pytest-django creates test_<db>), fast hashing."""
 
 from .base import *  # noqa: F403
-from .base import REST_FRAMEWORK, SIMPLE_JWT
+from .base import GEMINI_MODEL, GEMINI_SEARCH_MODEL, REST_FRAMEWORK, SIMPLE_JWT
 
 DEBUG = False
 
@@ -39,3 +39,21 @@ LOGGING = {
     "disable_existing_loggers": False,
     "root": {"handlers": [], "level": "WARNING"},
 }
+
+# The suite never talks to an LLM provider or spawns search threads. The provider
+# is pinned so a developer's own .env cannot point the tests at their paid
+# account -- and with it EVERY value base.py derives from LLM_PROVIDER, not just
+# the model names. Both keys are blanked, so a call that does slip through fails
+# at the client constructor with LLMUnavailable, before any network request.
+LLM_PROVIDER = "gemini"
+LLM_MODEL = GEMINI_MODEL
+LLM_SEARCH_MODEL = GEMINI_SEARCH_MODEL
+LLM_TIMEOUT_SECONDS = 120
+LLM_MAX_RETRIES = 2
+OPENAI_API_KEY = ""
+GEMINI_API_KEY = ""
+EMBEDDING_MODEL = "gemini-embedding-001"
+SEARCH_RUN_ASYNC = False
+RESUME_INGEST_ASYNC = False
+SEMANTIC_JD_ANALYSIS_ENABLED = False
+SEMANTIC_RERANK_ENABLED = False

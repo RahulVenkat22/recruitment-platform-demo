@@ -9,6 +9,7 @@ import type {
   CandidateRow,
   CandidateWriteRequest,
   Paginated,
+  ResumeLink,
 } from '@/types/domain'
 
 export interface CandidateListParams {
@@ -36,6 +37,12 @@ export async function fetchCandidates(
 
 export async function fetchCandidate(id: string): Promise<CandidateDetail> {
   const { data } = await api.get<CandidateDetail>(endpoints.candidate(id))
+  return data
+}
+
+/** A short-lived S3 link for the candidate's resume; the API explains any reason it cannot give one. */
+export async function fetchResumeLink(id: string): Promise<ResumeLink> {
+  const { data } = await api.get<ResumeLink>(endpoints.candidateResumeLink(id))
   return data
 }
 

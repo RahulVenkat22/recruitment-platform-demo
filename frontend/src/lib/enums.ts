@@ -51,6 +51,7 @@ export const FALLBACK_SOURCE: Record<CandidateSource, EnumMeta> = {
   referral: { label: 'Referral', bg: '#E3F3EA', fg: '#1F7A4D' },
   naukri: { label: 'Naukri', bg: '#EAF0FF', fg: '#2F54EB' },
   linkedin: { label: 'LinkedIn', bg: '#E1EEF8', fg: '#0A66C2' },
+  resume: { label: 'Resume Library', bg: '#F3EEDC', fg: '#6B5300' },
 }
 
 export const FALLBACK_CATEGORY: Record<ActivityCategory, EnumMeta> = {

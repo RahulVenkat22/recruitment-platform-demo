@@ -1,17 +1,33 @@
-import { BotIcon, SearchIcon, SparklesIcon, UsersIcon } from 'lucide-react'
+import { BotIcon, CheckIcon, SearchIcon, SparklesIcon, UsersIcon } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { SEARCH_MESSAGES } from '@/features/search/search-messages'
 import { EASE_BRAND } from '@/lib/motion'
 import { cn } from '@/lib/utils'
+import type { SearchProgress } from '@/types/domain'
 
-/** What the search does, in order; every stage pulses because the run is one synchronous call. */
+/**
+ * What the search does, in order. With a live `phase` from the API the current
+ * stage is highlighted and finished ones ticked; without one (a synchronous
+ * run) every stage pulses.
+ */
 const STAGES = [
-  { key: 'search', label: 'Search sources', icon: SearchIcon },
-  { key: 'ai', label: 'AI processing', icon: BotIcon },
-  { key: 'match', label: 'Candidate matching', icon: SparklesIcon },
+  { key: 'analyse', label: 'Reading the brief', icon: BotIcon },
+  { key: 'search', label: 'Searching sources', icon: SearchIcon },
+  { key: 'evaluate', label: 'AI evaluation', icon: SparklesIcon },
   { key: 'results', label: 'Results', icon: UsersIcon },
 ] as const
+
+/** Run phases (SearchRun.phase) mapped onto the four stages. */
+const PHASE_STAGE: Record<string, number> = {
+  queued: 0,
+  analysing: 0,
+  retrieving: 1,
+  scoring: 2,
+  evaluating: 2,
+  finalising: 3,
+  done: 3,
+}
 
 const MESSAGE_INTERVAL_MS = 3200
 const SOURCE_INTERVAL_MS = 1400
@@ -22,6 +38,10 @@ export interface AISearchLoaderProps {
   jobTitle?: string
   /** Epoch ms when the search started, for the elapsed counter. */
   startedAt: number
+  /** Live phase of a background run (SearchRun.phase); omitted for a synchronous run. */
+  phase?: string | null
+  /** Live progress line of a background run (SearchRun.progress). */
+  progress?: SearchProgress | null
   className?: string
 }
 
@@ -54,13 +74,24 @@ const ORBITERS = [0, 120, 240]
  * No percentage is shown because the API gives none. Reduced motion keeps the
  * text rotating but stops every animation.
  */
-export function AISearchLoader({ sources, jobTitle, startedAt, className }: AISearchLoaderProps) {
+export function AISearchLoader({
+  sources,
+  jobTitle,
+  startedAt,
+  phase,
+  progress,
+  className,
+}: AISearchLoaderProps) {
   const reducedMotion = useReducedMotion()
   const messageIndex = useTicker(MESSAGE_INTERVAL_MS, SEARCH_MESSAGES.length, true)
   const sourceIndex = useTicker(SOURCE_INTERVAL_MS, sources.length, true)
   const elapsed = useElapsedSeconds(startedAt)
   const message = SEARCH_MESSAGES[messageIndex]
   const scanning = sources[sourceIndex]
+  const live = progress?.message?.trim() || null
+  const activeStage = phase ? (PHASE_STAGE[phase] ?? null) : null
+  const counter =
+    progress?.current && progress?.total ? `${progress.current}/${progress.total}` : null
 
   return (
     <section
@@ -119,6 +150,14 @@ export function AISearchLoader({ sources, jobTitle, startedAt, className }: AISe
             aria-live="polite"
             className="relative mt-3 min-h-12 text-[15px]/[24px] text-ink-muted"
           >
+            {live && (
+              <p data-slot="search-live-message" className="font-medium text-ink">
+                {live}
+                {counter && (
+                  <span className="ml-2 text-caption text-ink-subtle tabular-nums">{counter}</span>
+                )}
+              </p>
+            )}
             <AnimatePresence mode="wait" initial={false}>
               <motion.p
                 key={messageIndex}
@@ -126,6 +165,7 @@ export function AISearchLoader({ sources, jobTitle, startedAt, className }: AISe
                 animate={{ opacity: 1, y: 0 }}
                 exit={reducedMotion ? undefined : { opacity: 0, y: -8 }}
                 transition={{ duration: 0.35, ease: EASE_BRAND }}
+                className={cn(live && 'text-small text-ink-subtle')}
               >
                 <span aria-hidden="true" className="mr-2">
                   {message.emoji}
@@ -171,33 +211,61 @@ export function AISearchLoader({ sources, jobTitle, startedAt, className }: AISe
             aria-label="Search stages"
             className="mt-6 grid grid-cols-2 gap-x-2 gap-y-4 text-caption text-ink-muted sm:grid-cols-4"
           >
-            {STAGES.map((stage, index) => (
-              <li key={stage.key} className="relative flex items-center gap-2">
-                <span
-                  className={cn(
-                    'inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-line bg-surface-2 text-ink-muted',
-                    'animate-pulse',
-                  )}
-                  style={{ animationDelay: `${index * 0.35}s` }}
+            {STAGES.map((stage, index) => {
+              const state =
+                activeStage === null
+                  ? 'pulse'
+                  : index < activeStage
+                    ? 'done'
+                    : index === activeStage
+                      ? 'active'
+                      : 'todo'
+              return (
+                <li
+                  key={stage.key}
+                  data-state={state}
+                  aria-current={state === 'active' ? 'step' : undefined}
+                  className="relative flex items-center gap-2"
                 >
-                  <stage.icon aria-hidden="true" className="size-3.5" />
-                </span>
-                <span className="font-medium text-ink">{stage.label}</span>
-                {index < STAGES.length - 1 && (
                   <span
-                    aria-hidden="true"
-                    className="ml-auto hidden h-px w-6 overflow-hidden bg-line sm:block"
+                    className={cn(
+                      'inline-flex size-7 shrink-0 items-center justify-center rounded-full border transition-colors duration-250 ease-brand',
+                      state === 'pulse' && 'border-line bg-surface-2 text-ink-muted animate-pulse',
+                      state === 'done' && 'border-ink bg-ink text-accent',
+                      state === 'active' && 'border-accent bg-accent text-ink animate-pulse',
+                      state === 'todo' && 'border-line bg-surface-2 text-ink-subtle',
+                    )}
+                    style={state === 'pulse' ? { animationDelay: `${index * 0.35}s` } : undefined}
                   >
-                    <span className="block h-full w-1/2 bg-accent-strong animate-bh-scan" />
+                    {state === 'done' ? (
+                      <CheckIcon aria-hidden="true" className="size-3.5" strokeWidth={2.5} />
+                    ) : (
+                      <stage.icon aria-hidden="true" className="size-3.5" />
+                    )}
                   </span>
-                )}
-              </li>
-            ))}
+                  <span
+                    className={cn('font-medium', state === 'todo' ? 'text-ink-subtle' : 'text-ink')}
+                  >
+                    {stage.label}
+                  </span>
+                  {index < STAGES.length - 1 && (
+                    <span
+                      aria-hidden="true"
+                      className="ml-auto hidden h-px w-6 overflow-hidden bg-line sm:block"
+                    >
+                      <span className="block h-full w-1/2 bg-accent-strong animate-bh-scan" />
+                    </span>
+                  )}
+                </li>
+              )
+            })}
           </ol>
 
           <p className="mt-5 text-caption text-ink-subtle tabular-nums">
-            {elapsed < 1 ? 'Just started' : `${elapsed}s elapsed`} · The results appear here the
-            moment the search finishes.
+            {elapsed < 1 ? 'Just started' : `${elapsed}s elapsed`} ·{' '}
+            {phase
+              ? 'Runs in the background — you can keep using the app; results land here.'
+              : 'The results appear here the moment the search finishes.'}
           </p>
         </div>
       </div>

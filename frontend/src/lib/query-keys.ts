@@ -33,6 +33,11 @@ export const qk = {
     all: ['skills'] as const,
     suggest: (query: string) => ['skills', 'suggest', query] as const,
   },
+  resumes: {
+    all: ['resumes'] as const,
+    batches: () => ['resumes', 'batches'] as const,
+    batch: (id: string) => ['resumes', 'batch', id] as const,
+  },
   searches: {
     all: ['searches'] as const,
     byJob: (jobId: string) => ['searches', 'byJob', jobId] as const,

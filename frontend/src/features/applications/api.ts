@@ -61,6 +61,18 @@ export async function fetchSearchRuns(jobId: string): Promise<SearchRun[]> {
   return data.results
 }
 
+export async function fetchSearchRun(id: string): Promise<SearchRun> {
+  const { data } = await api.get<SearchRun>(endpoints.search(id))
+  return data
+}
+
+const TERMINAL_RUN_STATUSES: ReadonlySet<string> = new Set(['completed', 'partial', 'failed'])
+
+/** A run that has reached its final status (completed, partial or failed). */
+export function isRunFinished(run: SearchRun | null | undefined): boolean {
+  return Boolean(run && TERMINAL_RUN_STATUSES.has(run.status))
+}
+
 export async function runSearch(jobId: string, sources: string[]): Promise<SearchResponse> {
   const { data } = await api.post<SearchResponse>(endpoints.searches, {
     job_description_id: jobId,
@@ -151,12 +163,33 @@ export function useSearchRuns(jobId: string | undefined) {
   })
 }
 
-export function useApplications(params: ApplicationListParams, enabled = true) {
+export function useApplications(
+  params: ApplicationListParams,
+  enabled = true,
+  options: { refetchInterval?: number | false } = {},
+) {
   return useQuery({
     queryKey: qk.applications.list(toQuery(params)),
     queryFn: () => fetchApplications(params),
     placeholderData: keepPreviousData,
     enabled,
+    refetchInterval: options.refetchInterval ?? false,
+  })
+}
+
+/**
+ * A search run executing in the background (plan.md 6.7, `SEARCH_RUN_ASYNC`):
+ * polls `GET /searches/{id}/` every `pollMs` until the status is final, so the
+ * loader can show the real phase and the results appear the moment they exist.
+ */
+export function useSearchRun(id: string | undefined, pollMs = 1500) {
+  return useQuery({
+    queryKey: qk.searches.detail(id ?? ''),
+    queryFn: () => fetchSearchRun(id as string),
+    enabled: Boolean(id),
+    refetchInterval: (query) => (isRunFinished(query.state.data) ? false : pollMs),
+    refetchIntervalInBackground: true,
+    staleTime: 0,
   })
 }
 
