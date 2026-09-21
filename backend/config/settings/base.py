@@ -477,6 +477,26 @@ EMAIL_SAFE_RECIPIENT = env.str("EMAIL_SAFE_RECIPIENT", default="").strip()
 # The organisation the outreach speaks for: `{company}` in the templates.
 EMAIL_COMPANY_NAME = env.str("EMAIL_COMPANY_NAME", default="").strip() or "Aimious"
 
+# --------------------------------------------------------------- AI phone calls
+# The interview script and the assessment run on the project LLM (VOICE_MODEL,
+# default: the search model). Placing a REAL call needs a voice platform:
+# VOICE_PROVIDER=vapi with VAPI_API_KEY, VAPI_PHONE_NUMBER_ID and a public
+# PUBLIC_BASE_URL for its webhooks. Without them calls run as a simulated text
+# chat in the browser. VOICE_SAFE_NUMBER redirects every real call to one number
+# (yours) until go-live. VOICE_DEFAULT_REGION parses national numbers.
+VOICE_PROVIDER = env.str("VOICE_PROVIDER", default="").strip().lower()
+VOICE_MODEL = env.str("VOICE_MODEL", default="").strip() or LLM_SEARCH_MODEL
+VOICE_SAFE_NUMBER = env.str("VOICE_SAFE_NUMBER", default="").strip()
+VOICE_DEFAULT_REGION = env.str("VOICE_DEFAULT_REGION", default="").strip().upper() or "IN"
+PUBLIC_BASE_URL = env.str("PUBLIC_BASE_URL", default="").strip()
+VAPI_API_KEY = env.str("VAPI_API_KEY", default="")
+VAPI_PHONE_NUMBER_ID = env.str("VAPI_PHONE_NUMBER_ID", default="").strip()
+VAPI_WEBHOOK_SECRET = env.str("VAPI_WEBHOOK_SECRET", default="")
+VAPI_MODEL_PROVIDER = env.str("VAPI_MODEL_PROVIDER", default="").strip() or "openai"
+VAPI_MODEL = env.str("VAPI_MODEL", default="").strip() or "gpt-4o-mini"
+VAPI_VOICE_PROVIDER = env.str("VAPI_VOICE_PROVIDER", default="").strip() or "vapi"
+VAPI_VOICE_ID = env.str("VAPI_VOICE_ID", default="").strip() or "Elliot"
+
 # --------------------------------------------------------------------------- seed
 SEED_RANDOM_SEED = env.int("SEED_RANDOM_SEED", default=42)
 SEED_ANCHOR_DATE = date.fromisoformat(env.str("SEED_ANCHOR_DATE", default="2026-09-11"))

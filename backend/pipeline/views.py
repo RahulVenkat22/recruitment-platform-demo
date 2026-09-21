@@ -15,13 +15,14 @@ from drf_spectacular.utils import (
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import SAFE_METHODS, AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.enums import ApplicationStatus, CommunicationChannel
 from common.permissions import (
+    IsHrStaff,
     can_log_contact,
     can_manage_job,
     can_run_search,
@@ -37,6 +38,7 @@ from pipeline.filters import (
     InterviewFilter,
     OfferFilter,
     OnboardingFilter,
+    PhoneCallFilter,
     SearchRunFilter,
 )
 from pipeline.models import (
@@ -46,6 +48,7 @@ from pipeline.models import (
     MessageTemplate,
     Offer,
     Onboarding,
+    PhoneCall,
     SearchRun,
 )
 from pipeline.serializers import (
@@ -54,12 +57,17 @@ from pipeline.serializers import (
     ApplicationUpdateSerializer,
     BulkEmailResultSerializer,
     BulkEmailSerializer,
+    BulkPhoneCallResultSerializer,
+    BulkPhoneCallSerializer,
     BulkTransitionResponseSerializer,
     BulkTransitionSerializer,
+    CallReplySerializer,
     CandidateMatchSerializer,
     CommunicationCreateSerializer,
     CommunicationSerializer,
     EmailConfigSerializer,
+    EmailDraftBriefSerializer,
+    EmailDraftSerializer,
     EmailPreviewRequestSerializer,
     EmailPreviewSerializer,
     EmailSendSerializer,
@@ -70,6 +78,7 @@ from pipeline.serializers import (
     InterviewSerializer,
     InterviewUpdateSerializer,
     ManualApplicationSerializer,
+    MessageTemplateSerializer,
     MoveSerializer,
     OfferCreateSerializer,
     OfferReasonSerializer,
@@ -78,15 +87,19 @@ from pipeline.serializers import (
     OnboardingCreateSerializer,
     OnboardingSerializer,
     OnboardingUpdateSerializer,
+    PhoneCallCreateSerializer,
+    PhoneCallSerializer,
     ProviderHealthSerializer,
     SearchRequestSerializer,
     SearchResponseSerializer,
     SearchRunSerializer,
     TransitionResponseSerializer,
     TransitionSerializer,
+    VoiceConfigSerializer,
 )
 from pipeline.services import (
     PLACEHOLDERS,
+    CallService,
     CommunicationService,
     InterviewService,
     OfferService,
@@ -94,11 +107,14 @@ from pipeline.services import (
     OutreachService,
     PipelineService,
     allowed_moves,
+    draft_email,
     email_config,
     recipient_for,
-    render_template,
+    render_text,
+    set_default_template,
 )
 from pipeline.services.queries import application_queryset
+from pipeline.services.voice import VapiProvider, voice_config
 from sourcing.registry import available_providers
 from sourcing.services import TERMINAL_STATUSES, SearchService
 
@@ -388,9 +404,11 @@ class ApplicationViewSet(
             raise PermissionDenied("You cannot email candidates for this job description.")
         serializer = EmailPreviewRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        subject, body = render_template(
-            serializer.validated_data["template"], application, request.user
-        )
+        data = serializer.validated_data
+        template = data.get("template")
+        raw_subject = template.subject if template else data["subject"]
+        raw_body = template.body if template else data["body"]
+        subject, body = render_text(raw_subject, raw_body, application, request.user)
         to = recipient_for(application.candidate)
         active = str(application.status) in ApplicationStatus.ACTIVE
         if not to:
@@ -466,10 +484,68 @@ class ApplicationViewSet(
             if not can_log_contact(request.user, application.job_description):
                 raise PermissionDenied("You cannot email one of these candidates.")
         sent, skipped = OutreachService.send_bulk(
-            applications, template=data["template"], actor=request.user
+            applications,
+            actor=request.user,
+            template=data.get("template"),
+            subject=data["subject"],
+            body=data["body"],
         )
         payload = {"sent": [str(row.application_id) for row in sent], "skipped": skipped}
         return Response(BulkEmailResultSerializer(payload).data)
+
+    @extend_schema(
+        operation_id="applications_call",
+        summary="Start an AI phone call to the candidate (real or simulated)",
+        request=PhoneCallCreateSerializer,
+        responses={
+            201: PhoneCallSerializer,
+            400: ERROR_ENVELOPE,
+            403: ERROR_ENVELOPE,
+            409: ERROR_ENVELOPE,
+            502: ERROR_ENVELOPE,
+            503: ERROR_ENVELOPE,
+        },
+        tags=["calls"],
+    )
+    @action(detail=True, methods=["post"], url_path="calls")
+    def call(self, request: Request, pk: str | None = None) -> Response:
+        application = self.get_object()
+        if not can_log_contact(request.user, application.job_description):
+            raise PermissionDenied("You cannot call candidates for this job description.")
+        serializer = PhoneCallCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        call = CallService.create(application, actor=request.user, **serializer.validated_data)
+        return Response(
+            PhoneCallSerializer(call, context=self.get_serializer_context()).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @extend_schema(
+        operation_id="applications_bulk_call",
+        summary="Start the same AI phone call for several candidates",
+        request=BulkPhoneCallSerializer,
+        responses={200: BulkPhoneCallResultSerializer, 400: ERROR_ENVELOPE, 403: ERROR_ENVELOPE},
+        tags=["calls"],
+    )
+    @action(detail=False, methods=["post"], url_path="bulk-calls")
+    def bulk_call(self, request: Request) -> Response:
+        serializer = BulkPhoneCallSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = dict(serializer.validated_data)
+        ids = data.pop("ids")
+        applications = list(
+            self.get_queryset()
+            .filter(pk__in=ids)
+            .select_related("candidate", "job_description__created_by")
+        )
+        for application in applications:
+            if not can_log_contact(request.user, application.job_description):
+                raise PermissionDenied("You cannot call one of these candidates.")
+        placed, skipped = CallService.bulk_create(applications, actor=request.user, **data)
+        payload = {"placed": placed, "skipped": skipped}
+        return Response(
+            BulkPhoneCallResultSerializer(payload, context=self.get_serializer_context()).data
+        )
 
     @extend_schema(
         operation_id="applications_rematch",
@@ -993,3 +1069,164 @@ class EmailConfigView(APIView):
             ),
         }
         return Response(EmailConfigSerializer(payload).data)
+
+
+@extend_schema_view(
+    list=extend_schema(
+        operation_id="email_templates_list", summary="Outreach templates", tags=["communications"]
+    ),
+    retrieve=extend_schema(operation_id="email_templates_retrieve", tags=["communications"]),
+    create=extend_schema(
+        operation_id="email_templates_create",
+        summary="Create a template (HR staff)",
+        responses={201: MessageTemplateSerializer, 400: ERROR_ENVELOPE, 403: ERROR_ENVELOPE},
+        tags=["communications"],
+    ),
+    update=extend_schema(operation_id="email_templates_update", tags=["communications"]),
+    partial_update=extend_schema(
+        operation_id="email_templates_partial_update", tags=["communications"]
+    ),
+    destroy=extend_schema(operation_id="email_templates_destroy", tags=["communications"]),
+)
+class MessageTemplateViewSet(viewsets.ModelViewSet):
+    """Outreach templates: anyone signed in may read them, HR staff maintain them."""
+
+    serializer_class = MessageTemplateSerializer
+    queryset = MessageTemplate.objects.filter(channel=CommunicationChannel.EMAIL)
+    http_method_names = ["get", "post", "patch", "put", "delete", "head", "options"]
+
+    def get_permissions(self):
+        if self.request.method in SAFE_METHODS:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsHrStaff()]
+
+    def perform_create(self, serializer) -> None:
+        template = serializer.save(channel=CommunicationChannel.EMAIL)
+        set_default_template(template)
+
+    def perform_update(self, serializer) -> None:
+        set_default_template(serializer.save())
+
+    @extend_schema(
+        operation_id="email_templates_generate",
+        summary="Draft a template with the AI from a purpose, tone, role and instructions",
+        request=EmailDraftBriefSerializer,
+        responses={200: EmailDraftSerializer, 400: ERROR_ENVELOPE, 502: ERROR_ENVELOPE},
+        tags=["communications"],
+    )
+    @action(detail=False, methods=["post"], url_path="generate")
+    def generate(self, request: Request) -> Response:
+        serializer = EmailDraftBriefSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        draft, model = draft_email(
+            purpose=data["purpose"],
+            tone=data["tone"],
+            instructions=data["instructions"],
+            jd=data.get("jd"),
+        )
+        payload = {"subject": draft.subject, "body": draft.body, "model": model}
+        return Response(EmailDraftSerializer(payload).data)
+
+
+@extend_schema_view(
+    list=extend_schema(
+        operation_id="calls_list",
+        summary="AI phone calls the user may see",
+        parameters=[
+            OpenApiParameter("application", str),
+            OpenApiParameter("job_description", str),
+            OpenApiParameter("candidate", str),
+            OpenApiParameter("status", str),
+            OpenApiParameter("purpose", str),
+        ],
+        tags=["calls"],
+    ),
+    retrieve=extend_schema(operation_id="calls_retrieve", tags=["calls"]),
+)
+class PhoneCallViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = PhoneCallSerializer
+    filterset_class = PhoneCallFilter
+    ordering_fields = ["created_at", "started_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self) -> QuerySet[PhoneCall]:
+        return PhoneCall.objects.filter(
+            application_id__in=_visible_application_ids(self.request.user)
+        ).select_related(
+            "application__candidate",
+            "application__owner",
+            "application__job_description__created_by",
+            "created_by",
+        )
+
+    def _writable(self, request: Request) -> PhoneCall:
+        call = self.get_object()
+        if not can_log_contact(request.user, call.application.job_description):
+            raise PermissionDenied("You cannot run calls for this job description.")
+        return call
+
+    @extend_schema(
+        operation_id="calls_config",
+        summary="Whether a voice provider is configured, and the safe-mode number",
+        responses={200: VoiceConfigSerializer},
+        tags=["calls"],
+    )
+    @action(detail=False, methods=["get"], url_path="config")
+    def config(self, request: Request) -> Response:
+        config = voice_config()
+        payload = {
+            "provider": config.provider,
+            "configured": config.configured,
+            "safe_number": config.safe_number,
+            "default_region": config.default_region,
+        }
+        return Response(VoiceConfigSerializer(payload).data)
+
+    @extend_schema(
+        operation_id="calls_reply",
+        summary="Simulated call: the candidate's answer; returns the call with the AI's next turn",
+        request=CallReplySerializer,
+        responses={200: PhoneCallSerializer, 400: ERROR_ENVELOPE, 409: ERROR_ENVELOPE},
+        tags=["calls"],
+    )
+    @action(detail=True, methods=["post"], url_path="reply")
+    def reply(self, request: Request, pk: str | None = None) -> Response:
+        call = self._writable(request)
+        serializer = CallReplySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        call = CallService.reply(call, serializer.validated_data["answer"], request.user)
+        return _refresh(self, call)
+
+    @extend_schema(
+        operation_id="calls_finish",
+        summary="End the call now and write the assessment",
+        request=None,
+        responses={200: PhoneCallSerializer, 403: ERROR_ENVELOPE},
+        tags=["calls"],
+    )
+    @action(detail=True, methods=["post"], url_path="finish")
+    def finish(self, request: Request, pk: str | None = None) -> Response:
+        call = self._writable(request)
+        call = CallService.finish(call, actor=request.user, reason="ended by the recruiter")
+        return _refresh(self, call)
+
+
+class VapiWebhookView(APIView):
+    """Vapi posts status updates and the end-of-call report here: no session, a shared secret."""
+
+    permission_classes = [AllowAny]
+    authentication_classes: list = []
+
+    @extend_schema(exclude=True)
+    def post(self, request: Request) -> Response:
+        if not VapiProvider.verify(request.headers):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        event = VapiProvider.parse_webhook(request.data if isinstance(request.data, dict) else {})
+        if event.kind == "ignored" or not event.provider_call_id:
+            return Response({"ok": True})
+        call = PhoneCall.objects.filter(provider_call_id=event.provider_call_id).first()
+        if call is not None:
+            CallService.apply_event(call, event)
+        return Response({"ok": True})

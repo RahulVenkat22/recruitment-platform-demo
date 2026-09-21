@@ -8,6 +8,7 @@ from pipeline.models import (
     MessageTemplate,
     Offer,
     Onboarding,
+    PhoneCall,
     SearchRun,
 )
 
@@ -160,3 +161,20 @@ class MessageTemplateAdmin(admin.ModelAdmin):
     list_filter = ["channel", "is_default", "is_active"]
     search_fields = ["name", "subject", "body"]
     readonly_fields = ["created_at", "updated_at"]
+
+
+@admin.register(PhoneCall)
+class PhoneCallAdmin(admin.ModelAdmin):
+    list_display = [
+        "application",
+        "purpose",
+        "mode",
+        "status",
+        "duration_seconds",
+        "created_by",
+        "created_at",
+    ]
+    list_filter = ["purpose", "mode", "status"]
+    search_fields = ["application__candidate__full_name", "summary", "provider_call_id"]
+    autocomplete_fields = ["application", "created_by"]
+    readonly_fields = ["created_at", "updated_at", "system_prompt", "transcript", "assessment"]

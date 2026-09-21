@@ -1,4 +1,4 @@
-import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toQuery, useInvalidatePipeline } from '@/features/applications/api'
 import { api, endpoints } from '@/lib/api'
 import { qk } from '@/lib/query-keys'
@@ -8,8 +8,14 @@ import type {
   Communication,
   CommunicationCreateRequest,
   EmailConfig,
+  EmailDraft,
+  EmailDraftBrief,
   EmailPreview,
+  EmailPreviewRequest,
   EmailSendRequest,
+  MessageTemplate,
+  MessageTemplatePatch,
+  MessageTemplateRequest,
   Paginated,
 } from '@/types/domain'
 
@@ -53,11 +59,42 @@ export async function fetchEmailConfig(): Promise<EmailConfig> {
 
 export async function previewEmail(
   applicationId: string,
-  templateId: string,
+  body: EmailPreviewRequest,
 ): Promise<EmailPreview> {
-  const { data } = await api.post<EmailPreview>(endpoints.applicationEmailPreview(applicationId), {
-    template_id: templateId,
-  })
+  const { data } = await api.post<EmailPreview>(
+    endpoints.applicationEmailPreview(applicationId),
+    body,
+  )
+  return data
+}
+
+export async function fetchTemplates(): Promise<MessageTemplate[]> {
+  const { data } = await api.get<Paginated<MessageTemplate> | MessageTemplate[]>(
+    endpoints.emailTemplates,
+    { params: { page_size: 100 } },
+  )
+  return Array.isArray(data) ? data : data.results
+}
+
+export async function createTemplate(body: MessageTemplateRequest): Promise<MessageTemplate> {
+  const { data } = await api.post<MessageTemplate>(endpoints.emailTemplates, body)
+  return data
+}
+
+export async function updateTemplate(
+  id: string,
+  body: MessageTemplatePatch,
+): Promise<MessageTemplate> {
+  const { data } = await api.patch<MessageTemplate>(endpoints.emailTemplate(id), body)
+  return data
+}
+
+export async function deleteTemplate(id: string): Promise<void> {
+  await api.delete(endpoints.emailTemplate(id))
+}
+
+export async function draftEmail(body: EmailDraftBrief): Promise<EmailDraft> {
+  const { data } = await api.post<EmailDraft>(endpoints.emailTemplatesGenerate, body)
   return data
 }
 
@@ -82,14 +119,50 @@ export function useEmailConfig() {
   return useQuery({ queryKey: qk.email.config(), queryFn: fetchEmailConfig, staleTime: 60_000 })
 }
 
-/** The template rendered for one candidate. A POST, but read-only, so a query fits. */
-export function useEmailPreview(applicationId: string, templateId: string) {
+/** The text rendered for one candidate. A POST, but read-only, so a query fits. */
+export function useEmailPreview(
+  applicationId: string,
+  text: { subject: string; body: string },
+  enabled = true,
+) {
   return useQuery({
-    queryKey: qk.email.preview(applicationId, templateId),
-    queryFn: () => previewEmail(applicationId, templateId),
-    enabled: templateId.length > 0,
+    queryKey: qk.email.preview(applicationId, text.subject, text.body),
+    queryFn: () => previewEmail(applicationId, text),
+    enabled,
     staleTime: 60_000,
   })
+}
+
+export function useMessageTemplates() {
+  return useQuery({ queryKey: qk.email.templates(), queryFn: fetchTemplates })
+}
+
+function useInvalidateTemplates() {
+  const client = useQueryClient()
+  return () => client.invalidateQueries({ queryKey: qk.email.all })
+}
+
+export function useCreateTemplate() {
+  const invalidate = useInvalidateTemplates()
+  return useMutation({ mutationFn: createTemplate, onSuccess: () => invalidate() })
+}
+
+export function useUpdateTemplate() {
+  const invalidate = useInvalidateTemplates()
+  return useMutation({
+    mutationFn: ({ id, ...body }: MessageTemplatePatch & { id: string }) =>
+      updateTemplate(id, body),
+    onSuccess: () => invalidate(),
+  })
+}
+
+export function useDeleteTemplate() {
+  const invalidate = useInvalidateTemplates()
+  return useMutation({ mutationFn: deleteTemplate, onSuccess: () => invalidate() })
+}
+
+export function useDraftEmail() {
+  return useMutation({ mutationFn: draftEmail })
 }
 
 export function useSendEmail() {

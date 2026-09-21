@@ -27,3 +27,5 @@ langchain-google-genai==4.4.0
 google-genai==2.24.0
 langgraph==1.2.11
 boto3==1.43.95
+# E.164 normalisation of candidate phone numbers for the AI calls
+phonenumbers==9.0.39

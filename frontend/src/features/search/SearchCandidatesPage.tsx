@@ -1,4 +1,3 @@
-import type { RowSelectionState } from '@tanstack/react-table'
 import {
   BriefcaseIcon,
   CheckIcon,
@@ -54,6 +53,7 @@ import {
 } from '@/features/applications/application-utils'
 import { ApplicationsTable } from '@/features/applications/ApplicationsTable'
 import { useApplicationActions } from '@/features/applications/useApplicationActions'
+import { useContactMode } from '@/features/communications/useContactMode'
 import { useJob, useJobList } from '@/features/jobs/api'
 import { isWorkable, jobSummaryLine, skillChips } from '@/features/jobs/job-utils'
 import { skillLabel } from '@/features/jobs/job-utils'
@@ -227,8 +227,8 @@ export default function SearchCandidatesPage() {
   const finishedRunRef = useRef<string | null>(null)
   const [draft, setDraft] = useState(state.q)
   const debounced = useDebounce(draft, 300)
-  const [selection, setSelection] = useState<RowSelectionState>({})
-  const actions = useApplicationActions({ onBulkDone: () => setSelection({}) })
+  const contact = useContactMode()
+  const actions = useApplicationActions({ onBulkDone: contact.stop })
 
   const sortedJobs = useMemo(
     () =>
@@ -285,7 +285,7 @@ export default function SearchCandidatesPage() {
 
   function finishRun(run: SearchRun, errors: Record<string, string>) {
     setLastResponse({ run, results: [], errors })
-    setSelection({})
+    contact.stop()
     setState({ page: 1 })
     if (run.status === 'failed') {
       setSearchError(new Error(run.error || 'The search failed before any candidate was found.'))
@@ -337,7 +337,7 @@ export default function SearchCandidatesPage() {
   function pickJob(jd: string) {
     setLastResponse(null)
     setSearchError(null)
-    setSelection({})
+    contact.stop()
     setActiveRunId(null)
     setState({ jd, page: 1, group: 'all', source: [], min: 0 })
   }
@@ -394,6 +394,7 @@ export default function SearchCandidatesPage() {
         </SelectContent>
       </Select>
       <div className="ml-auto flex items-center gap-2">
+        {canSearch && contact.controls}
         <Select value={state.sort} onValueChange={(sort) => setState({ sort, page: 1 })}>
           <SelectTrigger size="sm" aria-label="Sort" className="bg-surface">
             <span className="text-ink-subtle">Sort:</span>
@@ -586,33 +587,15 @@ export default function SearchCandidatesPage() {
                 })
               },
             }}
-            selection={canSearch ? { state: selection, onChange: setSelection } : undefined}
-            bulkActions={({ selectedRows }) => (
-              <>
-                <Button type="button" size="sm" onClick={() => actions.bulkShortlist(selectedRows)}>
-                  Shortlist
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => actions.bulkEmail(selectedRows)}
-                >
-                  Email
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="text-danger"
-                  onClick={() => actions.bulkReject(selectedRows)}
-                >
-                  Reject
-                </Button>
-              </>
-            )}
+            selection={canSearch ? contact.selection : undefined}
+            bulkActions={contact.bulkActionsFor(actions)}
             actionsFor={actions.itemsFor}
-            toolbar={toolbar}
+            toolbar={
+              <>
+                {toolbar}
+                {contact.banner}
+              </>
+            }
             emptyState={
               filtered ? (
                 <EmptyState

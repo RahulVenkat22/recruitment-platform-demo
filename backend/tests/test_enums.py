@@ -259,6 +259,8 @@ def test_all_enums_registry_covers_every_choice_class():
         "communication_channel",
         "communication_direction",
         "communication_outcome",
+        "call_purpose",
+        "call_status",
         "offer_status",
         "onboarding_status",
         "search_run_status",

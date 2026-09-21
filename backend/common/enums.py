@@ -271,6 +271,20 @@ class CommunicationChannel(models.TextChoices):
     IN_PERSON = "in_person", "In Person"
 
 
+class CallPurpose(models.TextChoices):
+    KNOWLEDGE_TEST = "knowledge_test", "Knowledge test"
+    INFORMATION = "information", "Share information"
+
+
+class CallStatus(models.TextChoices):
+    QUEUED = "queued", "Queued"
+    RINGING = "ringing", "Ringing"
+    IN_PROGRESS = "in_progress", "In progress"
+    COMPLETED = "completed", "Completed"
+    NO_ANSWER = "no_answer", "No answer"
+    FAILED = "failed", "Failed"
+
+
 class CommunicationDirection(models.TextChoices):
     OUTBOUND = "outbound", "Outbound"
     INBOUND = "inbound", "Inbound"
@@ -357,6 +371,8 @@ ALL_ENUMS: dict[str, type[models.TextChoices]] = {
     "communication_channel": CommunicationChannel,
     "communication_direction": CommunicationDirection,
     "communication_outcome": CommunicationOutcome,
+    "call_purpose": CallPurpose,
+    "call_status": CallStatus,
     "offer_status": OfferStatus,
     "onboarding_status": OnboardingStatus,
     "search_run_status": SearchRunStatus,

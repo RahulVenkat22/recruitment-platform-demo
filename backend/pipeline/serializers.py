@@ -14,6 +14,7 @@ from activity.serializers import ActivitySerializer, CandidateRefSerializer
 from candidates.models import Candidate
 from common.enums import (
     ApplicationStatus,
+    CallPurpose,
     CommunicationChannel,
     CommunicationDirection,
     CommunicationOutcome,
@@ -24,7 +25,7 @@ from common.enums import (
     OnboardingStatus,
     Recommendation,
 )
-from common.masking import PIIMaskingMixin
+from common.masking import PIIMaskingMixin, mask_phone, should_mask_pii
 from common.permissions import (
     can_manage_job,
     can_manage_offers,
@@ -43,9 +44,10 @@ from pipeline.models import (
     MessageTemplate,
     Offer,
     Onboarding,
+    PhoneCall,
     SearchRun,
 )
-from pipeline.services import checklist_progress, format_ctc
+from pipeline.services import PURPOSES, TONES, checklist_progress, format_ctc
 
 
 class ProviderHealthSerializer(serializers.Serializer):
@@ -783,8 +785,26 @@ class KanbanBoardSerializer(serializers.Serializer):
 class MessageTemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = MessageTemplate
-        fields = ["id", "name", "channel", "subject", "body", "is_default"]
-        read_only_fields = fields
+        fields = [
+            "id",
+            "name",
+            "channel",
+            "subject",
+            "body",
+            "is_default",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "channel", "created_at", "updated_at"]
+
+    def validate_body(self, value: str) -> str:
+        if not value.strip():
+            raise serializers.ValidationError("The message body cannot be empty.")
+        return value.strip()
+
+    def validate_subject(self, value: str) -> str:
+        return " ".join(value.split())
 
 
 class EmailConfigSerializer(serializers.Serializer):
@@ -799,10 +819,30 @@ class EmailConfigSerializer(serializers.Serializer):
     templates = MessageTemplateSerializer(many=True)
 
 
-class EmailPreviewRequestSerializer(serializers.Serializer):
+class _TemplateOrTextMixin(serializers.Serializer):
+    """Either a saved template or a raw subject and body still holding placeholders."""
+
     template_id = serializers.PrimaryKeyRelatedField(
-        queryset=MessageTemplate.objects.filter(is_active=True), source="template"
+        queryset=MessageTemplate.objects.filter(is_active=True),
+        source="template",
+        required=False,
+        allow_null=True,
     )
+    subject = serializers.CharField(required=False, allow_blank=True, max_length=200, default="")
+    body = serializers.CharField(required=False, allow_blank=True, max_length=10000, default="")
+
+    def validate(self, attrs: dict) -> dict:
+        if attrs.get("template") is None and not (
+            attrs.get("subject", "").strip() and attrs.get("body", "").strip()
+        ):
+            raise serializers.ValidationError(
+                "Choose a template or provide both a subject and a body."
+            )
+        return attrs
+
+
+class EmailPreviewRequestSerializer(_TemplateOrTextMixin):
+    pass
 
 
 class EmailPreviewSerializer(serializers.Serializer):
@@ -818,13 +858,115 @@ class EmailSendSerializer(serializers.Serializer):
     body = serializers.CharField(max_length=10000)
 
 
-class BulkEmailSerializer(serializers.Serializer):
+class BulkEmailSerializer(_TemplateOrTextMixin):
     ids = serializers.ListField(child=serializers.UUIDField(), min_length=1, max_length=50)
-    template_id = serializers.PrimaryKeyRelatedField(
-        queryset=MessageTemplate.objects.filter(is_active=True), source="template"
-    )
 
 
 class BulkEmailResultSerializer(serializers.Serializer):
     sent = serializers.ListField(child=serializers.CharField())
     skipped = serializers.DictField(child=serializers.CharField())
+
+
+class EmailDraftBriefSerializer(serializers.Serializer):
+    """What the AI needs to draft a template: purpose, tone, the role, extra wishes."""
+
+    job_description = serializers.PrimaryKeyRelatedField(
+        queryset=JobDescription.objects.all(), required=False, allow_null=True, source="jd"
+    )
+    purpose = serializers.ChoiceField(choices=list(PURPOSES), default="introduction")
+    tone = serializers.ChoiceField(choices=list(TONES), default="friendly")
+    instructions = serializers.CharField(
+        required=False, allow_blank=True, max_length=1000, default=""
+    )
+
+
+class EmailDraftSerializer(serializers.Serializer):
+    subject = serializers.CharField()
+    body = serializers.CharField()
+    model = serializers.CharField()
+
+
+class PhoneCallSerializer(serializers.ModelSerializer):
+    application = ApplicationRefSerializer(read_only=True)
+    created_by = UserSummarySerializer(read_only=True, allow_null=True)
+    purpose_label = serializers.CharField(source="get_purpose_display", read_only=True)
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
+    to_number = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PhoneCall
+        fields = [
+            "id",
+            "application",
+            "purpose",
+            "purpose_label",
+            "mode",
+            "status",
+            "status_label",
+            "to_number",
+            "questions",
+            "information",
+            "instructions",
+            "max_minutes",
+            "transcript",
+            "summary",
+            "assessment",
+            "recording_url",
+            "notes",
+            "error",
+            "started_at",
+            "ended_at",
+            "duration_seconds",
+            "created_by",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_to_number(self, obj: PhoneCall) -> str:
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        return mask_phone(obj.to_number) if should_mask_pii(user) else obj.to_number
+
+
+class PhoneCallCreateSerializer(serializers.Serializer):
+    purpose = serializers.ChoiceField(choices=CallPurpose.choices)
+    questions = serializers.ListField(
+        child=serializers.CharField(max_length=500), required=False, default=list, max_length=20
+    )
+    information = serializers.CharField(
+        required=False, allow_blank=True, max_length=3000, default=""
+    )
+    instructions = serializers.CharField(
+        required=False, allow_blank=True, max_length=2000, default=""
+    )
+    max_minutes = serializers.IntegerField(min_value=2, max_value=30, default=10)
+    mode = serializers.ChoiceField(
+        choices=[("phone", "phone"), ("simulated", "simulated")], default="simulated"
+    )
+
+    def validate(self, attrs: dict) -> dict:
+        if attrs["purpose"] == CallPurpose.INFORMATION and not attrs.get("information", "").strip():
+            raise serializers.ValidationError(
+                {"information": "Say what the call should tell the candidate."}
+            )
+        return attrs
+
+
+class BulkPhoneCallSerializer(PhoneCallCreateSerializer):
+    ids = serializers.ListField(child=serializers.UUIDField(), min_length=1, max_length=25)
+
+
+class BulkPhoneCallResultSerializer(serializers.Serializer):
+    placed = PhoneCallSerializer(many=True)
+    skipped = serializers.DictField(child=serializers.CharField())
+
+
+class CallReplySerializer(serializers.Serializer):
+    answer = serializers.CharField(max_length=4000)
+
+
+class VoiceConfigSerializer(serializers.Serializer):
+    provider = serializers.CharField(allow_blank=True)
+    configured = serializers.BooleanField()
+    safe_number = serializers.CharField(allow_blank=True)
+    default_region = serializers.CharField()

@@ -5,6 +5,7 @@ import {
   ListChecksIcon,
   MailIcon,
   PhoneCallIcon,
+  PhoneOutgoingIcon,
   RocketIcon,
   UserRoundIcon,
   XCircleIcon,
@@ -22,10 +23,9 @@ import {
   type PipelineTarget,
 } from '@/features/applications/pipeline-target'
 import { BulkTransitionDialog, TransitionDialog } from '@/features/applications/TransitionDialog'
-import {
-  BulkEmailDialog,
-  EmailCandidateDialog,
-} from '@/features/communications/EmailCandidateDialog'
+import { PlanCallDialog } from '@/features/calls/PlanCallDialog'
+import { SimulatedCallDialog } from '@/features/calls/SimulatedCallDialog'
+import { ComposeEmailDialog } from '@/features/communications/ComposeEmailDialog'
 import { LogContactDialog } from '@/features/communications/LogContactDialog'
 import { useCancelInterview, useDeleteInterview } from '@/features/interviews/api'
 import { FeedbackDialog } from '@/features/interviews/FeedbackDialog'
@@ -36,7 +36,7 @@ import { OfferDialog } from '@/features/offers/OfferDialog'
 import { StartOnboardingDialog } from '@/features/onboarding/StartOnboardingDialog'
 import { describeError } from '@/lib/errors'
 import { statusMeta } from '@/lib/enums'
-import type { ApplicationRow, Interview, Offer } from '@/types/domain'
+import type { ApplicationRow, Interview, Offer, PhoneCall } from '@/types/domain'
 
 const CLOSED = new Set(['rejected', 'withdrawn', 'onboarded'])
 
@@ -54,6 +54,8 @@ export interface ApplicationActionsHandle {
   reject: (row: ApplicationRow) => void
   logContact: (row: PipelineTarget) => void
   emailCandidate: (row: PipelineTarget) => void
+  callCandidate: (row: PipelineTarget) => void
+  resumeSimulatedCall: (call: PhoneCall) => void
   scheduleInterview: (row: PipelineTarget) => void
   rescheduleInterview: (interview: Interview) => void
   cancelInterview: (interview: Interview) => void
@@ -66,6 +68,7 @@ export interface ApplicationActionsHandle {
   bulkShortlist: (rows: ApplicationRow[]) => void
   bulkReject: (rows: ApplicationRow[]) => void
   bulkEmail: (rows: ApplicationRow[]) => void
+  bulkCall: (rows: ApplicationRow[]) => void
   dialogs: ReactNode
 }
 
@@ -87,8 +90,9 @@ export function useApplicationActions(callbacks: { onBulkDone?: () => void } = {
     requireNote: boolean
   } | null>(null)
   const [contact, setContact] = useState<PipelineTarget | null>(null)
-  const [email, setEmail] = useState<PipelineTarget | null>(null)
-  const [bulkMail, setBulkMail] = useState<ApplicationRow[] | null>(null)
+  const [compose, setCompose] = useState<PipelineTarget[] | null>(null)
+  const [plan, setPlan] = useState<PipelineTarget[] | null>(null)
+  const [simulated, setSimulated] = useState<PhoneCall | null>(null)
   const [schedule, setSchedule] = useState<PipelineTarget | null>(null)
   const [reschedule, setReschedule] = useState<Interview | null>(null)
   const [cancelling, setCancelling] = useState<Interview | null>(null)
@@ -153,7 +157,13 @@ export function useApplicationActions(callbacks: { onBulkDone?: () => void } = {
         key: 'email',
         label: 'Email candidate…',
         icon: MailIcon,
-        onSelect: () => setEmail(toTarget(row)),
+        onSelect: () => setCompose([toTarget(row)]),
+      })
+      items.push({
+        key: 'call',
+        label: 'Call candidate (AI)…',
+        icon: PhoneOutgoingIcon,
+        onSelect: () => setPlan([toTarget(row)]),
       })
       items.push({
         key: 'interview',
@@ -217,12 +227,18 @@ export function useApplicationActions(callbacks: { onBulkDone?: () => void } = {
         onDone={callbacks.onBulkDone}
       />
       <LogContactDialog application={contact} onOpenChange={(open) => !open && setContact(null)} />
-      <EmailCandidateDialog application={email} onOpenChange={(open) => !open && setEmail(null)} />
-      <BulkEmailDialog
-        rows={bulkMail}
-        onOpenChange={(open) => !open && setBulkMail(null)}
+      <ComposeEmailDialog
+        targets={compose}
+        onOpenChange={(open) => !open && setCompose(null)}
         onDone={callbacks.onBulkDone}
       />
+      <PlanCallDialog
+        targets={plan}
+        onOpenChange={(open) => !open && setPlan(null)}
+        onDone={callbacks.onBulkDone}
+        onSimulated={(call) => setSimulated(call)}
+      />
+      <SimulatedCallDialog call={simulated} onOpenChange={(open) => !open && setSimulated(null)} />
       <ScheduleInterviewDialog
         application={schedule}
         interview={reschedule}
@@ -281,7 +297,9 @@ export function useApplicationActions(callbacks: { onBulkDone?: () => void } = {
     changeStatus: (row: ApplicationRow, status?: string) => setDialog({ row, status }),
     reject: (row: ApplicationRow) => setDialog({ row, status: 'rejected' }),
     logContact: (row: PipelineTarget) => setContact(row),
-    emailCandidate: (row: PipelineTarget) => setEmail(row),
+    emailCandidate: (row: PipelineTarget) => setCompose([row]),
+    callCandidate: (row: PipelineTarget) => setPlan([row]),
+    resumeSimulatedCall: (call: PhoneCall) => setSimulated(call),
     scheduleInterview: (row: PipelineTarget) => setSchedule(row),
     rescheduleInterview: (interview: Interview) => setReschedule(interview),
     cancelInterview: (interview: Interview) => setCancelling(interview),
@@ -297,7 +315,8 @@ export function useApplicationActions(callbacks: { onBulkDone?: () => void } = {
       setBulk({ rows, status: 'hr_review', label: 'Shortlist', requireNote: false }),
     bulkReject: (rows: ApplicationRow[]) =>
       setBulk({ rows, status: 'rejected', label: 'Reject', requireNote: true }),
-    bulkEmail: (rows: ApplicationRow[]) => setBulkMail(rows),
+    bulkEmail: (rows: ApplicationRow[]) => setCompose(rows.map(toTarget)),
+    bulkCall: (rows: ApplicationRow[]) => setPlan(rows.map(toTarget)),
     dialogs,
   } satisfies ApplicationActionsHandle
 }

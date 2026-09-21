@@ -4,6 +4,7 @@ import {
   CalendarClockIcon,
   HouseIcon,
   LayoutDashboardIcon,
+  MailsIcon,
   UserSearchIcon,
   UsersIcon,
   type LucideIcon,
@@ -19,7 +20,7 @@ export interface NavItem {
 
 /**
  * Sidebar order (Enhancement.md 2): Homepage, Job Descriptions, Search Candidates,
- * Interviews, Candidates, Dashboard, Notifications.
+ * Interviews, Candidates, Email Templates, Dashboard, Notifications.
  */
 export const NAV_ITEMS: readonly NavItem[] = [
   { to: '/', label: 'Homepage', icon: HouseIcon, end: true },
@@ -27,6 +28,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: '/search', label: 'Search Candidates', icon: UserSearchIcon },
   { to: '/interviews', label: 'Interviews', icon: CalendarClockIcon },
   { to: '/candidates', label: 'Candidates', icon: UsersIcon },
+  { to: '/templates', label: 'Email Templates', icon: MailsIcon },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboardIcon },
   { to: '/notifications', label: 'Notifications', icon: BellIcon },
 ]

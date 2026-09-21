@@ -1,4 +1,3 @@
-import type { RowSelectionState } from '@tanstack/react-table'
 import { SearchIcon, SearchXIcon, UserSearchIcon, UsersIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
@@ -22,6 +21,7 @@ import {
 } from '@/features/applications/application-utils'
 import { ApplicationsTable } from '@/features/applications/ApplicationsTable'
 import { useApplicationActions } from '@/features/applications/useApplicationActions'
+import { useContactMode } from '@/features/communications/useContactMode'
 import { ViewToggle } from '@/features/jobs/ViewToggle'
 import { useEnumOptions } from '@/lib/enums'
 import { useDebounce, useIsMobile, param, useUrlState } from '@/lib/hooks'
@@ -50,9 +50,9 @@ export function CandidatesTab({ job }: { job: JobDetail }) {
     if (state.cq === '') setDraft('')
   }
   const debounced = useDebounce(draft, 300)
-  const [selection, setSelection] = useState<RowSelectionState>({})
+  const contact = useContactMode()
   const sources = useEnumOptions('candidate_source')
-  const actions = useApplicationActions({ onBulkDone: () => setSelection({}) })
+  const actions = useApplicationActions({ onBulkDone: contact.stop })
 
   const list = useApplications({
     job_description: job.id,
@@ -81,13 +81,18 @@ export function CandidatesTab({ job }: { job: JobDetail }) {
             setState({ cgroup: chosen, cpage: 1 })
           }}
         />
-        {canWork && job.status !== 'archived' && (
-          <Button asChild variant="outline" size="sm" className="ml-auto">
-            <Link to={`/search?jd=${job.id}`}>
-              <UserSearchIcon data-icon="inline-start" aria-hidden="true" />
-              Run new search
-            </Link>
-          </Button>
+        {canWork && (
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {contact.controls}
+            {job.status !== 'archived' && (
+              <Button asChild variant="outline" size="sm">
+                <Link to={`/search?jd=${job.id}`}>
+                  <UserSearchIcon data-icon="inline-start" aria-hidden="true" />
+                  Run new search
+                </Link>
+              </Button>
+            )}
+          </div>
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -199,33 +204,15 @@ export function CandidatesTab({ job }: { job: JobDetail }) {
           state: sortingFrom(state.csort),
           onChange: (sorting) => setState({ csort: sortingTo(sorting), cpage: 1 }),
         }}
-        selection={canWork ? { state: selection, onChange: setSelection } : undefined}
-        bulkActions={({ selectedRows }) => (
-          <>
-            <Button type="button" size="sm" onClick={() => actions.bulkShortlist(selectedRows)}>
-              Shortlist selected
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => actions.bulkEmail(selectedRows)}
-            >
-              Email selected
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="text-danger"
-              onClick={() => actions.bulkReject(selectedRows)}
-            >
-              Reject selected
-            </Button>
-          </>
-        )}
+        selection={canWork ? contact.selection : undefined}
+        bulkActions={contact.bulkActionsFor(actions)}
         actionsFor={actions.itemsFor}
-        toolbar={toolbar}
+        toolbar={
+          <>
+            {toolbar}
+            {contact.banner}
+          </>
+        }
         emptyState={emptyState}
       />
       {actions.dialogs}

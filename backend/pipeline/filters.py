@@ -11,6 +11,8 @@ from django.utils import timezone
 from common.enums import (
     KANBAN_COLUMNS,
     ApplicationStatus,
+    CallPurpose,
+    CallStatus,
     CandidateSource,
     CommunicationChannel,
     CommunicationOutcome,
@@ -19,7 +21,15 @@ from common.enums import (
     OfferStatus,
     OnboardingStatus,
 )
-from pipeline.models import Application, Communication, Interview, Offer, Onboarding, SearchRun
+from pipeline.models import (
+    Application,
+    Communication,
+    Interview,
+    Offer,
+    Onboarding,
+    PhoneCall,
+    SearchRun,
+)
 
 
 def _csv(value: str) -> list[str]:
@@ -229,3 +239,23 @@ class OnboardingFilter(django_filters.FilterSet):
     def filter_status(self, qs: QuerySet, name: str, value: str) -> QuerySet:
         wanted = [key for key in _csv(value) if key in OnboardingStatus.values]
         return qs.filter(status__in=wanted) if wanted else qs
+
+
+class PhoneCallFilter(django_filters.FilterSet):
+    application = django_filters.UUIDFilter(field_name="application_id")
+    job_description = django_filters.UUIDFilter(field_name="application__job_description_id")
+    candidate = django_filters.UUIDFilter(field_name="application__candidate_id")
+    status = django_filters.CharFilter(method="filter_status")
+    purpose = django_filters.CharFilter(method="filter_purpose")
+
+    class Meta:
+        model = PhoneCall
+        fields: list[str] = []
+
+    def filter_status(self, qs: QuerySet, name: str, value: str) -> QuerySet:
+        wanted = [key for key in _csv(value) if key in CallStatus.values]
+        return qs.filter(status__in=wanted) if wanted else qs
+
+    def filter_purpose(self, qs: QuerySet, name: str, value: str) -> QuerySet:
+        wanted = [key for key in _csv(value) if key in CallPurpose.values]
+        return qs.filter(purpose__in=wanted) if wanted else qs

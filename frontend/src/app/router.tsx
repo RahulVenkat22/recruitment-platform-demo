@@ -14,6 +14,7 @@ const SearchCandidatesPage = lazy(() => import('@/features/search/SearchCandidat
 const CandidateListPage = lazy(() => import('@/features/candidates/CandidateListPage'))
 const CandidateDetailPage = lazy(() => import('@/features/candidates/CandidateDetailPage'))
 const UploadResumesPage = lazy(() => import('@/features/resumes/UploadResumesPage'))
+const EmailTemplatesPage = lazy(() => import('@/features/communications/EmailTemplatesPage'))
 const InterviewsPage = lazy(() => import('@/features/interviews/InterviewsPage'))
 const NotificationsPage = lazy(() => import('@/features/notifications/NotificationsPage'))
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'))
@@ -42,6 +43,7 @@ export function AppRoutes() {
         <Route path="candidates/upload" element={<UploadResumesPage />} />
         <Route path="candidates/:id" element={<CandidateDetailPage />} />
         <Route path="interviews" element={<InterviewsPage />} />
+        <Route path="templates" element={<EmailTemplatesPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />

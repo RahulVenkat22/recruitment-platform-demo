@@ -22,13 +22,22 @@ from typing import Any
 
 from django.conf import settings
 from django.core.mail import EmailMessage, get_connection
+from langchain_core.messages import HumanMessage, SystemMessage
+from pydantic import BaseModel
 from rest_framework.exceptions import ValidationError
 
 from common.enums import CommunicationChannel, CommunicationOutcome
-from pipeline.exceptions import EmailDeliveryFailed, InvalidTransition, NoRecipient
+from pipeline.exceptions import (
+    DraftUnavailable,
+    EmailDeliveryFailed,
+    InvalidTransition,
+    NoRecipient,
+)
 from pipeline.models import Application, Communication, MessageTemplate
 from pipeline.services._common import require_active
 from pipeline.services.communications import CommunicationService
+from resumes.engines.llm import LLMError, invoke_structured
+from resumes.engines.planner import jd_text
 
 logger = logging.getLogger(__name__)
 
@@ -95,8 +104,105 @@ def render(text: str, context: dict[str, str]) -> str:
 def render_template(
     template: MessageTemplate, application: Application, actor: Any
 ) -> tuple[str, str]:
+    return render_text(template.subject, template.body, application, actor)
+
+
+def render_text(subject: str, body: str, application: Application, actor: Any) -> tuple[str, str]:
+    """Fill the placeholders of a subject and body (a template's or an unsaved draft's)."""
     context = context_for(application, actor)
-    return render(template.subject, context), render(template.body, context)
+    return render(subject, context), render(body, context)
+
+
+def set_default_template(template: MessageTemplate) -> None:
+    """Exactly one template per channel is the default the compose dialog opens with."""
+    if template.is_default:
+        MessageTemplate.objects.filter(channel=template.channel).exclude(pk=template.pk).update(
+            is_default=False
+        )
+
+
+# ------------------------------------------------------------ AI drafting
+
+PURPOSES: dict[str, str] = {
+    "introduction": (
+        "First contact. Introduce the role and why the candidate's profile stood out, and ask for "
+        "a short call. Do not assume anything about the candidate beyond what a resume shows."
+    ),
+    "interview_invite": (
+        "Invite the candidate to an interview for the role and ask for their availability. "
+        "Mention the format and duration only if the instructions give them."
+    ),
+    "follow_up": (
+        "Follow up on an earlier email that got no reply. Short and polite, one clear ask, "
+        "no guilt-tripping."
+    ),
+    "rejection": (
+        "Let the candidate know they were not selected this time. Warm and brief: thank them, "
+        "encourage them to apply again, and do not give detailed reasons."
+    ),
+    "custom": "Write the email the instructions describe.",
+}
+TONES: dict[str, str] = {
+    "friendly": "warm and conversational, still professional",
+    "formal": "formal and courteous",
+    "concise": "brief and direct, no filler",
+}
+DRAFT_TOKENS = 700
+
+
+class EmailDraft(BaseModel):
+    subject: str = ""
+    body: str = ""
+
+
+_DRAFT_SYSTEM = SystemMessage(
+    content=(
+        "You write recruiter outreach emails and return them as JSON with a `subject` and a "
+        "plain-text `body`. Rules: write in the requested tone; keep the body between 90 and 160 "
+        "words; the text is a TEMPLATE reused for many candidates, so use these placeholders "
+        "exactly, with the braces, wherever the value belongs and never invent the value: "
+        "{candidate_first_name}, {candidate_name}, {job_title}, {job_location}, {company}, "
+        "{recruiter_name}, {recruiter_email}. Open with a greeting to {candidate_first_name}, "
+        "refer to the role as {job_title}, and sign off with {recruiter_name} and {company}. "
+        "Include one sentence that lets the candidate decline further contact by replying. "
+        "No markdown, no bullet points, no subject line inside the body, no salary unless the "
+        "instructions mention it."
+    )
+)
+
+
+def draft_email(
+    *, purpose: str, tone: str, instructions: str, jd: Any | None, model: str | None = None
+) -> tuple[EmailDraft, str]:
+    """Ask the search model for a template; returns the draft and the model that wrote it."""
+    lines = [
+        f"Purpose: {PURPOSES.get(purpose, PURPOSES['custom'])}",
+        f"Tone: {TONES.get(tone, TONES['friendly'])}.",
+        f"The email is sent on behalf of {settings.EMAIL_COMPANY_NAME}.",
+    ]
+    if jd is not None:
+        lines.append(
+            "Role the email is about (use it for context; keep {job_title} as the placeholder):"
+        )
+        lines.append(jd_text(jd)[:2500])
+    if instructions.strip():
+        lines.append(f"Extra instructions from the recruiter: {instructions.strip()}")
+    name = model or settings.LLM_SEARCH_MODEL
+    try:
+        draft = invoke_structured(
+            EmailDraft,
+            [_DRAFT_SYSTEM, HumanMessage(content="\n".join(lines))],
+            model=name,
+            num_predict=DRAFT_TOKENS,
+        )
+    except LLMError as exc:
+        logger.warning("email draft failed on %s: %s", name, exc)
+        raise DraftUnavailable(f"The AI could not draft the email: {exc}") from exc
+    draft.subject = " ".join(draft.subject.split())[:200]
+    draft.body = draft.body.strip()[:10000]
+    if not draft.subject or not draft.body:
+        raise DraftUnavailable("The AI returned an empty draft; try again or adjust the brief.")
+    return draft, name
 
 
 class OutreachService:
@@ -160,20 +266,31 @@ class OutreachService:
 
     @staticmethod
     def send_bulk(
-        applications: list[Application], *, template: MessageTemplate, actor: Any
+        applications: list[Application],
+        *,
+        actor: Any,
+        template: MessageTemplate | None = None,
+        subject: str = "",
+        body: str = "",
     ) -> tuple[list[Communication], dict[str, str]]:
-        """One personalised mail per application over one connection; skips are reported."""
+        """One personalised mail per application over one connection; skips are reported.
+
+        The text comes from ``template`` or from a raw ``subject``/``body`` still
+        holding placeholders (an AI draft the recruiter did not save).
+        """
+        if template is not None:
+            subject, body = template.subject, template.body
         sent: list[Communication] = []
         skipped: dict[str, str] = {}
         with get_connection() as connection:
             for application in applications:
-                subject, body = render_template(template, application, actor)
+                rendered_subject, rendered_body = render_text(subject, body, application, actor)
                 try:
                     sent.append(
                         OutreachService.send_email(
                             application,
-                            subject=subject,
-                            body=body,
+                            subject=rendered_subject,
+                            body=rendered_body,
                             actor=actor,
                             connection=connection,
                         )

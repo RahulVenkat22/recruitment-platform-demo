@@ -46,3 +46,27 @@ class EmailDeliveryFailed(APIException):
     status_code = status.HTTP_502_BAD_GATEWAY
     default_detail = "The mail server rejected the message."
     default_code = "email_delivery_failed"
+
+
+class DraftUnavailable(APIException):
+    status_code = status.HTTP_502_BAD_GATEWAY
+    default_detail = "The AI could not draft the email right now."
+    default_code = "draft_unavailable"
+
+
+class NoPhoneNumber(APIException):
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = "This candidate has no usable phone number."
+    default_code = "no_phone_number"
+
+
+class VoiceNotConfigured(APIException):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_detail = "No voice provider is configured; run a simulated call instead."
+    default_code = "voice_not_configured"
+
+
+class CallPlacementFailed(APIException):
+    status_code = status.HTTP_502_BAD_GATEWAY
+    default_detail = "The voice provider could not place the call."
+    default_code = "call_placement_failed"

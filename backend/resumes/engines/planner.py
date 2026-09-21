@@ -59,7 +59,7 @@ class QueryPlan:
         return cls(**{key: value for key, value in data.items() if key in known})
 
 
-def _jd_text(jd: Any) -> str:
+def jd_text(jd: Any) -> str:
     parts = [
         f"Title: {jd.title}",
         f"Department: {jd.department}" if jd.department else "",
@@ -121,7 +121,7 @@ def llm_plan(jd: Any, *, model: str) -> QueryPlan:
         JobRequirements,
         [
             _SYSTEM,
-            HumanMessage(content=f"JOB DESCRIPTION:\n{_jd_text(jd)[:6000]}\n\nReturn the JSON."),
+            HumanMessage(content=f"JOB DESCRIPTION:\n{jd_text(jd)[:6000]}\n\nReturn the JSON."),
         ],
         model=model,
         num_predict=600,

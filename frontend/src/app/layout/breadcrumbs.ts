@@ -7,6 +7,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   search: 'Search Candidates',
   candidates: 'Candidates',
   interviews: 'Interviews',
+  templates: 'Email templates',
   notifications: 'Notifications',
   settings: 'Settings',
   new: 'New',

@@ -9,7 +9,13 @@ export interface PipelineTarget {
   id: string
   job_description: string
   status: string
-  candidate: { id: string; full_name: string; avatar_url?: string | null }
+  candidate: {
+    id: string
+    full_name: string
+    avatar_url?: string | null
+    /** Present when the source row carried it; `undefined` means unknown, not missing. */
+    email?: string | null
+  }
   job?: { title: string } | null
 }
 
@@ -22,6 +28,7 @@ export function toTarget(source: ApplicationRow | ApplicationRef): PipelineTarge
       id: source.candidate.id,
       full_name: source.candidate.full_name,
       avatar_url: source.candidate.avatar_url,
+      email: 'email' in source.candidate ? source.candidate.email : undefined,
     },
     job: source.job,
   }

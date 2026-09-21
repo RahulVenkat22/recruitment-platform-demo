@@ -366,3 +366,51 @@ class MessageTemplate(UUIDTimestampedModel):
 
     def __str__(self) -> str:
         return self.name
+
+
+class PhoneCall(UUIDTimestampedModel):
+    """An AI phone call to the candidate: a knowledge screening or a message delivered by voice."""
+
+    application = models.ForeignKey(
+        Application, on_delete=models.CASCADE, related_name="phone_calls"
+    )
+    purpose = models.CharField(max_length=20, choices=enums.CallPurpose.choices)
+    # "phone" through the voice provider, "simulated" as a text chat in the browser.
+    mode = models.CharField(max_length=12, default="simulated")
+    status = models.CharField(
+        max_length=20, choices=enums.CallStatus.choices, default=enums.CallStatus.QUEUED
+    )
+    provider = models.CharField(max_length=20, blank=True)
+    provider_call_id = models.CharField(max_length=120, blank=True)
+    to_number = models.CharField(max_length=32, blank=True)
+    # What the recruiter asked for: questions for a knowledge test, the message for
+    # an information call, extra instructions for either.
+    questions = models.JSONField(default=list, blank=True)
+    information = models.TextField(blank=True)
+    instructions = models.TextField(blank=True)
+    max_minutes = models.PositiveSmallIntegerField(default=10)
+    # The compiled agent script, kept for audit.
+    system_prompt = models.TextField(blank=True)
+    # [{"role": "ai" | "candidate", "text": "..."}]
+    transcript = models.JSONField(default=list, blank=True)
+    summary = models.TextField(blank=True)
+    assessment = models.JSONField(null=True, blank=True)
+    recording_url = models.URLField(max_length=500, blank=True)
+    notes = models.CharField(max_length=300, blank=True)
+    error = models.TextField(blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    duration_seconds = models.PositiveIntegerField(default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="phone_calls",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.get_purpose_display()} call with {self.application.candidate.full_name}"

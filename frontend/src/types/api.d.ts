@@ -673,6 +673,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/applications/bulk-calls/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start the same AI phone call for several candidates */
+        post: operations["applications_bulk_call"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/applications/bulk-email/": {
         parameters: {
             query?: never;
@@ -723,6 +740,23 @@ export interface paths {
         head?: never;
         /** Change the owner, star or notes */
         patch: operations["applications_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/calls/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start an AI phone call to the candidate (real or simulated) */
+        post: operations["applications_call"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/applications/{id}/email/": {
@@ -1071,6 +1105,154 @@ export interface paths {
         put?: never;
         /** Tick the rest of the checklist and mark the candidate onboarded */
         post: operations["onboardings_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/templates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Outreach templates
+         * @description Outreach templates: anyone signed in may read them, HR staff maintain them.
+         */
+        get: operations["email_templates_list"];
+        put?: never;
+        /**
+         * Create a template (HR staff)
+         * @description Outreach templates: anyone signed in may read them, HR staff maintain them.
+         */
+        post: operations["email_templates_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/templates/generate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft a template with the AI from a purpose, tone, role and instructions
+         * @description Outreach templates: anyone signed in may read them, HR staff maintain them.
+         */
+        post: operations["email_templates_generate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/templates/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Outreach templates: anyone signed in may read them, HR staff maintain them. */
+        get: operations["email_templates_retrieve"];
+        /** @description Outreach templates: anyone signed in may read them, HR staff maintain them. */
+        put: operations["email_templates_update"];
+        post?: never;
+        /** @description Outreach templates: anyone signed in may read them, HR staff maintain them. */
+        delete: operations["email_templates_destroy"];
+        options?: never;
+        head?: never;
+        /** @description Outreach templates: anyone signed in may read them, HR staff maintain them. */
+        patch: operations["email_templates_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/calls/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** AI phone calls the user may see */
+        get: operations["calls_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/calls/config/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether a voice provider is configured, and the safe-mode number */
+        get: operations["calls_config"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/calls/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["calls_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/calls/{id}/finish/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End the call now and write the assessment */
+        post: operations["calls_finish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/calls/{id}/reply/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Simulated call: the candidate's answer; returns the call with the AI's next turn */
+        post: operations["calls_reply"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1528,13 +1710,37 @@ export interface components {
             access: string;
             user: components["schemas"]["User"];
         };
+        /** @description Either a saved template or a raw subject and body still holding placeholders. */
         BulkEmailRequest: {
-            ids: string[];
             /** Format: uuid */
-            template_id: string;
+            template_id?: string | null;
+            /** @default  */
+            subject: string;
+            /** @default  */
+            body: string;
+            ids: string[];
         };
         BulkEmailResult: {
             sent: string[];
+            skipped: {
+                [key: string]: string;
+            };
+        };
+        BulkPhoneCallRequest: {
+            purpose: components["schemas"]["Purpose486Enum"];
+            questions?: string[];
+            /** @default  */
+            information: string;
+            /** @default  */
+            instructions: string;
+            /** @default 10 */
+            max_minutes: number;
+            /** @default simulated */
+            mode: components["schemas"]["ModeA9fEnum"];
+            ids: string[];
+        };
+        BulkPhoneCallResult: {
+            placed: components["schemas"]["PhoneCall"][];
             skipped: {
                 [key: string]: string;
             };
@@ -1551,6 +1757,9 @@ export interface components {
                 [key: string]: string;
             };
             activities: components["schemas"]["Activity"][];
+        };
+        CallReplyRequest: {
+            answer: string;
         };
         /** @description One JD the candidate is attached to, with the headline numbers. */
         CandidateApplication: {
@@ -1913,6 +2122,31 @@ export interface components {
             placeholders: string[];
             templates: components["schemas"]["MessageTemplate"][];
         };
+        EmailDraft: {
+            subject: string;
+            body: string;
+            model: string;
+        };
+        /**
+         * @description * `introduction` - introduction
+         *     * `interview_invite` - interview_invite
+         *     * `follow_up` - follow_up
+         *     * `rejection` - rejection
+         *     * `custom` - custom
+         * @enum {string}
+         */
+        EmailDraftBriefPurposeEnum: "introduction" | "interview_invite" | "follow_up" | "rejection" | "custom";
+        /** @description What the AI needs to draft a template: purpose, tone, the role, extra wishes. */
+        EmailDraftBriefRequest: {
+            /** Format: uuid */
+            job_description?: string | null;
+            /** @default introduction */
+            purpose: components["schemas"]["EmailDraftBriefPurposeEnum"];
+            /** @default friendly */
+            tone: components["schemas"]["ToneEnum"];
+            /** @default  */
+            instructions: string;
+        };
         EmailPreview: {
             to: string;
             can_send: boolean;
@@ -1920,9 +2154,14 @@ export interface components {
             subject: string;
             body: string;
         };
+        /** @description Either a saved template or a raw subject and body still holding placeholders. */
         EmailPreviewRequestRequest: {
             /** Format: uuid */
-            template_id: string;
+            template_id?: string | null;
+            /** @default  */
+            subject: string;
+            /** @default  */
+            body: string;
         };
         EmailSendRequest: {
             subject: string;
@@ -2353,11 +2592,23 @@ export interface components {
         MessageTemplate: {
             /** Format: uuid */
             readonly id: string;
-            readonly name: string;
+            name: string;
             readonly channel: components["schemas"]["CommunicationChannelEnum"];
-            readonly subject: string;
-            readonly body: string;
-            readonly is_default: boolean;
+            subject?: string;
+            body: string;
+            is_default?: boolean;
+            is_active?: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        MessageTemplateRequest: {
+            name: string;
+            subject?: string;
+            body: string;
+            is_default?: boolean;
+            is_active?: boolean;
         };
         /** @description ``GET /api/v1/meta/enums/`` body (plan.md 6.4, 7.2). */
         MetaEnums: {
@@ -2392,6 +2643,12 @@ export interface components {
             offers_pending: number;
             onboarded: number;
         };
+        /**
+         * @description * `phone` - phone
+         *     * `simulated` - simulated
+         * @enum {string}
+         */
+        ModeA9fEnum: "phone" | "simulated";
         Move: {
             status: string;
             label: string;
@@ -2624,6 +2881,21 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["JobDescriptionRow"][];
         };
+        PaginatedMessageTemplateList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["MessageTemplate"][];
+        };
         PaginatedMoveList: {
             /** @example 123 */
             count: number;
@@ -2683,6 +2955,21 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Onboarding"][];
+        };
+        PaginatedPhoneCallList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["PhoneCall"][];
         };
         PaginatedSearchRunList: {
             /** @example 123 */
@@ -2826,6 +3113,13 @@ export interface components {
             participants?: components["schemas"]["ParticipantInputRequest"][];
             change_summary?: string;
         };
+        PatchedMessageTemplateRequest: {
+            name?: string;
+            subject?: string;
+            body?: string;
+            is_default?: boolean;
+            is_active?: boolean;
+        };
         PatchedOfferUpdateRequest: {
             designation?: string;
             annual_ctc?: number;
@@ -2865,6 +3159,58 @@ export interface components {
             role?: components["schemas"]["UserRoleEnum"];
             is_active?: boolean;
         };
+        PhoneCall: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly application: components["schemas"]["ApplicationRef"];
+            readonly purpose: components["schemas"]["Purpose486Enum"];
+            readonly purpose_label: string;
+            readonly mode: string;
+            readonly status: components["schemas"]["PhoneCallStatusEnum"];
+            readonly status_label: string;
+            readonly to_number: string;
+            readonly questions: unknown;
+            readonly information: string;
+            readonly instructions: string;
+            readonly max_minutes: number;
+            readonly transcript: unknown;
+            readonly summary: string;
+            readonly assessment: unknown;
+            /** Format: uri */
+            readonly recording_url: string;
+            readonly notes: string;
+            readonly error: string;
+            /** Format: date-time */
+            readonly started_at: string | null;
+            /** Format: date-time */
+            readonly ended_at: string | null;
+            readonly duration_seconds: number;
+            readonly created_by: components["schemas"]["UserSummary"] | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        PhoneCallCreateRequest: {
+            purpose: components["schemas"]["Purpose486Enum"];
+            questions?: string[];
+            /** @default  */
+            information: string;
+            /** @default  */
+            instructions: string;
+            /** @default 10 */
+            max_minutes: number;
+            /** @default simulated */
+            mode: components["schemas"]["ModeA9fEnum"];
+        };
+        /**
+         * @description * `queued` - Queued
+         *     * `ringing` - Ringing
+         *     * `in_progress` - In progress
+         *     * `completed` - Completed
+         *     * `no_answer` - No answer
+         *     * `failed` - Failed
+         * @enum {string}
+         */
+        PhoneCallStatusEnum: "queued" | "ringing" | "in_progress" | "completed" | "no_answer" | "failed";
         /** @description The five numbers in the list's Pipeline column (plan.md 9.4). */
         PipelineCounts: {
             candidates: number;
@@ -2880,6 +3226,12 @@ export interface components {
             profile_count: number;
             note: string;
         };
+        /**
+         * @description * `knowledge_test` - Knowledge test
+         *     * `information` - Share information
+         * @enum {string}
+         */
+        Purpose486Enum: "knowledge_test" | "information";
         ReadAll: {
             marked: number;
         };
@@ -3001,6 +3353,13 @@ export interface components {
          * @enum {string}
          */
         StorageStatusEnum: "pending_upload" | "uploaded" | "failed";
+        /**
+         * @description * `friendly` - friendly
+         *     * `formal` - formal
+         *     * `concise` - concise
+         * @enum {string}
+         */
+        ToneEnum: "friendly" | "formal" | "concise";
         /**
          * @description ``POST .../transition/``: every move through the API carries a reason
          *     (Enhancement.md 6); ``note`` is accepted as the same thing for older clients.
@@ -3146,6 +3505,12 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
             readonly is_current: boolean;
+        };
+        VoiceConfig: {
+            provider: string;
+            configured: boolean;
+            safe_number: string;
+            default_region: string;
         };
         /**
          * @description * `onsite` - On-site
@@ -4613,6 +4978,45 @@ export interface operations {
             };
         };
     };
+    applications_bulk_call: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkPhoneCallRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["BulkPhoneCallRequest"];
+                "multipart/form-data": components["schemas"]["BulkPhoneCallRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkPhoneCallResult"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     applications_bulk_email: {
         parameters: {
             query?: never;
@@ -4755,6 +5159,69 @@ export interface operations {
             };
         };
     };
+    applications_call: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this application. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhoneCallCreateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PhoneCallCreateRequest"];
+                "multipart/form-data": components["schemas"]["PhoneCallCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhoneCall"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     applications_email: {
         parameters: {
             query?: never;
@@ -4821,7 +5288,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": components["schemas"]["EmailPreviewRequestRequest"];
                 "application/x-www-form-urlencoded": components["schemas"]["EmailPreviewRequestRequest"];
@@ -5889,6 +6356,356 @@ export interface operations {
             };
             /** @description plan.md 6.10 error envelope */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    email_templates_list: {
+        parameters: {
+            query?: {
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description A search term. */
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedMessageTemplateList"];
+                };
+            };
+        };
+    };
+    email_templates_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageTemplateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["MessageTemplateRequest"];
+                "multipart/form-data": components["schemas"]["MessageTemplateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageTemplate"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    email_templates_generate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EmailDraftBriefRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["EmailDraftBriefRequest"];
+                "multipart/form-data": components["schemas"]["EmailDraftBriefRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailDraft"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    email_templates_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this message template. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageTemplate"];
+                };
+            };
+        };
+    };
+    email_templates_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this message template. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageTemplateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["MessageTemplateRequest"];
+                "multipart/form-data": components["schemas"]["MessageTemplateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageTemplate"];
+                };
+            };
+        };
+    };
+    email_templates_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this message template. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    email_templates_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this message template. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedMessageTemplateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedMessageTemplateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedMessageTemplateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageTemplate"];
+                };
+            };
+        };
+    };
+    calls_list: {
+        parameters: {
+            query?: {
+                application?: string;
+                candidate?: string;
+                job_description?: string;
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                purpose?: string;
+                /** @description A search term. */
+                search?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPhoneCallList"];
+                };
+            };
+        };
+    };
+    calls_config: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceConfig"];
+                };
+            };
+        };
+    };
+    calls_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this phone call. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhoneCall"];
+                };
+            };
+        };
+    };
+    calls_finish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this phone call. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhoneCall"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    calls_reply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this phone call. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CallReplyRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CallReplyRequest"];
+                "multipart/form-data": components["schemas"]["CallReplyRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhoneCall"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

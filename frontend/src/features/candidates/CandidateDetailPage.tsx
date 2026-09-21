@@ -45,6 +45,7 @@ import { OpenResumeButton } from '@/features/candidates/OpenResumeButton'
 import { isMasked, isPlaceholderEmail, pickContext } from '@/features/candidates/candidate-utils'
 import { CandidateInterviewsTab } from '@/features/candidates/CandidateInterviewsTab'
 import { CandidateTimelineTab } from '@/features/candidates/CandidateTimelineTab'
+import { CandidateCallsTab } from '@/features/candidates/CandidateCallsTab'
 import { CommunicationsTab } from '@/features/candidates/CommunicationsTab'
 import { MatchAnalysisTab } from '@/features/candidates/MatchAnalysisTab'
 import { ProfileTab } from '@/features/candidates/ProfileTab'
@@ -53,7 +54,7 @@ import { formatRelative } from '@/lib/format'
 import { param, useUrlState } from '@/lib/hooks'
 import { personFromUser, type ApplicationDetail } from '@/types/domain'
 
-const TABS = ['profile', 'match', 'timeline', 'interviews', 'communications'] as const
+const TABS = ['profile', 'match', 'timeline', 'interviews', 'communications', 'calls'] as const
 type TabKey = (typeof TABS)[number]
 const SPEC = { jd: param.string(''), tab: param.enum<TabKey>('profile', TABS) }
 
@@ -221,6 +222,8 @@ export default function CandidateDetailPage() {
             Communications <Count value={row?.communication_count} />
           </>
         )
+      case 'calls':
+        return 'AI Calls'
     }
   }
 
@@ -435,6 +438,11 @@ export default function CandidateDetailPage() {
         <TabsContent value="communications">
           {withRow((detail) => (
             <CommunicationsTab application={detail} actions={actions} />
+          ))}
+        </TabsContent>
+        <TabsContent value="calls">
+          {withRow((detail) => (
+            <CandidateCallsTab application={detail} actions={actions} />
           ))}
         </TabsContent>
       </Tabs>
