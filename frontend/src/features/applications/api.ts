@@ -25,6 +25,8 @@ export interface ApplicationListParams {
   search_run?: string
   status?: string[]
   status_group?: string
+  /** One JD metric card (shortlisted, contacted, ...): the applications behind its number. */
+  metric?: string
   source?: string[]
   min_match?: number
   is_starred?: boolean

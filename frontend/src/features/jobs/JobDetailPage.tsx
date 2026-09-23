@@ -22,6 +22,8 @@ import {
   jobSummaryLine,
   nextStatusOptions,
   participantsToPeople,
+  JOB_METRICS,
+  metricTabLink,
 } from '@/features/jobs/job-utils'
 import { JobOverview } from '@/features/jobs/JobOverview'
 import { PeopleTab } from '@/features/jobs/PeopleTab'
@@ -41,20 +43,11 @@ type TabKey = (typeof TABS)[number]
 
 const TAB_SPEC = { tab: param.enum<TabKey>('overview', TABS) }
 
-const METRICS: { key: keyof JobMetrics; label: string }[] = [
-  { key: 'total_found', label: 'Candidates found' },
-  { key: 'shortlisted', label: 'Shortlisted' },
-  { key: 'contacted', label: 'Contacted' },
-  { key: 'in_interview', label: 'In interview' },
-  { key: 'selected', label: 'Selected' },
-  { key: 'rejected', label: 'Rejected' },
-  { key: 'onboarded', label: 'Onboarded' },
-]
-
 /**
- * The seven compact metric cards under the header (plan.md 9.6). Without
- * `metrics` it renders the loading state in the very same layout, so nothing
- * jumps when the numbers land (the row scrolls sideways on phones).
+ * The seven compact metric cards under the header (plan.md 9.6); each opens the
+ * Candidates tab narrowed to the people it counts. Without `metrics` it renders
+ * the loading state in the very same layout, so nothing jumps when the numbers
+ * land (the row scrolls sideways on phones).
  */
 function MetricRow({ metrics }: { metrics?: JobMetrics }) {
   return (
@@ -63,13 +56,14 @@ function MetricRow({ metrics }: { metrics?: JobMetrics }) {
       aria-label="Pipeline metrics"
       aria-busy={metrics ? undefined : true}
     >
-      {METRICS.map((metric) => (
+      {JOB_METRICS.map((metric) => (
         <MetricCard
           key={metric.key}
           variant="compact"
           label={metric.label}
           value={metrics ? metrics[metric.key] : 0}
           loading={!metrics}
+          to={metricTabLink(metric.key)}
           className="max-md:min-w-36 max-md:shrink-0"
         />
       ))}

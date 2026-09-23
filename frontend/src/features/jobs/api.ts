@@ -12,6 +12,7 @@ import type {
   Activity,
   JobCreateRequest,
   JobDetail,
+  JobExtraction,
   JobFacets,
   JobMetrics,
   JobRow,
@@ -38,8 +39,8 @@ export interface JobListParams {
   employment_type?: string[]
   work_mode?: string[]
   mine?: boolean
-  /** User roles of the JD creators to keep (the homepage "User level" filter). */
-  created_by_role?: string[]
+  /** Ids of the JD creators to keep (the homepage "Created by" filter). */
+  created_by?: string[]
   ordering?: string
 }
 
@@ -98,6 +99,14 @@ export async function fetchParticipants(id: string): Promise<Participant[]> {
 
 export async function fetchSkillSuggestions(query: string): Promise<SkillSuggestion[]> {
   const { data } = await api.get<SkillSuggestion[]>(endpoints.skills, { params: { q: query } })
+  return data
+}
+
+/** `POST /job-descriptions/extract/`: the AI reads one JD file and returns the form fields it found. */
+export async function extractJobDescription(file: File): Promise<JobExtraction> {
+  const body = new FormData()
+  body.append('file', file, file.name)
+  const { data } = await api.post<JobExtraction>(endpoints.jobExtract, body)
   return data
 }
 
@@ -257,6 +266,10 @@ export function useInvalidateJob() {
       id ? client.invalidateQueries({ queryKey: qk.activities.byJob(id) }) : Promise.resolve(),
     ])
   }
+}
+
+export function useExtractJobDescription() {
+  return useMutation({ mutationFn: extractJobDescription })
 }
 
 export function useCreateJob() {

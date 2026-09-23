@@ -21,11 +21,14 @@ from matching.skills import display_name, normalize_skill
 from resumes.engines.llm import invoke_structured
 from resumes.engines.planner import QueryPlan
 from resumes.engines.retrieval import Evidence
-from resumes.engines.schemas import CandidateEvaluation
+from resumes.engines.schemas import CandidateEvaluation, MatchSummaries
 
 MAX_EXPERIENCES = 6
 MAX_SKILLS = 30
 DESCRIPTION_CHARS = 220
+# Candidates explained per call, and the answer budget for that many two-sentence entries.
+SUMMARY_BATCH = 20
+SUMMARY_TOKENS = 3000
 
 
 @dataclass
@@ -166,6 +169,90 @@ def ground(
         explanation=" ".join(answer.explanation.split())[:900],
         dropped_claims=dropped[:6],
     )
+
+
+# ------------------------------------------------------------ match summaries
+
+
+@dataclass(frozen=True)
+class MatchFacts:
+    """What the scoring found for one candidate: everything ``summarise`` may talk about."""
+
+    id: str
+    name: str
+    overall_pct: float
+    years: float
+    years_min: int
+    years_max: int
+    matched_required: list[str]
+    missing_required: list[str]
+    matched_preferred: list[str]
+    experience_score: float
+    domain_score: float
+    education_score: float
+    responsibility_score: float
+    retrieval_score: float | None
+
+    def card(self) -> str:
+        signals = (
+            f"experience {self.experience_score:.0f}, domain {self.domain_score:.0f}, "
+            f"education {self.education_score:.0f}, "
+            f"responsibilities {self.responsibility_score:.0f}"
+        )
+        if self.retrieval_score is not None:
+            signals += f", resume similarity {self.retrieval_score * 100:.0f}"
+        return "\n".join(
+            [
+                f"id: {self.id}",
+                f"Name: {self.name} | Match: {self.overall_pct:.0f}% | Experience: {self.years:g} "
+                f"years (the job asks {self.years_min}-{self.years_max})",
+                "Required skills found: "
+                + (", ".join(self.matched_required) or "none")
+                + " | missing: "
+                + (", ".join(self.missing_required) or "none"),
+                "Preferred skills found: " + (", ".join(self.matched_preferred) or "none"),
+                f"Signals 0-100: {signals}",
+            ]
+        )
+
+
+def _summary_system(plan: QueryPlan) -> SystemMessage:
+    return SystemMessage(
+        content=(
+            "You are a technical recruiter explaining match percentages to a hiring manager. "
+            "For each candidate you get the facts the scoring used: the job's required skills "
+            "found and missing, the preferred skills found, the years of experience against "
+            "the range the job asks for, and 0-100 signals for experience fit, domain, "
+            "education, responsibilities and resume similarity. Write `why` as two short plain "
+            "sentences that explain why the candidate received that percentage: lead with what "
+            "fits, then what is missing or weak, naming the skills. Use only the facts given, "
+            "never invent skills, roles or employers, and copy each candidate's id exactly.\n\n"
+            "JOB:\n" + plan.brief
+        )
+    )
+
+
+def summarise(plan: QueryPlan, facts: list[MatchFacts], *, model: str) -> dict[str, str]:
+    """One call for up to ``SUMMARY_BATCH`` candidates; ``{id: why}`` for the ids answered."""
+    answer = invoke_structured(
+        MatchSummaries,
+        [
+            _summary_system(plan),
+            HumanMessage(
+                content="CANDIDATES:\n\n"
+                + "\n\n".join(item.card() for item in facts)
+                + "\n\nReturn the JSON with one entry per candidate."
+            ),
+        ],
+        model=model,
+        num_predict=SUMMARY_TOKENS,
+    )
+    wanted = {item.id for item in facts}
+    return {
+        item.id: " ".join(item.why.split())[:600]
+        for item in answer.summaries
+        if item.id in wanted and item.why.strip()
+    }
 
 
 def _mentioned(haystack: str, needle: str) -> bool:

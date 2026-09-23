@@ -229,6 +229,7 @@ def test_other_enums_have_the_plan_values():
         "onboarding",
         "mention",
         "system",
+        "support",
     ]
     assert list(enums.AuditAction.values) == [
         "login",
@@ -266,6 +267,10 @@ def test_all_enums_registry_covers_every_choice_class():
         "search_run_status",
         "notification_type",
         "audit_action",
+        "ticket_status",
+        "ticket_priority",
+        "ticket_category",
+        "ticket_event_kind",
     }
     for choices in enums.ALL_ENUMS.values():
         assert len(choices) > 0

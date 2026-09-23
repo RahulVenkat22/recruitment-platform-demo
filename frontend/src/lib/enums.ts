@@ -9,6 +9,8 @@ import type {
   EnumCatalogue,
   JDStatus,
   KeyLabel,
+  TicketPriority,
+  TicketStatus,
 } from '@/types/domain'
 
 /** What a badge needs: display label, soft background, text colour. */
@@ -18,7 +20,8 @@ export interface EnumMeta {
   fg: string
 }
 
-export type EnumMetaKind = 'status' | 'source' | 'category' | 'jd_status'
+export type EnumMetaKind =
+  'status' | 'source' | 'category' | 'jd_status' | 'ticket_status' | 'ticket_priority'
 
 // --------------------------------------------------------------------- fallbacks
 // plan.md 8.1 colours, kept in step with backend/common/enums.py. The live
@@ -76,6 +79,21 @@ export const FALLBACK_JD_STATUS: Record<JDStatus, EnumMeta> = {
   archived: { label: 'Archived', bg: '#ECEEF2', fg: '#5C6371' },
 }
 
+/** Support ticket badges; colours mirror backend/common/enums.py TICKET_*_COLORS. */
+export const FALLBACK_TICKET_STATUS: Record<TicketStatus, EnumMeta> = {
+  open: { label: 'Open', bg: '#E4ECFB', fg: '#1D4ED8' },
+  in_progress: { label: 'In Progress', bg: '#FBF1DC', fg: '#8F5D12' },
+  resolved: { label: 'Resolved', bg: '#E3F3EA', fg: '#1F7A4D' },
+  closed: { label: 'Closed', bg: '#ECEEF2', fg: '#5C6371' },
+}
+
+export const FALLBACK_TICKET_PRIORITY: Record<TicketPriority, EnumMeta> = {
+  low: { label: 'Low', bg: '#EEF1F5', fg: '#3B4452' },
+  medium: { label: 'Medium', bg: '#E0F0FB', fg: '#0B5C94' },
+  high: { label: 'High', bg: '#FBF1DC', fg: '#8F5D12' },
+  urgent: { label: 'Urgent', bg: '#FCE8E6', fg: '#B42318' },
+}
+
 /** Label-only fallbacks for enums that have no colour, used by selects and read-only tables. */
 const FALLBACK_OPTIONS: Record<string, KeyLabel[]> = {
   application_status: Object.entries(FALLBACK_STATUS).map(([key, m]) => ({ key, label: m.label })),
@@ -85,6 +103,24 @@ const FALLBACK_OPTIONS: Record<string, KeyLabel[]> = {
     label: m.label,
   })),
   jd_status: Object.entries(FALLBACK_JD_STATUS).map(([key, m]) => ({ key, label: m.label })),
+  ticket_status: Object.entries(FALLBACK_TICKET_STATUS).map(([key, m]) => ({
+    key,
+    label: m.label,
+  })),
+  ticket_priority: Object.entries(FALLBACK_TICKET_PRIORITY).map(([key, m]) => ({
+    key,
+    label: m.label,
+  })),
+  ticket_category: [
+    { key: 'access', label: 'Access & permissions' },
+    { key: 'job_description', label: 'Job description' },
+    { key: 'candidate_data', label: 'Candidate data' },
+    { key: 'interviews', label: 'Interviews & scheduling' },
+    { key: 'offers', label: 'Offers & onboarding' },
+    { key: 'technical', label: 'Technical issue' },
+    { key: 'feature_request', label: 'Feature request' },
+    { key: 'other', label: 'Other' },
+  ],
   user_role: [
     { key: 'hr_admin', label: 'HR Admin' },
     { key: 'hr', label: 'HR' },
@@ -182,6 +218,8 @@ const KIND_TO_ENUM: Record<EnumMetaKind, string> = {
   source: 'candidate_source',
   category: 'activity_category',
   jd_status: 'jd_status',
+  ticket_status: 'ticket_status',
+  ticket_priority: 'ticket_priority',
 }
 
 const KIND_TO_FALLBACK: Record<EnumMetaKind, Record<string, EnumMeta>> = {
@@ -189,6 +227,8 @@ const KIND_TO_FALLBACK: Record<EnumMetaKind, Record<string, EnumMeta>> = {
   source: FALLBACK_SOURCE,
   category: FALLBACK_CATEGORY,
   jd_status: FALLBACK_JD_STATUS,
+  ticket_status: FALLBACK_TICKET_STATUS,
+  ticket_priority: FALLBACK_TICKET_PRIORITY,
 }
 
 function resolveMeta(catalogue: EnumCatalogue | null, kind: EnumMetaKind, key: string): EnumMeta {

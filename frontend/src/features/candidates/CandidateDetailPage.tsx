@@ -9,6 +9,7 @@ import {
   PhoneIcon,
   UserRoundXIcon,
   XCircleIcon,
+  BotIcon,
 } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
@@ -64,6 +65,51 @@ function Count({ value }: { value: number | undefined }) {
     <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-pill bg-surface-2 px-1.5 text-caption text-ink-muted tabular-nums">
       {value}
     </span>
+  )
+}
+
+/**
+ * Why the context JD gave this percentage: the search writes it for every
+ * candidate it returns (a full AI evaluation for the top of the pool, a summary
+ * of the scoring facts for the rest), so the reason is on the page the moment
+ * the candidate is opened from a job description.
+ */
+function WhyThisMatch({
+  application,
+  onFullAnalysis,
+}: {
+  application: ApplicationDetail
+  onFullAnalysis: () => void
+}) {
+  const match = application.match
+  if (!match?.explanation) return null
+  return (
+    <section
+      aria-labelledby="heading-why-match"
+      className="mb-5 rounded-card border border-accent/50 bg-surface p-5 shadow-card"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3
+          id="heading-why-match"
+          className="text-caption font-medium tracking-[0.08em] text-ink-subtle uppercase"
+        >
+          Why {Math.round(match.overall_pct)}% for {application.job.title}
+        </h3>
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="h-auto p-0"
+          onClick={onFullAnalysis}
+        >
+          Full analysis
+        </Button>
+      </div>
+      <p className="mt-2 flex items-start gap-2 text-[15px]/[24px] text-ink">
+        <BotIcon aria-hidden="true" className="mt-1 size-4 shrink-0 text-accent-ink" />
+        <span>{match.explanation}</span>
+      </p>
+    </section>
   )
 }
 
@@ -406,6 +452,9 @@ export default function CandidateDetailPage() {
         />
 
         <TabsContent value="profile">
+          {row && (
+            <WhyThisMatch application={row} onFullAnalysis={() => setUrl({ tab: 'match' })} />
+          )}
           <ProfileTab candidate={person} />
         </TabsContent>
         <TabsContent value="match">

@@ -29,6 +29,8 @@ from matching.skills import display_name, normalize_skills
 PARTICIPANTS_PREVIEW = 4
 EXPERIENCE_MAX_YEARS = 50
 OPENINGS_MAX = 500
+# A PostgreSQL integer column; the form enforces the same ceiling.
+SALARY_MAX = 2_000_000_000
 
 
 def _skill_names(keys: Any) -> list[str]:
@@ -328,12 +330,51 @@ class JobFacetsSerializer(serializers.Serializer):
     locations = FacetOptionSerializer(many=True)
     employment_types = FacetOptionSerializer(many=True)
     work_modes = FacetOptionSerializer(many=True)
+    # key = user id, label = full name: who raised the JDs (the homepage "Created by" filter).
+    creators = FacetOptionSerializer(many=True)
 
 
 class SkillSuggestionSerializer(serializers.Serializer):
     key = serializers.CharField()
     display_name = serializers.CharField()
     count = serializers.IntegerField()
+
+
+class JobExtractRequestSerializer(serializers.Serializer):
+    """``POST /job-descriptions/extract/``: one job description as a PDF or Word file."""
+
+    file = serializers.FileField(
+        help_text="One job description as a PDF or Word (.docx) file, up to 10 MB."
+    )
+
+
+class JobExtractedFieldsSerializer(serializers.Serializer):
+    """The create-request fields the model read from the file; one it could not read is left out."""
+
+    title = serializers.CharField(required=False)
+    department = serializers.CharField(required=False)
+    location = serializers.CharField(required=False)
+    work_mode = serializers.ChoiceField(choices=WorkMode.choices, required=False)
+    employment_type = serializers.ChoiceField(choices=EmploymentType.choices, required=False)
+    experience_min_years = serializers.IntegerField(required=False)
+    experience_max_years = serializers.IntegerField(required=False)
+    openings = serializers.IntegerField(required=False)
+    domain = serializers.CharField(required=False)
+    salary_min = serializers.IntegerField(required=False)
+    salary_max = serializers.IntegerField(required=False)
+    salary_currency = serializers.CharField(required=False)
+    required_skills = serializers.ListField(child=serializers.CharField(), required=False)
+    preferred_skills = serializers.ListField(child=serializers.CharField(), required=False)
+    education_requirements = serializers.CharField(required=False)
+    responsibilities = serializers.CharField(required=False)
+    qualifications = serializers.CharField(required=False)
+    additional_requirements = serializers.CharField(required=False)
+    description = serializers.CharField(required=False)
+
+
+class JobExtractionSerializer(serializers.Serializer):
+    file_name = serializers.CharField()
+    fields = JobExtractedFieldsSerializer()
 
 
 # -------------------------------------------------------------------- writes
@@ -350,8 +391,12 @@ class _ContentSerializer(serializers.Serializer):
     employment_type = serializers.ChoiceField(choices=EmploymentType.choices)
     experience_min_years = serializers.IntegerField(min_value=0, max_value=EXPERIENCE_MAX_YEARS)
     experience_max_years = serializers.IntegerField(min_value=0, max_value=EXPERIENCE_MAX_YEARS)
-    salary_min = serializers.IntegerField(required=False, allow_null=True, min_value=0)
-    salary_max = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+    salary_min = serializers.IntegerField(
+        required=False, allow_null=True, min_value=0, max_value=SALARY_MAX
+    )
+    salary_max = serializers.IntegerField(
+        required=False, allow_null=True, min_value=0, max_value=SALARY_MAX
+    )
     salary_currency = serializers.CharField(
         required=False, min_length=3, max_length=3, default="INR"
     )

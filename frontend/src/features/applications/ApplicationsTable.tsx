@@ -151,17 +151,17 @@ export function ApplicationsTable({
       cell: ({ row }) => rankOffset + row.index + 1,
     },
     {
-      id: 'candidate',
+      id: 'candidate__full_name',
       header: 'Candidate',
-      enableSorting: false,
+      enableSorting: true,
       cell: ({ row }) => <CandidateCell row={row.original} />,
     },
     ...(showJob
       ? [
           {
-            id: 'job',
+            id: 'job_description__title',
             header: 'Job description',
-            enableSorting: false,
+            enableSorting: true,
             cell: ({ row }) => (
               <Link
                 to={`/jobs/${row.original.job_description}`}
@@ -177,6 +177,7 @@ export function ApplicationsTable({
       id: 'match__overall_pct',
       header: 'Match',
       enableSorting: true,
+      sortDescFirst: true,
       cell: ({ row }) =>
         row.original.match ? (
           <MatchRing value={row.original.match.overall_pct} size="sm" />
@@ -188,6 +189,7 @@ export function ApplicationsTable({
       id: 'candidate__total_experience_years',
       header: 'Experience',
       enableSorting: true,
+      sortDescFirst: true,
       cell: ({ row }) => (
         <span className="text-ink tabular-nums">
           {formatYears(row.original.candidate.total_experience_years)}

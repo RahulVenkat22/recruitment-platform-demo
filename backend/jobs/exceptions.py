@@ -35,3 +35,19 @@ class CreatorProtected(APIException):
     status_code = status.HTTP_400_BAD_REQUEST
     default_detail = "The creator of a job description is always its owner and cannot be removed."
     default_code = "creator_protected"
+
+
+class InvalidJobFile(APIException):
+    """The uploaded file is not one job description the form can be filled from."""
+
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = "Upload one job description as a PDF or a Word (.docx) file."
+    default_code = "invalid_job_file"
+
+
+class JobFileNotRead(APIException):
+    """The model could not be asked to read the file (provider down, key missing, timeout)."""
+
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_detail = "The AI could not read the file right now. Try again, or fill in the form."
+    default_code = "job_file_not_read"

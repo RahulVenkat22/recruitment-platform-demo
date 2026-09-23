@@ -56,6 +56,7 @@ from resumes.engines.embeddings import EmbeddingError, get_embedding_service
 from resumes.engines.extraction import ExtractedText, ExtractionError, extract_text, sha256_of
 from resumes.engines.parsing import UNREADABLE, ValidatedResume, parse_resume
 from resumes.engines.pdf_payload import PdfPayload, load_pdf_for_model
+from resumes.engines.photo import candidate_photo, photo_path
 from resumes.engines.schemas import ParsedResume
 from resumes.engines.storage import StorageError, get_storage
 from resumes.models import ResumeDocument, ResumeStatus
@@ -372,6 +373,34 @@ def sync_profile(state: IngestionState) -> IngestionState:
     }
 
 
+def attach_photo(candidate_id: str, path: str | Path) -> bool:
+    """Cut the photo out of the resume at ``path`` and put it on the candidate; False when none."""
+    data = candidate_photo(path)
+    if data is None:
+        return False
+    target = photo_path(f"{candidate_id}.jpg")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    Candidate.objects.filter(pk=candidate_id).update(photo=target.name)
+    return True
+
+
+def photo(state: IngestionState) -> IngestionState:
+    """The candidate's photo, when the model saw one on the page (most resumes have none)."""
+    if not state["validated"].profile.has_photo:
+        return {}
+    warnings = list(state.get("warnings", []))
+    try:
+        if not attach_photo(state["candidate_id"], state["path"]):
+            warnings.append(
+                "the model saw a photo, but no image on the first page could be cut out"
+            )
+    except Exception as exc:  # noqa: BLE001 - a rendering failure must not cost the ingestion
+        logger.warning("photo extraction failed for %s: %s", state["path"], exc)
+        warnings.append(f"the photo could not be cut out of the PDF: {exc}")
+    return {"warnings": warnings}
+
+
 def chunk(state: IngestionState) -> IngestionState:
     drafts = build_chunks(
         state["validated"].profile,
@@ -459,6 +488,7 @@ def build_graph():
     graph.add_node("prepare_pdf", prepare_pdf)
     graph.add_node("parse", parse)
     graph.add_node("sync_profile", sync_profile)
+    graph.add_node("photo", photo)
     graph.add_node("chunk", chunk)
     graph.add_node("embed", embed)
     graph.add_node("store", store)
@@ -474,7 +504,8 @@ def build_graph():
     graph.add_conditional_edges(
         "parse", _after_parse, {"needs_review": "needs_review", "sync_profile": "sync_profile"}
     )
-    graph.add_edge("sync_profile", "chunk")
+    graph.add_edge("sync_profile", "photo")
+    graph.add_edge("photo", "chunk")
     graph.add_edge("chunk", "embed")
     graph.add_edge("embed", "store")
     graph.add_edge("store", "upload")

@@ -69,6 +69,7 @@ LOCAL_APPS = [
     "notifications",
     "audit",
     "dashboard",
+    "support",
     "seed",
 ]
 
@@ -256,6 +257,10 @@ SPECTACULAR_SETTINGS = {
         "SearchRunStatusEnum": "common.enums.SearchRunStatus.choices",
         "NotificationTypeEnum": "common.enums.NotificationType.choices",
         "AuditActionEnum": "common.enums.AuditAction.choices",
+        "TicketStatusEnum": "common.enums.TicketStatus.choices",
+        "TicketPriorityEnum": "common.enums.TicketPriority.choices",
+        "TicketCategoryEnum": "common.enums.TicketCategory.choices",
+        "TicketEventKindEnum": "common.enums.TicketEventKind.choices",
     },
 }
 

@@ -118,6 +118,7 @@ class CandidateRowSerializer(PIIMaskingMixin, serializers.ModelSerializer):
     """A row of ``GET /candidates/`` (plan.md 9.9)."""
 
     total_experience_years = serializers.FloatField(read_only=True)
+    avatar_url = serializers.CharField(source="display_avatar_url", read_only=True, allow_null=True)
     skills = serializers.SerializerMethodField()
     sources = serializers.SerializerMethodField()
     applications = CandidateApplicationSerializer(many=True, read_only=True)

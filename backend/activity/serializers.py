@@ -12,6 +12,8 @@ from candidates.models import Candidate
 class CandidateRefSerializer(serializers.ModelSerializer):
     """Enough of a candidate to render a chip that links to their profile."""
 
+    avatar_url = serializers.CharField(source="display_avatar_url", read_only=True, allow_null=True)
+
     class Meta:
         model = Candidate
         fields = ["id", "full_name", "avatar_url", "headline", "current_company", "current_title"]

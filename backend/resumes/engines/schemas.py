@@ -63,6 +63,9 @@ class ParsedResume(BaseModel):
     projects: list[ParsedProject] = Field(default_factory=list)
     linkedin_url: str = ""
     github_url: str = ""
+    # True only for a photograph of the candidate's face, never a logo, badge or QR code;
+    # the ingestion then cuts that image out of the first page (resumes.engines.photo).
+    has_photo: bool = False
 
 
 class JobRequirements(BaseModel):
@@ -80,6 +83,17 @@ class JobRequirements(BaseModel):
     ideal_candidate: str = ""
     # 2-4 short search phrases covering distinct aspects of the role.
     search_queries: list[str] = Field(default_factory=list)
+
+
+class MatchSummary(BaseModel):
+    """Why one candidate received their match percentage (written in batches after a search)."""
+
+    id: str = ""
+    why: str = ""
+
+
+class MatchSummaries(BaseModel):
+    summaries: list[MatchSummary] = Field(default_factory=list)
 
 
 class CandidateEvaluation(BaseModel):

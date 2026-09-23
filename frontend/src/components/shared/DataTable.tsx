@@ -8,11 +8,13 @@ import {
   type SortingState,
   type Updater,
 } from '@tanstack/react-table'
-import { ChevronDownIcon, ChevronsUpDownIcon, ChevronUpIcon, XIcon } from 'lucide-react'
+import { XIcon } from 'lucide-react'
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import { Pagination } from '@/components/shared/Pagination'
 import type { PaginationState } from '@/components/shared/pagination-utils'
 import { SkeletonTableRows } from '@/components/shared/Skeletons'
+import { ariaSort, nextSorting, type SortDirection } from '@/components/shared/sort-utils'
+import { SortButton } from '@/components/shared/SortButton'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -44,7 +46,11 @@ export interface DataTableProps<T> {
   data: T[]
   'aria-label'?: string
   loading?: boolean
-  /** Server-side sorting: the table reports the requested sort and renders `aria-sort`. */
+  /**
+   * Server-side sorting: every column sorts unless its definition says
+   * `enableSorting: false`; `sortDescFirst` makes the first click descending.
+   * The table reports the requested sort and renders `aria-sort`.
+   */
   sorting?: ControlledState<SortingState>
   /** Total rows on the server; pairs with `pagination`. */
   total?: number
@@ -108,13 +114,9 @@ export function DataTable<T>({
   const table = useReactTable({
     data,
     columns,
-    state: { sorting: sortingState, rowSelection: selectionState },
-    manualSorting: true,
+    state: { rowSelection: selectionState },
     manualPagination: true,
-    enableSorting: Boolean(sorting),
-    enableSortingRemoval: true,
     enableRowSelection: Boolean(rowSelection),
-    onSortingChange: (updater) => sorting?.onChange(resolve(updater, sortingState)),
     onRowSelectionChange: (updater) => rowSelection?.onChange(resolve(updater, selectionState)),
     getCoreRowModel: getCoreRowModel(),
     getRowId,
@@ -173,23 +175,17 @@ export function DataTable<T>({
               <TableRow key={group.id} className="hover:bg-transparent">
                 {group.headers.map((header) => {
                   const meta = metaOf(header.column)
-                  const canSort = Boolean(sorting) && header.column.getCanSort()
-                  const direction = header.column.getIsSorted()
+                  const { enableSorting = true, sortDescFirst = false } = header.column.columnDef
+                  const canSort = Boolean(sorting) && !header.isPlaceholder && enableSorting
+                  const current = sortingState.find((entry) => entry.id === header.column.id)
+                  const direction: SortDirection = current ? (current.desc ? 'desc' : 'asc') : false
                   const label = header.isPlaceholder
                     ? null
                     : flexRender(header.column.columnDef.header, header.getContext())
                   return (
                     <TableHead
                       key={header.id}
-                      aria-sort={
-                        canSort
-                          ? direction === 'asc'
-                            ? 'ascending'
-                            : direction === 'desc'
-                              ? 'descending'
-                              : 'none'
-                          : undefined
-                      }
+                      aria-sort={canSort ? ariaSort(direction) : undefined}
                       className={cn(
                         'h-10 text-caption font-medium tracking-[0.03em] text-ink-muted uppercase',
                         alignClass(meta),
@@ -197,26 +193,16 @@ export function DataTable<T>({
                       )}
                     >
                       {canSort ? (
-                        <button
-                          type="button"
-                          onClick={header.column.getToggleSortingHandler()}
-                          className={cn(
-                            'inline-flex items-center gap-1 rounded-control uppercase hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
-                            direction && 'text-ink',
-                          )}
+                        <SortButton
+                          direction={direction}
+                          onClick={() =>
+                            sorting?.onChange(
+                              nextSorting(sortingState, header.column.id, sortDescFirst),
+                            )
+                          }
                         >
                           {label}
-                          {direction === 'asc' ? (
-                            <ChevronUpIcon aria-hidden="true" className="size-3.5" />
-                          ) : direction === 'desc' ? (
-                            <ChevronDownIcon aria-hidden="true" className="size-3.5" />
-                          ) : (
-                            <ChevronsUpDownIcon
-                              aria-hidden="true"
-                              className="size-3.5 opacity-50"
-                            />
-                          )}
-                        </button>
+                        </SortButton>
                       ) : (
                         label
                       )}

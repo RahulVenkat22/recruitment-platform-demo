@@ -18,9 +18,12 @@ export const endpoints = {
   authChangePassword: `${API_PREFIX}/auth/change-password/`,
   authForgotPassword: `${API_PREFIX}/auth/forgot-password/`,
   metaEnums: `${API_PREFIX}/meta/enums/`,
+  metaCountries: `${API_PREFIX}/meta/countries/`,
+  metaCities: (code: string) => `${API_PREFIX}/meta/countries/${code}/cities/`,
   users: `${API_PREFIX}/users/`,
   jobs: `${API_PREFIX}/job-descriptions/`,
   jobFacets: `${API_PREFIX}/job-descriptions/facets/`,
+  jobExtract: `${API_PREFIX}/job-descriptions/extract/`,
   job: (id: string) => `${API_PREFIX}/job-descriptions/${id}/`,
   jobAction: (id: string, action: string) => `${API_PREFIX}/job-descriptions/${id}/${action}/`,
   jobVersion: (id: string, version: number) =>
@@ -67,6 +70,10 @@ export const endpoints = {
   notificationsReadAll: `${API_PREFIX}/notifications/read-all/`,
   notificationRead: (id: string) => `${API_PREFIX}/notifications/${id}/read/`,
   dashboard: (part: string) => `${API_PREFIX}/dashboard/${part}/`,
+  tickets: `${API_PREFIX}/support/tickets/`,
+  ticketsSummary: `${API_PREFIX}/support/tickets/summary/`,
+  ticket: (id: string) => `${API_PREFIX}/support/tickets/${id}/`,
+  ticketAction: (id: string, action: string) => `${API_PREFIX}/support/tickets/${id}/${action}/`,
 } as const
 
 /** Shape of `POST /auth/refresh`: the rotated access token plus the profile. */

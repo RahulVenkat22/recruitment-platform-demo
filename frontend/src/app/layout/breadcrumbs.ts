@@ -9,6 +9,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   interviews: 'Interviews',
   templates: 'Email templates',
   notifications: 'Notifications',
+  support: 'Support',
   settings: 'Settings',
   new: 'New',
   edit: 'Edit',
@@ -19,6 +20,7 @@ const SEGMENT_LABELS: Record<string, string> = {
 const DETAIL_LABELS: Record<string, string> = {
   jobs: 'Job description',
   candidates: 'Candidate',
+  support: 'Ticket',
 }
 
 /**

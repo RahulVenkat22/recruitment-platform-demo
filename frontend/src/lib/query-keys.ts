@@ -10,6 +10,8 @@ export const qk = {
   meta: {
     all: ['meta'] as const,
     enums: () => ['meta', 'enums'] as const,
+    countries: () => ['meta', 'countries'] as const,
+    cities: (code: string) => ['meta', 'cities', code] as const,
     health: () => ['meta', 'health'] as const,
   },
   users: {
@@ -103,12 +105,23 @@ export const qk = {
     list: (filters?: QueryFilters) => ['notifications', 'list', withFilters(filters)] as const,
     unreadCount: () => ['notifications', 'unread-count'] as const,
   },
+  support: {
+    all: ['support'] as const,
+    list: (filters?: QueryFilters) => ['support', 'list', withFilters(filters)] as const,
+    summary: (filters?: QueryFilters) => ['support', 'summary', withFilters(filters)] as const,
+    detail: (id: string) => ['support', 'detail', id] as const,
+  },
   dashboard: {
     all: ['dashboard'] as const,
-    summary: () => ['dashboard', 'summary'] as const,
-    funnel: (jobId?: string) => ['dashboard', 'funnel', jobId ?? 'all'] as const,
-    recentActivity: () => ['dashboard', 'recent-activity'] as const,
-    topCandidates: () => ['dashboard', 'top-candidates'] as const,
-    upcomingInterviews: () => ['dashboard', 'upcoming-interviews'] as const,
+    summary: (scope: QueryFilters) => ['dashboard', 'summary', scope] as const,
+    trends: (scope: QueryFilters) => ['dashboard', 'trends', scope] as const,
+    pipeline: (scope: QueryFilters) => ['dashboard', 'pipeline', scope] as const,
+    funnel: (scope: QueryFilters, jobId?: string) =>
+      ['dashboard', 'funnel', scope, jobId ?? 'all'] as const,
+    interviews: (scope: QueryFilters) => ['dashboard', 'interviews', scope] as const,
+    attention: (scope: QueryFilters) => ['dashboard', 'attention', scope] as const,
+    team: (scope: QueryFilters) => ['dashboard', 'team', scope] as const,
+    upcomingInterviews: (scope: QueryFilters) =>
+      ['dashboard', 'upcoming-interviews', scope] as const,
   },
 } as const

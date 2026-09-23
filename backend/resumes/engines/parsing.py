@@ -183,7 +183,9 @@ _PDF_SYSTEM = SystemMessage(
         "two sentences, at most about 40 words: read every bullet point under the role and "
         "state what the person did, the technologies used and the notable outcomes. Use only "
         "facts written under that role -- do not invent and do not copy the bullets verbatim "
-        "-- and leave it empty if the page is unreadable. List the most recent role first."
+        "-- and leave it empty if the page is unreadable. List the most recent role first. "
+        "Set has_photo to true only when the document shows a photograph of the candidate's "
+        "face; a logo, a certification badge or a QR code is not a photo."
     )
 )
 

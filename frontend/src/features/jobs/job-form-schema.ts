@@ -3,6 +3,7 @@ import type { PeoplePickerValue } from '@/components/shared/PeoplePicker'
 import type {
   JobCreateRequest,
   JobDetail,
+  JobExtractedFields,
   JobSnapshot,
   JobUpdateRequest,
   ParticipantRole,
@@ -34,8 +35,16 @@ export const DOMAIN_SUGGESTIONS = [
   'gaming',
 ] as const
 
+/** The select's codes, plus the current value when an uploaded file brought in another one. */
+export function currencyOptions(current: string): readonly string[] {
+  const known: readonly string[] = CURRENCIES
+  return current && !known.includes(current) ? [...known, current] : known
+}
+
 export const EXPERIENCE_MAX = 50
 export const OPENINGS_MAX = 500
+/** The largest annual amount the API stores (a PostgreSQL integer). */
+export const SALARY_MAX = 2_000_000_000
 
 /**
  * Number inputs are kept as strings in the form so an empty box is "unset"
@@ -49,7 +58,8 @@ export const jobFormSchema = z
       .min(1, 'Enter a job title.')
       .max(200, 'Keep the title under 200 characters.'),
     department: z.string().trim().min(1, 'Enter a department.').max(120, 'Too long.'),
-    location: z.string().trim().min(1, 'Enter a location.').max(160, 'Too long.'),
+    country: z.string().trim(),
+    city: z.string().trim().max(160, 'Too long.'),
     work_mode: z.enum(WORK_MODES),
     employment_type: z.enum(EMPLOYMENT_TYPES),
     experience_min_years: z.string(),
@@ -74,6 +84,12 @@ export const jobFormSchema = z
     const issue = (path: string, message: string) =>
       ctx.addIssue({ code: 'custom', path: [path], message })
 
+    // A place is required; it is picked inside a country, so a missing country is the first ask.
+    if (!values.city) {
+      if (values.country) issue('city', `Choose a location in ${values.country}.`)
+      else issue('country', 'Choose a country, then a location.')
+    }
+
     const expMin = parseWhole(values.experience_min_years)
     const expMax = parseWhole(values.experience_max_years)
     if (expMin === null) issue('experience_min_years', 'Enter the minimum experience.')
@@ -91,13 +107,32 @@ export const jobFormSchema = z
 
     const salaryMin = parseWhole(values.salary_min)
     const salaryMax = parseWhole(values.salary_max)
+    const tooLarge = `Enter a whole annual amount up to ${SALARY_MAX.toLocaleString('en-IN')}.`
     if (salaryMin === undefined) issue('salary_min', 'Enter a whole annual amount.')
+    else if (salaryMin !== null && salaryMin > SALARY_MAX) issue('salary_min', tooLarge)
     if (salaryMax === undefined) issue('salary_max', 'Enter a whole annual amount.')
+    else if (salaryMax !== null && salaryMax > SALARY_MAX) issue('salary_max', tooLarge)
+    // A range needs both ends: the team sees "from - to", never a lone figure.
+    if (salaryMin === null && typeof salaryMax === 'number')
+      issue('salary_min', 'Enter the salary from as well, or leave both empty.')
+    if (salaryMax === null && typeof salaryMin === 'number')
+      issue('salary_max', 'Enter the salary to as well, or leave both empty.')
     if (typeof salaryMin === 'number' && typeof salaryMax === 'number' && salaryMin > salaryMax)
-      issue('salary_max', 'Maximum salary must be at least the minimum.')
+      issue('salary_max', 'Salary to must be at least the salary from.')
   })
 
 export type JobFormValues = z.infer<typeof jobFormSchema>
+
+/** A stored location label, "<city>, <country>", as the form's two boxes; no comma means all city. */
+export function splitLocation(label: string): Pick<JobFormValues, 'country' | 'city'> {
+  const at = label.lastIndexOf(',')
+  if (at === -1) return { country: '', city: label.trim() }
+  return { country: label.slice(at + 1).trim(), city: label.slice(0, at).trim() }
+}
+
+export function joinLocation(city: string, country: string): string {
+  return country ? `${city}, ${country}` : city
+}
 
 /** `null` for empty, `undefined` for not a whole number, else the number. */
 export function parseWhole(raw: string): number | null | undefined {
@@ -124,7 +159,7 @@ export function completionOf(values: JobFormValues, creatorId: string | undefine
     basics: [
       filled(values.title),
       filled(values.department),
-      filled(values.location),
+      filled(values.city),
       filled(values.experience_min_years),
       filled(values.experience_max_years),
     ],
@@ -149,7 +184,8 @@ export function emptyJobForm(user: SessionUser | null): JobFormValues {
   return {
     title: '',
     department: '',
-    location: '',
+    country: '',
+    city: '',
     work_mode: 'hybrid',
     employment_type: 'full_time',
     experience_min_years: '',
@@ -174,7 +210,7 @@ export function jobToForm(job: JobDetail): JobFormValues {
   return {
     title: job.title,
     department: job.department,
-    location: job.location,
+    ...splitLocation(job.location),
     work_mode: job.work_mode,
     employment_type: job.employment_type,
     experience_min_years: String(job.experience_min_years),
@@ -202,6 +238,35 @@ export function jobToForm(job: JobDetail): JobFormValues {
   }
 }
 
+/** The fields the AI read from an uploaded file as form values: numbers become the form's strings. */
+export function extractionToForm(fields: JobExtractedFields): Partial<JobFormValues> {
+  const text = (value: number | undefined) => (value === undefined ? undefined : String(value))
+  const values: Partial<JobFormValues> = {
+    title: fields.title,
+    department: fields.department,
+    ...(fields.location === undefined ? {} : splitLocation(fields.location)),
+    work_mode: fields.work_mode,
+    employment_type: fields.employment_type,
+    experience_min_years: text(fields.experience_min_years),
+    experience_max_years: text(fields.experience_max_years),
+    openings: text(fields.openings),
+    domain: fields.domain,
+    salary_min: text(fields.salary_min),
+    salary_max: text(fields.salary_max),
+    salary_currency: fields.salary_currency,
+    required_skills: fields.required_skills,
+    preferred_skills: fields.preferred_skills,
+    education_requirements: fields.education_requirements,
+    responsibilities: fields.responsibilities,
+    qualifications: fields.qualifications,
+    additional_requirements: fields.additional_requirements,
+    description: fields.description,
+  }
+  return Object.fromEntries(
+    Object.entries(values).filter(([, value]) => value !== undefined),
+  ) as Partial<JobFormValues>
+}
+
 function contentPayload(values: JobFormValues) {
   const whole = (raw: string) => parseWhole(raw) ?? 0
   const optional = (raw: string) => {
@@ -211,7 +276,7 @@ function contentPayload(values: JobFormValues) {
   return {
     title: values.title.trim(),
     department: values.department.trim(),
-    location: values.location.trim(),
+    location: joinLocation(values.city.trim(), values.country.trim()),
     work_mode: values.work_mode,
     employment_type: values.employment_type,
     experience_min_years: whole(values.experience_min_years),
@@ -259,7 +324,7 @@ export function formToSnapshot(values: JobFormValues): JobSnapshot {
   return {
     title: values.title,
     department: values.department,
-    location: values.location,
+    location: joinLocation(values.city, values.country),
     work_mode: values.work_mode,
     employment_type: values.employment_type,
     experience_min_years: whole(values.experience_min_years),
@@ -290,7 +355,6 @@ export function participantsOf(values: JobFormValues): PeoplePickerValue[] {
 export const SERVER_FIELDS: (keyof JobFormValues)[] = [
   'title',
   'department',
-  'location',
   'work_mode',
   'employment_type',
   'experience_min_years',

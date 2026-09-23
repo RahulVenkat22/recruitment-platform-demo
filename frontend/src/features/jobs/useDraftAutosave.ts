@@ -66,7 +66,10 @@ export function useDraftAutosave(draftId: string, form: UseFormReturn<JobFormVal
   const restore = useCallback(() => {
     if (!savedDraft) return
     // Keep the original defaults so the restored values count as unsaved changes.
-    formRef.current.reset(savedDraft.values, { keepDefaultValues: true })
+    formRef.current.reset(
+      { ...formRef.current.getValues(), ...savedDraft.values },
+      { keepDefaultValues: true },
+    )
     setSavedDraft(null)
   }, [savedDraft])
 

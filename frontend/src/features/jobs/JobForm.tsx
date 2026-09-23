@@ -8,6 +8,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PeoplePicker } from '@/components/shared/PeoplePicker'
 import { SkillTagInput } from '@/components/shared/SkillTagInput'
+import { Combobox } from '@/components/shared/Combobox'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -31,7 +32,7 @@ import { useJobFacets } from '@/features/jobs/api'
 import { FormRail } from '@/features/jobs/FormRail'
 import {
   completionOf,
-  CURRENCIES,
+  currencyOptions,
   DOMAIN_SUGGESTIONS,
   EMPLOYMENT_TYPES,
   FORM_SECTIONS,
@@ -44,9 +45,11 @@ import {
 } from '@/features/jobs/job-form-schema'
 import { employmentTypeLabel, formatSalaryRange, workModeLabel } from '@/features/jobs/job-utils'
 import { JobPreviewSheet } from '@/features/jobs/JobPreviewSheet'
+import { JobUploadCard } from '@/features/jobs/JobUploadCard'
 import { useDraftAutosave } from '@/features/jobs/useDraftAutosave'
 import { fieldErrorMessage, getApiError } from '@/lib/api'
 import { formatRelative } from '@/lib/format'
+import { useCities, useCountries } from '@/lib/locations'
 import { useUsersDirectory } from '@/lib/users'
 import type { Crumb } from '@/lib/ui-store'
 import { cn } from '@/lib/utils'
@@ -105,7 +108,8 @@ export function JobForm({
   const ids = {
     title: useId(),
     department: useId(),
-    location: useId(),
+    country: useId(),
+    city: useId(),
     workMode: useId(),
     type: useId(),
     expMin: useId(),
@@ -124,7 +128,6 @@ export function JobForm({
     description: useId(),
     people: useId(),
     departments: useId(),
-    locations: useId(),
     domains: useId(),
     summary: useId(),
   }
@@ -156,10 +159,14 @@ export function JobForm({
     directory.data?.forEach((user) => names.add(user.department))
     return [...names].sort()
   }, [facets.data, directory.data])
-  const locations = useMemo(
-    () => (facets.data?.locations ?? []).map((option) => option.key),
-    [facets.data],
+  const countries = useCountries()
+  const countryNames = useMemo(
+    () => (countries.data ?? []).map((entry) => entry.name),
+    [countries.data],
   )
+  const countryName = values.country ?? ''
+  const countryCode = countries.data?.find((entry) => entry.name === countryName)?.code ?? ''
+  const cities = useCities(countryCode)
 
   // plan.md 9.5: prompt before the page is left with unsaved changes.
   useEffect(() => {
@@ -174,6 +181,16 @@ export function JobForm({
   function jump(id: FormSectionId) {
     setActive(id)
     scrollSectionIntoView(document.getElementById(`section-${id}`))
+  }
+
+  /**
+   * Re-checks the other end of a range once the user has filled or visited it, so a
+   * stale "must be at least" message clears; an untouched, empty box is left alone.
+   */
+  function recheck(
+    name: 'experience_min_years' | 'experience_max_years' | 'salary_min' | 'salary_max',
+  ) {
+    if (form.getValues(name) !== '' || form.getFieldState(name).isTouched) void form.trigger(name)
   }
 
   /** Saves through the page callback; reports failures and returns whether it worked. */
@@ -196,6 +213,12 @@ export function JobForm({
           form.setError(field, { type: 'server', message })
           mapped = true
         }
+      }
+      // The API keeps the country and the place as one field.
+      const locationMessage = fieldErrorMessage(parsed.details, 'location')
+      if (locationMessage) {
+        form.setError('city', { type: 'server', message: locationMessage })
+        mapped = true
       }
       const nonField = fieldErrorMessage(parsed.details, 'non_field_errors')
       if (mapped) {
@@ -314,6 +337,14 @@ export function JobForm({
         />
 
         <div className="space-y-5">
+          {mode === 'create' && (
+            <JobUploadCard
+              onExtracted={(extracted) =>
+                form.reset({ ...form.getValues(), ...extracted }, { keepDefaultValues: true })
+              }
+            />
+          )}
+
           {/* ------------------------------------------------------------ Basics */}
           <section
             id="section-basics"
@@ -337,7 +368,7 @@ export function JobForm({
                 <FieldError errors={[errors.title]} />
               </Field>
 
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <Field data-invalid={Boolean(errors.department)}>
                   <FieldLabel htmlFor={ids.department}>Department *</FieldLabel>
                   <Input
@@ -355,22 +386,54 @@ export function JobForm({
                   </datalist>
                   <FieldError errors={[errors.department]} />
                 </Field>
-                <Field data-invalid={Boolean(errors.location)}>
-                  <FieldLabel htmlFor={ids.location}>Location *</FieldLabel>
-                  <Input
-                    id={ids.location}
-                    list={ids.locations}
-                    placeholder="Chennai"
-                    autoComplete="off"
-                    aria-invalid={Boolean(errors.location)}
-                    {...form.register('location')}
+                <Field data-invalid={Boolean(errors.country)}>
+                  <FieldLabel htmlFor={ids.country}>Country *</FieldLabel>
+                  <Controller
+                    control={form.control}
+                    name="country"
+                    render={({ field }) => (
+                      <Combobox
+                        id={ids.country}
+                        value={field.value}
+                        onChange={(next) => {
+                          field.onChange(next)
+                          // A place belongs to its country, so a new country starts the choice over.
+                          form.setValue('city', '', { shouldDirty: true })
+                        }}
+                        options={countryNames}
+                        placeholder="Choose a country"
+                        loading={countries.isPending}
+                        emptyText="No country matches."
+                        aria-invalid={Boolean(errors.country)}
+                      />
+                    )}
                   />
-                  <datalist id={ids.locations}>
-                    {locations.map((name) => (
-                      <option key={name} value={name} />
-                    ))}
-                  </datalist>
-                  <FieldError errors={[errors.location]} />
+                  <FieldError errors={[errors.country]} />
+                </Field>
+                <Field data-invalid={Boolean(errors.city)}>
+                  <FieldLabel htmlFor={ids.city}>Location *</FieldLabel>
+                  <Controller
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <Combobox
+                        id={ids.city}
+                        value={field.value}
+                        onChange={field.onChange}
+                        options={cities.data ?? []}
+                        placeholder={
+                          countryCode
+                            ? `Choose a place in ${countryName}`
+                            : 'Choose a country first'
+                        }
+                        loading={countryCode !== '' && cities.isPending}
+                        emptyText="No place matches."
+                        disabled={!countryCode}
+                        aria-invalid={Boolean(errors.city)}
+                      />
+                    )}
+                  />
+                  <FieldError errors={[errors.city]} />
                 </Field>
                 <Field data-invalid={Boolean(errors.work_mode)}>
                   <FieldLabel htmlFor={ids.workMode}>Work mode</FieldLabel>
@@ -396,8 +459,12 @@ export function JobForm({
                 </Field>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-start">
-                <Field data-invalid={Boolean(errors.employment_type)}>
+              {/* Four-up only where the row is wide enough; below that the type takes a row of its own. */}
+              <div className="grid gap-4 sm:grid-cols-3 sm:items-start xl:grid-cols-[minmax(0,1fr)_8rem_8rem_6rem]">
+                <Field
+                  data-invalid={Boolean(errors.employment_type)}
+                  className="sm:col-span-3 xl:col-span-1"
+                >
                   <FieldLabel htmlFor={ids.type}>Employment type *</FieldLabel>
                   <Controller
                     control={form.control}
@@ -419,8 +486,10 @@ export function JobForm({
                   />
                   <FieldError errors={[errors.employment_type]} />
                 </Field>
-                <Field data-invalid={Boolean(errors.experience_min_years)} className="sm:w-28">
-                  <FieldLabel htmlFor={ids.expMin}>Experience min *</FieldLabel>
+                <Field data-invalid={Boolean(errors.experience_min_years)}>
+                  <FieldLabel htmlFor={ids.expMin} className="whitespace-nowrap">
+                    Experience min *
+                  </FieldLabel>
                   <Input
                     id={ids.expMin}
                     type="number"
@@ -429,12 +498,16 @@ export function JobForm({
                     max={50}
                     placeholder="4"
                     aria-invalid={Boolean(errors.experience_min_years)}
-                    {...form.register('experience_min_years')}
+                    {...form.register('experience_min_years', {
+                      onBlur: () => recheck('experience_max_years'),
+                    })}
                   />
                   <FieldError errors={[errors.experience_min_years]} />
                 </Field>
-                <Field data-invalid={Boolean(errors.experience_max_years)} className="sm:w-28">
-                  <FieldLabel htmlFor={ids.expMax}>Experience max *</FieldLabel>
+                <Field data-invalid={Boolean(errors.experience_max_years)}>
+                  <FieldLabel htmlFor={ids.expMax} className="whitespace-nowrap">
+                    Experience max *
+                  </FieldLabel>
                   <Input
                     id={ids.expMax}
                     type="number"
@@ -443,12 +516,16 @@ export function JobForm({
                     max={50}
                     placeholder="8"
                     aria-invalid={Boolean(errors.experience_max_years)}
-                    {...form.register('experience_max_years')}
+                    {...form.register('experience_max_years', {
+                      onBlur: () => recheck('experience_min_years'),
+                    })}
                   />
                   <FieldError errors={[errors.experience_max_years]} />
                 </Field>
-                <Field data-invalid={Boolean(errors.openings)} className="sm:w-24">
-                  <FieldLabel htmlFor={ids.openings}>Openings</FieldLabel>
+                <Field data-invalid={Boolean(errors.openings)}>
+                  <FieldLabel htmlFor={ids.openings} className="whitespace-nowrap">
+                    Openings
+                  </FieldLabel>
                   <Input
                     id={ids.openings}
                     type="number"
@@ -503,7 +580,7 @@ export function JobForm({
                   inputMode="numeric"
                   placeholder="18,00,000"
                   aria-invalid={Boolean(errors.salary_min)}
-                  {...form.register('salary_min')}
+                  {...form.register('salary_min', { onBlur: () => recheck('salary_max') })}
                 />
                 <FieldError errors={[errors.salary_min]} />
               </Field>
@@ -514,7 +591,7 @@ export function JobForm({
                   inputMode="numeric"
                   placeholder="28,00,000"
                   aria-invalid={Boolean(errors.salary_max)}
-                  {...form.register('salary_max')}
+                  {...form.register('salary_max', { onBlur: () => recheck('salary_min') })}
                 />
                 <FieldError errors={[errors.salary_max]} />
               </Field>
@@ -529,7 +606,7 @@ export function JobForm({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {CURRENCIES.map((code) => (
+                        {currencyOptions(field.value).map((code) => (
                           <SelectItem key={code} value={code}>
                             {code}
                           </SelectItem>
@@ -635,7 +712,7 @@ export function JobForm({
                 <Textarea
                   id={ids.responsibilities}
                   rows={4}
-                  placeholder={'Design and ship backend services\nReview code and mentor engineers'}
+                  placeholder="One responsibility per line, e.g. Design and ship backend services"
                   {...form.register('responsibilities')}
                 />
                 <FieldError errors={[errors.responsibilities]} />

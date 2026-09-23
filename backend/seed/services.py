@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from time import perf_counter
 
-from django.db import transaction
+from django.db import connection, transaction
 
 from accounts.models import User
 from activity.models import Activity
@@ -40,12 +40,15 @@ from seed.generators.applications import seed_applications
 from seed.generators.candidates import seed_candidates
 from seed.generators.history import seed_history
 from seed.generators.jobs import seed_jobs
+from seed.generators.support import seed_support_tickets
 from seed.generators.users import seed_users
 from seed.models import SeedMarker
 from seed.pools.users import EMAIL_DOMAIN
+from support.models import Ticket, TicketEvent
+from support.services import NUMBER_SEQUENCE
 
 # Bump when the shape of the seeded dataset changes (later phases add applications).
-SEED_VERSION = 4
+SEED_VERSION = 5
 
 Logger = Callable[[str], None]
 
@@ -103,6 +106,8 @@ def run_seed(reset: bool = False, log: Logger | None = None) -> SeedSummary:
             f"{history.offers} offers, {history.onboardings} onboardings, "
             f"{history.notifications} notifications"
         )
+        tickets = seed_support_tickets(ctx, users)
+        log(f"Support tickets: {len(tickets)}")
         counts = collect_counts()
         marker = SeedMarker.objects.create(version=SEED_VERSION, counts=counts)
     return SeedSummary(
@@ -126,6 +131,11 @@ def wipe_demo_data() -> dict[str, int]:
     top-level row counts.
     """
     with transaction.atomic():
+        # Tickets protect their requester, so they go before the users; the number
+        # sequence restarts so a reseeded demo hands out the same ticket numbers.
+        Ticket.objects.all().delete()
+        with connection.cursor() as cursor:
+            cursor.execute(f"ALTER SEQUENCE {NUMBER_SEQUENCE} RESTART")
         candidates = Candidate.objects.all().delete()[1].get(Candidate._meta.label, 0)
         jobs = JobDescription.objects.all().delete()[1].get(JobDescription._meta.label, 0)
         users = (
@@ -154,6 +164,8 @@ def collect_counts() -> dict[str, int]:
         "Offers": Offer.objects.count(),
         "Onboardings": Onboarding.objects.count(),
         "Notifications": Notification.objects.count(),
+        "Support tickets": Ticket.objects.count(),
+        "Ticket events": TicketEvent.objects.count(),
         "Candidates": Candidate.objects.count(),
         "Candidate skills": CandidateSkill.objects.count(),
         "Experiences": CandidateExperience.objects.count(),

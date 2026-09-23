@@ -1,31 +1,24 @@
+import { useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import {
   BriefcaseIcon,
   CalendarClockIcon,
-  ExternalLinkIcon,
   FileSignatureIcon,
-  HistoryIcon,
-  ListChecksIcon,
+  HandshakeIcon,
+  RefreshCwIcon,
   RocketIcon,
   SparklesIcon,
-  UserCheckIcon,
+  TimerIcon,
   UserPlusIcon,
   UsersIcon,
   type LucideIcon,
 } from 'lucide-react'
-import { useId, useState, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { Avatar } from '@/components/shared/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
-import { FunnelChart } from '@/components/shared/FunnelChart'
-import { MatchRing } from '@/components/shared/MatchRing'
-import { MetricCard } from '@/components/shared/MetricCard'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { SkeletonCard, SkeletonMetricRow, SkeletonTimeline } from '@/components/shared/Skeletons'
-import { StaggerItem } from '@/components/shared/Stagger'
-import { StatusBadge } from '@/components/shared/StatusBadge'
-import { Timeline } from '@/components/shared/Timeline'
-import { UserChip } from '@/components/shared/UserChip'
+import { SegmentedControl } from '@/components/shared/SegmentedControl'
+import { SkeletonText } from '@/components/shared/Skeletons'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -34,52 +27,103 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Skeleton } from '@/components/ui/skeleton'
-import { candidateHref } from '@/features/applications/application-utils'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { AttentionList, type AttentionKey } from '@/features/dashboard/AttentionList'
+import { ChartCard, DataList } from '@/features/dashboard/ChartCard'
+import { DateRangePicker } from '@/features/dashboard/DateRangePicker'
+import { InterviewOutcomes } from '@/features/dashboard/InterviewOutcomes'
+import { OpenRoles } from '@/features/dashboard/OpenRoles'
+import { ScopePicker } from '@/features/dashboard/ScopePicker'
+import { StatTile } from '@/features/dashboard/StatTile'
+import { TeamActivity } from '@/features/dashboard/TeamActivity'
+import { UpcomingInterviews } from '@/features/dashboard/UpcomingInterviews'
 import {
+  useAttention,
   useDashboardSummary,
   useFunnel,
-  useRecentActivity,
-  useTopCandidates,
+  useInterviewInsights,
+  usePipeline,
+  useTeam,
+  useTrends,
   useUpcomingInterviews,
+  type DashboardScope,
+  type DashboardWindow,
 } from '@/features/dashboard/api'
-import { canJoin, candidateHrefFor } from '@/features/interviews/interview-utils'
-import { useJobList } from '@/features/jobs/api'
+import { FunnelChart } from '@/features/dashboard/charts/FunnelChart'
+import { SourceDonut } from '@/features/dashboard/charts/SourceDonut'
+import { TrendChart } from '@/features/dashboard/charts/TrendChart'
+import { TREND_SERIES } from '@/features/dashboard/charts/trend-series'
+import {
+  DASHBOARD_SPEC,
+  RANGE_OPTIONS,
+  candidatesHref,
+  formatDateRange,
+  formatPointDate,
+  rangeDays,
+  rangeSpan,
+  validCustomRange,
+  type RangeKey,
+} from '@/features/dashboard/dashboard-utils'
+import { activeRoles, roleSegments } from '@/features/dashboard/open-roles-utils'
+import { teamSegments } from '@/features/dashboard/team-utils'
 import { useAuthStore } from '@/lib/auth-store'
-import { formatDate, formatWhen } from '@/lib/format'
-import { cn } from '@/lib/utils'
-import { personFromUser, type DashboardSummary } from '@/types/domain'
+import { formatRelative } from '@/lib/format'
+import { useUrlState } from '@/lib/hooks'
+import { qk } from '@/lib/query-keys'
+import { useUsersDirectory } from '@/lib/users'
+import type { DashboardSummary } from '@/types/domain'
 
-const METRICS: { key: keyof DashboardSummary; label: string; icon: LucideIcon; to: string }[] = [
-  { key: 'active_jds', label: 'Active JDs', icon: BriefcaseIcon, to: '/jobs?status=open' },
-  { key: 'total_candidates', label: 'Total candidates', icon: UsersIcon, to: '/candidates' },
+type MetricKey = Exclude<keyof DashboardSummary, 'range_days'>
+
+const TILES: readonly {
+  key: MetricKey
+  label: string
+  icon: LucideIcon
+  to: string
+  goodDirection?: 'up' | 'down'
+}[] = [
+  { key: 'open_roles', label: 'Open roles', icon: BriefcaseIcon, to: '/jobs?status=open' },
+  { key: 'in_pipeline', label: 'In pipeline', icon: UsersIcon, to: '/candidates' },
   {
     key: 'new_candidates',
     label: 'New candidates',
     icon: UserPlusIcon,
     to: '/candidates?sort=-created_at',
   },
-  {
-    key: 'shortlisted',
-    label: 'Shortlisted',
-    icon: ListChecksIcon,
-    to: '/candidates?status=ai_shortlisted,hr_review',
-  },
-  {
-    key: 'interviews_scheduled',
-    label: 'Interviews (7 days)',
-    icon: CalendarClockIcon,
-    to: '/interviews?bucket=upcoming',
-  },
-  { key: 'selected', label: 'Selected', icon: UserCheckIcon, to: '/candidates?status=selected' },
+  { key: 'interviews', label: 'Interviews', icon: CalendarClockIcon, to: '/interviews?bucket=all' },
   {
     key: 'offers_pending',
     label: 'Offers pending',
     icon: FileSignatureIcon,
-    to: '/candidates?status=offer_sent',
+    to: candidatesHref({ statuses: ['offer_sent'] }),
   },
-  { key: 'onboarded', label: 'Onboarded', icon: RocketIcon, to: '/candidates?status=onboarded' },
+  {
+    key: 'hires',
+    label: 'Hires',
+    icon: RocketIcon,
+    to: candidatesHref({ statuses: ['onboarded'] }),
+  },
+  {
+    key: 'offer_acceptance',
+    label: 'Offer acceptance',
+    icon: HandshakeIcon,
+    to: candidatesHref({ statuses: ['offer_sent', 'offer_accepted'] }),
+  },
+  {
+    key: 'time_to_hire',
+    label: 'Time to hire',
+    icon: TimerIcon,
+    to: candidatesHref({ statuses: ['onboarded'] }),
+    goodDirection: 'down',
+  },
 ]
+
+/** "Priya Nair's", "Priya Nair and Arun Kumar's", "Priya Nair and 2 others'". */
+function possessive(names: readonly string[]): string {
+  if (names.length === 0) return "the chosen people's"
+  if (names.length > 2) return `${names[0]} and ${names.length - 1} others'`
+  return `${names.join(' and ')}'s`
+}
 
 function greeting(now = new Date()): string {
   const hour = now.getHours()
@@ -88,97 +132,157 @@ function greeting(now = new Date()): string {
   return 'Good evening'
 }
 
-function Widget({
+/** First load shows a placeholder, a failure an inline retry, and everything else the data. */
+function Loaded<T>({
+  query,
   title,
-  action,
+  lines = 6,
   children,
-  className,
 }: {
+  query: UseQueryResult<T>
   title: string
-  action?: ReactNode
-  children: ReactNode
-  className?: string
+  lines?: number
+  children: (data: T) => ReactNode
 }) {
-  const headingId = useId()
-  return (
-    <section
-      aria-labelledby={headingId}
-      className={cn(
-        'min-w-0 rounded-card border border-line bg-surface p-5 shadow-card',
-        className,
-      )}
-    >
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2
-          id={headingId}
-          className="min-w-0 truncate text-caption font-medium tracking-[0.08em] text-ink-subtle uppercase"
-        >
-          {title}
-        </h2>
-        {action}
-      </div>
-      {children}
-    </section>
-  )
+  if (query.isPending) return <SkeletonText lines={lines} />
+  if (query.isError) {
+    return (
+      <ErrorState
+        variant="inline"
+        title={title}
+        error={query.error}
+        onRetry={() => void query.refetch()}
+      />
+    )
+  }
+  return children(query.data)
 }
 
-/** Row-shaped placeholder for the list widgets, so the layout does not jump when data lands. */
-function WidgetRowsSkeleton({
-  rows,
-  avatars = false,
-  label,
-}: {
-  rows: number
-  /** Match ring plus avatar circles, as in the Top candidates rows. */
-  avatars?: boolean
-  label: string
-}) {
-  return (
-    <ul aria-busy="true" aria-label={label} className="divide-y divide-line">
-      {Array.from({ length: rows }, (_, index) => (
-        <li key={index} className="flex items-center gap-3 py-2.5">
-          {avatars && (
-            <>
-              <Skeleton className="size-8 shrink-0 rounded-full bg-surface-3" />
-              <Skeleton className="size-6 shrink-0 rounded-full bg-surface-3" />
-            </>
-          )}
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <Skeleton className={cn('h-3.5 bg-surface-3', index % 2 ? 'w-1/2' : 'w-2/3')} />
-            <Skeleton className="h-3 w-1/3 bg-surface-3" />
-          </div>
-          <Skeleton className="h-5 w-16 shrink-0 rounded-pill bg-surface-3" />
-        </li>
-      ))}
-    </ul>
-  )
+function busy<T>(query: UseQueryResult<T>): boolean {
+  return query.isPlaceholderData || (query.isFetching && !query.isPending)
 }
 
-/** plan.md 9.3 Dashboard: eight metric cards, funnel, recent activity, top candidates, upcoming interviews. */
+/**
+ * The HR dashboard (plan.md 9.3, redrawn): headline figures with sparklines, the
+ * hiring activity trend, what needs attention, the funnel, the open roles, the
+ * candidate sources, interview outcomes, team activity and the next interviews.
+ * Three controls scope everything: the window (7, 30 or 90 days, or any two
+ * days), and, for HR admins and HR, whose job descriptions to look at (any
+ * number of people).
+ */
 export default function DashboardPage() {
   const user = useAuthStore((state) => state.user)
-  const summary = useDashboardSummary()
-  const [funnelJob, setFunnelJob] = useState('')
-  const funnel = useFunnel(funnelJob || undefined)
-  const jobs = useJobList({
-    page_size: 100,
-    ordering: 'title',
-    status: ['open', 'on_hold', 'closed'],
-  })
-  const recent = useRecentActivity()
-  const top = useTopCandidates()
-  const upcoming = useUpcomingInterviews()
+  const queryClient = useQueryClient()
+  const [state, setState] = useUrlState(DASHBOARD_SPEC)
+  const custom = validCustomRange(state.start, state.end)
+  const period: DashboardWindow = {
+    range: rangeDays(state.range),
+    ...(custom ? { start: state.start, end: state.end } : {}),
+  }
+  const scope: DashboardScope = { ...period, users: state.user }
+  const span = custom ? rangeSpan(state.start, state.end) : period.range
+
+  const summary = useDashboardSummary(scope)
+  const trends = useTrends(scope)
+  const pipeline = usePipeline(scope)
+  const funnel = useFunnel(scope, state.jd || undefined)
+  const insights = useInterviewInsights(scope)
+  const attention = useAttention(scope)
+  const team = useTeam(period)
+  const upcoming = useUpcomingInterviews(scope)
+  const directory = useUsersDirectory()
+
+  const names = state.user.flatMap(
+    (id) => directory.data?.find((row) => row.id === id)?.full_name ?? [],
+  )
   const firstName = user?.first_name || user?.full_name?.split(' ')[0] || 'there'
+  const windowLabel = custom ? formatDateRange(state.start, state.end) : `Last ${period.range} days`
   const empty =
+    state.user.length === 0 &&
     summary.isSuccess &&
-    summary.data.active_jds.value === 0 &&
-    summary.data.total_candidates.value === 0
+    summary.data.open_roles.value === 0 &&
+    summary.data.in_pipeline.value === 0 &&
+    summary.data.new_candidates.value === 0
+
+  const stageStatuses = (key: string) =>
+    pipeline.data?.stages.find((stage) => stage.key === key)?.statuses ?? []
+  const hrefs: Record<AttentionKey, string> = {
+    overdue_follow_ups: candidatesHref({ statuses: stageStatuses('contacted') }),
+    feedback_pending: '/interviews?bucket=pending_feedback',
+    offers_expiring: candidatesHref({ statuses: ['offer_sent'] }),
+    stale_candidates: candidatesHref({
+      statuses: ['shortlisted', 'contacted', 'interviewed', 'selected'].flatMap(stageStatuses),
+    }),
+    quiet_roles: '/jobs?status=open',
+  }
+
+  // Navigations commit as transitions, so a second pick made before the first
+  // has landed would read a stale URL; the handlers work from the last selection
+  // they set instead.
+  const latestUsers = useRef<readonly string[]>(state.user)
+  useEffect(() => {
+    latestUsers.current = state.user
+  }, [state.user])
+  const setUsers = (ids: readonly string[]) => {
+    latestUsers.current = ids
+    setState({ user: [...ids], jd: '' })
+  }
+  const toggleUser = (userId: string) => {
+    const ids = latestUsers.current
+    setUsers(ids.includes(userId) ? ids.filter((id) => id !== userId) : [...ids, userId])
+  }
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: qk.dashboard.all })
+  const updatedAt = summary.dataUpdatedAt ? formatRelative(new Date(summary.dataUpdatedAt)) : null
+
+  const toolbar = (
+    <div className="flex flex-wrap items-center gap-2">
+      <SegmentedControl
+        size="sm"
+        aria-label="Window"
+        options={RANGE_OPTIONS}
+        value={custom ? '' : state.range}
+        onChange={(next: RangeKey) => setState({ range: next, start: '', end: '' })}
+        className="w-auto bg-surface"
+      />
+      <DateRangePicker
+        start={custom ? state.start : ''}
+        end={custom ? state.end : ''}
+        onChange={(next) => setState(next ?? { start: '', end: '' })}
+      />
+      <ScopePicker value={state.user} onToggle={toggleUser} onClear={() => setUsers([])} />
+      <div className="ml-auto flex items-center gap-1 text-caption text-ink-subtle">
+        {updatedAt && <span>Updated {updatedAt}</span>}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Refresh"
+              onClick={refresh}
+              className="text-ink-subtle hover:text-ink"
+            >
+              <RefreshCwIcon
+                aria-hidden="true"
+                className={summary.isFetching ? 'animate-spin' : undefined}
+              />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Refresh every figure</TooltipContent>
+        </Tooltip>
+      </div>
+    </div>
+  )
 
   return (
     <>
       <PageHeader
         title="Dashboard"
-        subtitle={`${greeting()}, ${firstName} · ${formatDate(new Date())}`}
+        subtitle={`${greeting()}, ${firstName}. Hiring across ${
+          state.user.length > 0
+            ? `${possessive(names)} job descriptions`
+            : 'every job description you can see'
+        }.`}
         breadcrumbs={[{ label: 'Dashboard' }]}
       />
       {empty ? (
@@ -194,9 +298,9 @@ export default function DashboardPage() {
         />
       ) : (
         <div className="space-y-6">
-          {summary.isPending ? (
-            <SkeletonMetricRow count={8} />
-          ) : summary.isError ? (
+          {toolbar}
+
+          {summary.isError ? (
             <ErrorState
               title="Couldn't load the summary"
               error={summary.error}
@@ -205,245 +309,258 @@ export default function DashboardPage() {
           ) : (
             <div
               role="group"
-              className="grid grid-cols-2 gap-3 md:grid-cols-4 2xl:grid-cols-8"
-              aria-label="Summary metrics"
+              aria-label="Headline figures"
+              aria-busy={busy(summary) || undefined}
+              className="grid grid-cols-2 gap-3 transition-opacity duration-150 ease-brand md:grid-cols-4 2xl:grid-cols-8 aria-busy:opacity-60"
             >
-              {METRICS.map((metric) => (
-                <MetricCard
-                  key={metric.key}
-                  label={metric.label}
-                  value={summary.data[metric.key].value}
-                  delta={summary.data[metric.key].delta}
-                  deltaLabel="vs last 7 days"
-                  icon={metric.icon}
-                  to={metric.to}
+              {TILES.map((tile) => (
+                <StatTile
+                  key={tile.key}
+                  label={tile.label}
+                  metric={summary.data?.[tile.key]}
+                  icon={tile.icon}
+                  to={tile.to}
+                  goodDirection={tile.goodDirection}
+                  rangeDays={span}
+                  loading={summary.isPending}
                 />
               ))}
             </div>
           )}
-          {/* Grid children default to min-width:auto; min-w-0 keeps the 2fr track from growing past its share. */}
-          <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
-            <div className="min-w-0 space-y-6">
-              <Widget
-                title="Recruitment funnel"
-                action={
-                  <span
-                    className="inline-flex min-w-0"
-                    title={jobs.isError ? "Couldn't load job descriptions" : undefined}
-                  >
-                    <Select
-                      value={funnelJob || 'all'}
-                      onValueChange={(value) => setFunnelJob(value === 'all' ? '' : value)}
-                      disabled={jobs.isError}
-                    >
-                      <SelectTrigger
-                        size="sm"
-                        aria-label="Funnel job description"
-                        className="max-w-56"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent align="end">
-                        <SelectItem value="all">All JDs</SelectItem>
-                        {(jobs.data?.results ?? []).map((job) => (
-                          <SelectItem key={job.id} value={job.id}>
-                            {job.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </span>
-                }
-              >
-                {funnel.isPending ? (
-                  <SkeletonCard lines={6} />
-                ) : funnel.isError ? (
-                  <ErrorState
-                    title="Couldn't load the funnel"
-                    error={funnel.error}
-                    onRetry={() => void funnel.refetch()}
-                  />
-                ) : (
-                  <FunnelChart stages={funnel.data.stages} />
-                )}
-              </Widget>
-              <Widget
-                title="Recent activity"
-                action={
-                  <Link
-                    to="/jobs"
-                    className="shrink-0 text-small font-medium text-primary hover:underline"
-                  >
-                    View all
-                  </Link>
-                }
-              >
-                {recent.isPending ? (
-                  <SkeletonTimeline items={5} />
-                ) : recent.isError ? (
-                  <ErrorState
-                    title="Couldn't load activity"
-                    error={recent.error}
-                    onRetry={() => void recent.refetch()}
-                  />
-                ) : recent.data.length === 0 ? (
-                  <EmptyState
-                    size="sm"
-                    icon={HistoryIcon}
-                    title="No activity yet"
-                    description="Every change on a job description and its candidates shows up here."
-                    action={
-                      <Button asChild variant="outline" size="sm">
-                        <Link to="/jobs">View job descriptions</Link>
-                      </Button>
-                    }
-                  />
-                ) : (
-                  <Timeline items={recent.data.slice(0, 10)} groupByDay={false} />
-                )}
-              </Widget>
-            </div>
-            <div className="min-w-0 space-y-6">
-              <Widget
-                title="Top candidates"
-                action={
-                  <Link
-                    to="/candidates"
-                    className="shrink-0 text-small font-medium text-primary hover:underline"
-                  >
-                    View all
-                  </Link>
-                }
-              >
-                {top.isPending ? (
-                  <WidgetRowsSkeleton rows={6} avatars label="Loading top candidates" />
-                ) : top.isError ? (
-                  <ErrorState
-                    title="Couldn't load candidates"
-                    error={top.error}
-                    onRetry={() => void top.refetch()}
-                  />
-                ) : top.data.length === 0 ? (
-                  <EmptyState
-                    size="sm"
-                    icon={SparklesIcon}
-                    title="No scored candidates yet"
-                    description="Search candidates for an open role and the best matches appear here."
-                    action={
-                      <Button asChild variant="outline" size="sm">
-                        <Link to="/search">Search candidates</Link>
-                      </Button>
-                    }
-                  />
-                ) : (
-                  <ul className="divide-y divide-line" aria-label="Top candidates">
-                    {top.data.map((row, index) => (
-                      <li key={row.id}>
-                        <StaggerItem index={index} className="min-w-0">
-                          <Link
-                            to={candidateHref(row)}
-                            data-slot="top-candidate"
-                            className="flex min-w-0 items-center gap-3 py-2.5 hover:bg-surface-2"
-                          >
-                            {row.match && <MatchRing value={row.match.overall_pct} size="sm" />}
-                            <Avatar
-                              name={row.candidate.full_name}
-                              src={row.candidate.avatar_url}
-                              size="sm"
-                            />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-small font-medium text-ink">
-                                {row.candidate.full_name}
-                              </span>
-                              <span className="block truncate text-caption text-ink-subtle">
-                                {row.job.title}
-                              </span>
-                            </span>
-                            <StatusBadge status={row.status} size="sm" />
-                          </Link>
-                        </StaggerItem>
-                      </li>
+
+          <div className="grid gap-6 xl:grid-cols-[3fr_2fr]">
+            <ChartCard
+              title="Hiring activity"
+              subtitle={`${windowLabel}, by day`}
+              busy={busy(trends)}
+              table={
+                trends.data && (
+                  <div className="max-h-80 overflow-auto">
+                    <DataList
+                      caption="Hiring activity by day"
+                      columns={['Day', ...TREND_SERIES.map((series) => series.label)]}
+                      rows={trends.data.points.map((point) => [
+                        formatPointDate(point.date),
+                        ...TREND_SERIES.map((series) => point[series.key]),
+                      ])}
+                    />
+                  </div>
+                )
+              }
+            >
+              <Loaded query={trends} title="Couldn't load the activity trend" lines={8}>
+                {(data) => <TrendChart points={data.points} />}
+              </Loaded>
+            </ChartCard>
+            <ChartCard title="Needs attention" subtitle="Right now" busy={busy(attention)}>
+              <Loaded query={attention} title="Couldn't load what needs attention" lines={5}>
+                {(data) => <AttentionList counts={data} hrefs={hrefs} />}
+              </Loaded>
+            </ChartCard>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <ChartCard
+              title="Recruitment funnel"
+              subtitle="Right now, candidates who reached each stage"
+              busy={busy(funnel)}
+              action={
+                <Select
+                  value={state.jd || 'all'}
+                  onValueChange={(value) => setState({ jd: value === 'all' ? '' : value })}
+                  disabled={!pipeline.data}
+                >
+                  <SelectTrigger size="sm" aria-label="Funnel job description" className="max-w-52">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="end">
+                    <SelectItem value="all">All roles</SelectItem>
+                    {(pipeline.data?.jobs ?? []).map((job) => (
+                      <SelectItem key={job.id} value={job.id}>
+                        {job.title}
+                      </SelectItem>
                     ))}
-                  </ul>
-                )}
-              </Widget>
-              <Widget
-                title="Upcoming interviews"
-                action={
-                  <Link
-                    to="/interviews"
-                    className="shrink-0 text-small font-medium text-primary hover:underline"
-                  >
-                    View all
-                  </Link>
-                }
-              >
-                {upcoming.isPending ? (
-                  <WidgetRowsSkeleton rows={4} label="Loading upcoming interviews" />
-                ) : upcoming.isError ? (
-                  <ErrorState
-                    title="Couldn't load interviews"
-                    error={upcoming.error}
-                    onRetry={() => void upcoming.refetch()}
+                  </SelectContent>
+                </Select>
+              }
+              table={
+                funnel.data && (
+                  <DataList
+                    caption="Recruitment funnel"
+                    columns={['Stage', 'Candidates', 'Of previous']}
+                    rows={funnel.data.stages.map((stage) => [
+                      stage.label,
+                      stage.value,
+                      stage.conversion_pct === null ? '—' : `${stage.conversion_pct}%`,
+                    ])}
                   />
-                ) : upcoming.data.length === 0 ? (
-                  <EmptyState
-                    size="sm"
-                    icon={CalendarClockIcon}
-                    title="Nothing scheduled"
-                    description="Interviews appear here as soon as they are booked."
-                    action={
-                      <Button asChild variant="outline" size="sm">
-                        <Link to="/interviews">All interviews</Link>
-                      </Button>
+                )
+              }
+            >
+              <Loaded query={funnel} title="Couldn't load the funnel">
+                {(data) => (
+                  <FunnelChart
+                    stages={data.stages}
+                    hrefFor={(stage) =>
+                      candidatesHref({ statuses: stage.statuses, jd: state.jd || undefined })
                     }
                   />
-                ) : (
-                  <ul className="divide-y divide-line" aria-label="Upcoming interviews">
-                    {upcoming.data.map((interview, index) => (
-                      <li key={interview.id} data-slot="upcoming-interview">
-                        <StaggerItem
-                          index={index}
-                          className="flex min-w-0 items-center gap-3 py-2.5"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="text-small text-ink">
-                              <span className="font-medium">
-                                {formatWhen(interview.scheduled_at)}
-                              </span>
-                              <span className="text-ink-subtle"> · {interview.round_label} · </span>
-                              <Link
-                                to={candidateHrefFor(interview)}
-                                className="font-medium hover:underline"
-                              >
-                                {interview.application.candidate.full_name}
-                              </Link>
-                            </p>
-                            <div className="mt-0.5 flex min-w-0 items-center gap-2 text-caption text-ink-subtle">
-                              <UserChip user={personFromUser(interview.interviewer)} />
-                              <span className="min-w-0 truncate">
-                                · {interview.application.job.title}
-                              </span>
-                            </div>
-                          </div>
-                          {canJoin(interview) && (
-                            <Button asChild size="xs" variant="outline">
-                              <a
-                                href={interview.meeting_link ?? '#'}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                Join <ExternalLinkIcon data-icon="inline-end" aria-hidden="true" />
-                              </a>
-                            </Button>
-                          )}
-                        </StaggerItem>
-                      </li>
-                    ))}
-                  </ul>
                 )}
-              </Widget>
-            </div>
+              </Loaded>
+            </ChartCard>
+            <ChartCard
+              title="Open roles"
+              subtitle="Right now, candidates in play per role"
+              busy={busy(pipeline)}
+              action={
+                <Link
+                  to="/jobs?status=open"
+                  className="text-small font-medium text-primary hover:underline"
+                >
+                  View all
+                </Link>
+              }
+              table={
+                pipeline.data && (
+                  <DataList
+                    caption="Candidates in play per open role"
+                    columns={[
+                      'Role',
+                      'Awaiting',
+                      'Shortlisted',
+                      'Contacted',
+                      'Interviewing',
+                      'Selected',
+                      'Onboarding',
+                      'Parked',
+                    ]}
+                    rows={activeRoles(pipeline.data.jobs).map((job) => [
+                      job.title,
+                      job.awaiting,
+                      ...roleSegments(job).map((segment) => segment.value),
+                      job.parked,
+                    ])}
+                  />
+                )
+              }
+            >
+              <Loaded query={pipeline} title="Couldn't load the open roles">
+                {(data) => <OpenRoles jobs={data.jobs} />}
+              </Loaded>
+            </ChartCard>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
+            <ChartCard
+              title="Candidates by source"
+              subtitle="Right now, where the pipeline came from"
+              busy={busy(pipeline)}
+              action={
+                <Link
+                  to="/candidates"
+                  className="text-small font-medium text-primary hover:underline"
+                >
+                  View all
+                </Link>
+              }
+              table={
+                pipeline.data && (
+                  <DataList
+                    caption="Candidates by source"
+                    columns={['Source', 'Candidates']}
+                    rows={pipeline.data.sources.map((source) => [source.label, source.value])}
+                  />
+                )
+              }
+            >
+              <Loaded query={pipeline} title="Couldn't load the sources" lines={4}>
+                {(data) => <SourceDonut sources={data.sources} />}
+              </Loaded>
+            </ChartCard>
+            <ChartCard
+              title="Interviews"
+              subtitle={`${windowLabel}, outcomes and load`}
+              busy={busy(insights)}
+              action={
+                <Link
+                  to="/interviews"
+                  className="text-small font-medium text-primary hover:underline"
+                >
+                  View all
+                </Link>
+              }
+              table={
+                insights.data && (
+                  <DataList
+                    caption="Interviews per interviewer"
+                    columns={['Interviewer', 'Held', 'Completed', 'Avg score']}
+                    rows={insights.data.interviewers.map((row) => [
+                      row.user.full_name,
+                      row.total,
+                      row.completed,
+                      row.avg_score ?? '—',
+                    ])}
+                  />
+                )
+              }
+            >
+              <Loaded query={insights} title="Couldn't load interview outcomes">
+                {(data) => <InterviewOutcomes insights={data} />}
+              </Loaded>
+            </ChartCard>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <ChartCard
+              title="Team activity"
+              subtitle={`${windowLabel}, across everything you can see`}
+              busy={busy(team)}
+              table={
+                team.data && (
+                  <DataList
+                    caption="Team activity"
+                    columns={[
+                      'Person',
+                      'Roles',
+                      'Sourcing',
+                      'Outreach',
+                      'Interviews',
+                      'Closing',
+                      'Total',
+                    ]}
+                    rows={team.data.map((member) => [
+                      member.user.full_name,
+                      member.roles,
+                      ...teamSegments(member).map((segment) => segment.value),
+                      member.total,
+                    ])}
+                  />
+                )
+              }
+            >
+              <Loaded query={team} title="Couldn't load team activity">
+                {(data) => (
+                  <TeamActivity members={data} focused={state.user} onFocus={toggleUser} />
+                )}
+              </Loaded>
+            </ChartCard>
+            <ChartCard
+              title="Upcoming interviews"
+              subtitle="The next five"
+              busy={busy(upcoming)}
+              action={
+                <Link
+                  to="/interviews"
+                  className="text-small font-medium text-primary hover:underline"
+                >
+                  View all
+                </Link>
+              }
+            >
+              <Loaded query={upcoming} title="Couldn't load interviews" lines={4}>
+                {(data) => <UpcomingInterviews interviews={data} />}
+              </Loaded>
+            </ChartCard>
           </div>
         </div>
       )}

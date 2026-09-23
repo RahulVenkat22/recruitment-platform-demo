@@ -1,4 +1,4 @@
-import type { JobDetail, JobPermissions, JobRow, SessionUser } from '@/types/domain'
+import type { JobDetail, JobPermissions, JobRow, SessionUser, UserRole } from '@/types/domain'
 
 /*
  * Client-side mirror of the plan.md 6.9 matrix for list rows, which carry no
@@ -42,9 +42,12 @@ export function canCommentJob(user: SessionUser | null): boolean {
   return user?.role === 'hr_admin' || user?.role === 'hr'
 }
 
-/** "High-level" users of Enhancement.md 3: HR admins and HR see every JD they are allowed to. */
+/** "High-level" roles of Enhancement.md 3: HR admins and HR run recruitment and get the dashboard. */
+export const HIGH_LEVEL_ROLES: readonly UserRole[] = ['hr_admin', 'hr']
+
+/** HR admins and HR see every JD they are allowed to, and the dashboard. */
 export function isHighLevelUser(user: SessionUser | null): boolean {
-  return user?.role === 'hr_admin' || user?.role === 'hr'
+  return user !== null && HIGH_LEVEL_ROLES.includes(user.role)
 }
 
 export function canWorkPipeline(user: SessionUser | null, job: RowLike): boolean {

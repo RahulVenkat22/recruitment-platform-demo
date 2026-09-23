@@ -189,7 +189,7 @@ export function SkillTagInput({
                 onMouseEnter={() => setHighlight(index)}
                 onClick={() => add(option.display_name)}
                 className={cn(
-                  'flex cursor-pointer items-center justify-between gap-3 rounded-control px-2 py-1.5 text-small',
+                  'flex cursor-pointer items-center rounded-control px-2 py-1.5 text-small',
                   index === activeIndex ? 'bg-surface-2 text-ink' : 'text-ink-muted',
                 )}
               >
@@ -202,9 +202,6 @@ export function SkillTagInput({
                     option.display_name
                   )}
                 </span>
-                {!isNew && option.count > 0 && (
-                  <span className="text-caption text-ink-subtle tabular-nums">{option.count}</span>
-                )}
               </li>
             )
           })}

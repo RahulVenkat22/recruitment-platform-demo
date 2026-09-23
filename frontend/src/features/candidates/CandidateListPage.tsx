@@ -129,6 +129,7 @@ export default function CandidateListPage() {
         id: 'total_experience_years',
         header: 'Experience',
         enableSorting: true,
+        sortDescFirst: true,
         cell: ({ row }) => (
           <span className="tabular-nums">{formatYears(row.original.total_experience_years)}</span>
         ),
@@ -178,6 +179,7 @@ export default function CandidateListPage() {
         id: 'last_activity',
         header: 'Last activity',
         enableSorting: true,
+        sortDescFirst: true,
         cell: ({ row }) =>
           row.original.last_activity_at ? (
             <Tooltip>

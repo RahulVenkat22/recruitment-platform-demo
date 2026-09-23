@@ -63,7 +63,13 @@ def test_eighteen_statuses_and_ten_categories(payload):
 
 def test_colour_tokens_for_statuses_sources_and_categories(payload):
     colors = payload["colors"]
-    assert set(colors) == {"application_status", "candidate_source", "activity_category"}
+    assert set(colors) == {
+        "application_status",
+        "candidate_source",
+        "activity_category",
+        "ticket_status",
+        "ticket_priority",
+    }
     assert set(colors["application_status"]) == set(EXPECTED_STATUS_ORDER)
     assert set(colors["candidate_source"]) == {
         "internal",

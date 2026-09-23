@@ -129,7 +129,7 @@ export default function NotificationsPage() {
     <>
       <PageHeader
         title="Notifications"
-        subtitle="Assignments, status changes, interviews, feedback, offers and onboarding across your roles."
+        subtitle="Assignments, status changes, interviews, feedback, offers, onboarding and support tickets across your roles."
         breadcrumbs={[{ label: 'Notifications' }]}
         actions={
           <Button

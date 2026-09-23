@@ -341,6 +341,49 @@ class NotificationType(models.TextChoices):
     ONBOARDING = "onboarding", "Onboarding"
     MENTION = "mention", "Mention"
     SYSTEM = "system", "System"
+    # Support tickets: raised, assigned, commented on, resolved, closed, reopened.
+    SUPPORT = "support", "Support"
+
+
+# --------------------------------------------------------------------- support
+
+
+class TicketStatus(models.TextChoices):
+    """A support ticket's life: raised, being worked, answered, done."""
+
+    OPEN = "open", "Open"
+    IN_PROGRESS = "in_progress", "In Progress"
+    RESOLVED = "resolved", "Resolved"
+    CLOSED = "closed", "Closed"
+
+
+class TicketPriority(models.TextChoices):
+    LOW = "low", "Low"
+    MEDIUM = "medium", "Medium"
+    HIGH = "high", "High"
+    URGENT = "urgent", "Urgent"
+
+
+class TicketCategory(models.TextChoices):
+    ACCESS = "access", "Access & permissions"
+    JOB_DESCRIPTION = "job_description", "Job description"
+    CANDIDATE_DATA = "candidate_data", "Candidate data"
+    INTERVIEWS = "interviews", "Interviews & scheduling"
+    OFFERS = "offers", "Offers & onboarding"
+    TECHNICAL = "technical", "Technical issue"
+    FEATURE_REQUEST = "feature_request", "Feature request"
+    OTHER = "other", "Other"
+
+
+class TicketEventKind(models.TextChoices):
+    """One row of a ticket's timeline."""
+
+    CREATED = "created", "Raised"
+    COMMENT = "comment", "Comment"
+    STATUS = "status", "Status change"
+    ASSIGNMENT = "assignment", "Assignment"
+    PRIORITY = "priority", "Priority change"
+    EDIT = "edit", "Details edited"
 
 
 class AuditAction(models.TextChoices):
@@ -378,6 +421,10 @@ ALL_ENUMS: dict[str, type[models.TextChoices]] = {
     "search_run_status": SearchRunStatus,
     "notification_type": NotificationType,
     "audit_action": AuditAction,
+    "ticket_status": TicketStatus,
+    "ticket_priority": TicketPriority,
+    "ticket_category": TicketCategory,
+    "ticket_event_kind": TicketEventKind,
 }
 
 # ----------------------------------------------------------------------- colours
@@ -434,4 +481,19 @@ CATEGORY_COLORS: dict[str, ColorPair] = {
     ActivityCategory.OFFER: ColorPair("#FBF1DC", "#8F5D12", "amber"),
     ActivityCategory.ONBOARDING: ColorPair("#DDF3EF", "#0F766E", "teal"),
     ActivityCategory.DECISION: ColorPair("#FCE8E6", "#B42318", "rose"),
+}
+
+# Support ticket badge colours: the pipeline palette reused so the two read alike.
+TICKET_STATUS_COLORS: dict[str, ColorPair] = {
+    TicketStatus.OPEN: ColorPair("#E4ECFB", "#1D4ED8", "blue"),
+    TicketStatus.IN_PROGRESS: ColorPair("#FBF1DC", "#8F5D12", "amber"),
+    TicketStatus.RESOLVED: ColorPair("#E3F3EA", "#1F7A4D", "emerald"),
+    TicketStatus.CLOSED: ColorPair("#ECEEF2", "#5C6371", "gray"),
+}
+
+TICKET_PRIORITY_COLORS: dict[str, ColorPair] = {
+    TicketPriority.LOW: ColorPair("#EEF1F5", "#3B4452", "slate"),
+    TicketPriority.MEDIUM: ColorPair("#E0F0FB", "#0B5C94", "sky"),
+    TicketPriority.HIGH: ColorPair("#FBF1DC", "#8F5D12", "amber"),
+    TicketPriority.URGENT: ColorPair("#FCE8E6", "#B42318", "rose"),
 }

@@ -1,34 +1,16 @@
-import {
-  ChevronsUpDownIcon,
-  LogOutIcon,
-  MenuIcon,
-  PanelLeftCloseIcon,
-  PanelLeftOpenIcon,
-  SettingsIcon,
-} from 'lucide-react'
+import { ChevronLeftIcon, MenuIcon } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useLocation, useMatch, useNavigate } from 'react-router'
-import { NAV_ITEMS, type NavItem } from '@/app/layout/nav'
-import { Avatar } from '@/components/shared/Avatar'
+import { Link, useLocation, useMatch } from 'react-router'
+import { NAV_SECTIONS, navItemsFor, type NavItem } from '@/app/layout/nav'
 import { BrandLogo } from '@/components/shared/BrandLogo'
 import { TalentOSLogo, TalentOSMark } from '@/components/shared/TalentOSLogo'
-import { UserChip } from '@/components/shared/UserChip'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useSignOut } from '@/features/auth/use-sign-out'
 import { useAuthStore } from '@/lib/auth-store'
 import { useUiStore } from '@/lib/ui-store'
 import { cn } from '@/lib/utils'
-import { personFromUser } from '@/types/domain'
+import type { SessionUser } from '@/types/domain'
 
 function SidebarNavItem({
   item,
@@ -48,17 +30,17 @@ function SidebarNavItem({
       onClick={onNavigate}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
-        'relative flex h-9 items-center gap-3 rounded-control px-2.5 text-[13.5px] font-medium text-ink-muted',
+        'relative flex h-10 items-center gap-3 rounded-card px-3 text-[13.5px] font-medium text-ink-muted',
         'transition-colors duration-150 ease-brand hover:bg-surface-2 hover:text-ink',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
-        isActive && 'bg-primary-soft text-primary hover:bg-primary-soft hover:text-primary',
-        collapsed && 'justify-center px-0',
+        isActive && 'bg-surface-2 text-ink',
+        collapsed && 'w-10 justify-center px-0',
       )}
     >
       {isActive && (
         <span
           aria-hidden="true"
-          className="absolute top-1.5 bottom-1.5 -left-2 w-[3px] rounded-r-full bg-primary"
+          className="absolute top-2.5 bottom-2.5 -left-3 w-[3px] rounded-r-full bg-accent"
         />
       )}
       <Icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
@@ -77,62 +59,55 @@ function SidebarNavItem({
   )
 }
 
-function SidebarUserMenu({ collapsed }: { collapsed: boolean }) {
-  const user = useAuthStore((state) => state.user)
-  const navigate = useNavigate()
-  const { signOut, pending } = useSignOut()
-
-  const person = user
-    ? personFromUser(user)
-    : { id: 'guest', name: 'Guest', avatar_url: null, designation: 'Not signed in' }
+/** This user's items in their sections; a section they have nothing in is not shown. */
+function SidebarNav({
+  user,
+  collapsed,
+  onNavigate,
+}: {
+  user: SessionUser | null
+  collapsed: boolean
+  onNavigate?: () => void
+}) {
+  const items = navItemsFor(user)
+  const sections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: items.filter((item) => item.section === section.key),
+  })).filter((section) => section.items.length > 0)
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={`Account menu for ${person.name}`}
-          className={cn(
-            'flex w-full items-center gap-2.5 rounded-control p-1.5 text-left',
-            'transition-colors duration-150 ease-brand hover:bg-surface-2',
-            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
-            collapsed && 'justify-center',
-          )}
-        >
+    <nav
+      aria-label="Primary"
+      className="min-h-0 flex-1 overflow-y-auto px-3 py-3 [scrollbar-width:thin]"
+    >
+      {sections.map((section, index) => (
+        <div key={section.key}>
           {collapsed ? (
-            <Avatar name={person.name} src={person.avatar_url} size="md" />
+            index > 0 && <div aria-hidden="true" className="mx-2 my-2 h-px bg-line" />
           ) : (
-            <>
-              <UserChip user={person} size="md" layout="stacked" showRole className="flex-1" />
-              <ChevronsUpDownIcon className="size-4 shrink-0 text-ink-subtle" aria-hidden="true" />
-            </>
+            <p
+              className={cn(
+                'px-3 pb-1.5 text-[11px] font-semibold tracking-[0.12em] text-ink-subtle uppercase',
+                index > 0 ? 'pt-5' : 'pt-1',
+              )}
+            >
+              {section.label}
+            </p>
           )}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="start" className="w-60">
-        {user && (
-          <>
-            <DropdownMenuLabel className="font-normal">
-              <span className="block truncate text-[13px] font-medium text-ink">{person.name}</span>
-              <span className="block truncate text-caption text-ink-subtle">{user.email}</span>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-          </>
-        )}
-        <DropdownMenuItem onSelect={() => navigate('/settings')}>
-          <SettingsIcon aria-hidden="true" />
-          Profile and settings
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={pending} onSelect={() => void signOut()}>
-          <LogOutIcon aria-hidden="true" />
-          Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <ul className="space-y-0.5">
+            {section.items.map((item) => (
+              <li key={item.to}>
+                <SidebarNavItem item={item} collapsed={collapsed} onNavigate={onNavigate} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </nav>
   )
 }
 
+/** Buro Happold over TalentOS, as on the login page; the two marks stacked when collapsed. */
 function BrandLink({
   collapsed = false,
   onNavigate,
@@ -144,8 +119,11 @@ function BrandLink({
     <Link
       to="/"
       onClick={onNavigate}
-      className="flex min-w-0 items-center gap-2.5 rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       aria-label="Buro Happold homepage"
+      className={cn(
+        'flex items-center rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+        !collapsed && 'w-full',
+      )}
     >
       {collapsed ? (
         <span className="flex flex-col items-center gap-2">
@@ -153,9 +131,9 @@ function BrandLink({
           <TalentOSMark size={32} />
         </span>
       ) : (
-        <span className="flex min-w-0 flex-col gap-1.5">
-          <BrandLogo variant="wordmark" on="dark" className="h-[52px]" />
-          <TalentOSLogo on="dark" size="sm" className="pl-0.5" />
+        <span className="flex w-full min-w-0 flex-col items-center gap-1.5">
+          <BrandLogo variant="wordmark" className="h-auto w-full" />
+          <TalentOSLogo on="light" size="sm" />
         </span>
       )}
     </Link>
@@ -163,71 +141,77 @@ function BrandLink({
 }
 
 /**
- * Desktop sidebar (plan.md 8.4): 248px expanded, 64px icon-only, on Buro Happold
- * graphite with the lime as the active colour (`data-surface="dark"` re-points
- * the colour tokens). Hidden below 768px, where `MobileNav` takes over.
+ * Desktop sidebar: 256px expanded, 64px icon-only, white on the stone page. The
+ * Buro Happold wordmark over the TalentOS logo heads it and the nav sits in
+ * labelled sections. The collapse toggle rides the edge at the foot of the header.
+ * Hidden below 768px, where `MobileNav` takes over.
  */
 export function Sidebar() {
+  const user = useAuthStore((state) => state.user)
   const collapsed = useUiStore((state) => state.sidebarCollapsed)
   const toggleSidebar = useUiStore((state) => state.toggleSidebar)
-  const ToggleIcon = collapsed ? PanelLeftOpenIcon : PanelLeftCloseIcon
   const toggleLabel = collapsed ? 'Expand sidebar' : 'Collapse sidebar'
 
   return (
     <aside
       data-collapsed={collapsed}
-      data-surface="dark"
       className={cn(
         'flex h-full shrink-0 flex-col border-r border-line bg-surface max-md:hidden',
         'transition-[width] duration-250 ease-brand',
-        collapsed ? 'w-16' : 'w-[248px]',
+        collapsed ? 'w-16' : 'w-64',
       )}
     >
       <div
         className={cn(
-          'flex h-[104px] items-center border-b border-line px-4',
+          // Tall enough for the full-width wordmark over the TalentOS logo, and fixed so
+          // collapsing (a narrower stack) does not move the nav.
+          'relative flex h-[128px] shrink-0 items-center border-b border-line px-5',
           collapsed && 'justify-center px-0',
         )}
       >
         <BrandLink collapsed={collapsed} />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={toggleLabel}
+              aria-pressed={collapsed}
+              onClick={toggleSidebar}
+              className={cn(
+                // Half outside the panel, centred on the corner where the header line meets the
+                // edge, and above the pages' sticky headers (z-10), which otherwise paint over it.
+                'absolute right-0 bottom-0 z-20 flex size-7 translate-x-1/2 translate-y-1/2 items-center justify-center',
+                'rounded-full border border-line bg-surface text-ink-muted shadow-card',
+                'transition-[background-color,border-color,color,box-shadow,scale] duration-200 ease-brand',
+                'hover:border-primary hover:bg-primary hover:text-white hover:shadow-card-hover active:scale-95',
+                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+              )}
+            >
+              <ChevronLeftIcon
+                className={cn(
+                  'size-3.5 transition-transform duration-300 ease-brand',
+                  collapsed && 'rotate-180',
+                )}
+                strokeWidth={2.25}
+                aria-hidden="true"
+              />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">{toggleLabel}</TooltipContent>
+        </Tooltip>
       </div>
 
-      <nav aria-label="Primary" className="flex-1 space-y-0.5 px-2 pt-2">
-        {NAV_ITEMS.map((item) => (
-          <SidebarNavItem key={item.to} item={item} collapsed={collapsed} />
-        ))}
-      </nav>
-
-      <div className="space-y-1 border-t border-line p-2">
-        <SidebarUserMenu collapsed={collapsed} />
-        <div className={cn('flex', collapsed ? 'justify-center' : 'justify-end')}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={toggleLabel}
-                aria-pressed={collapsed}
-                onClick={toggleSidebar}
-                className="text-ink-subtle hover:text-ink"
-              >
-                <ToggleIcon aria-hidden="true" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">{toggleLabel}</TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
+      <SidebarNav user={user} collapsed={collapsed} />
     </aside>
   )
 }
 
 /**
  * Phone navigation: a menu button in the top bar opens a left drawer with the
- * same items and account menu as the sidebar. Closes on navigation.
+ * same sections as the sidebar. Closes on navigation.
  */
 export function MobileNav() {
+  const user = useAuthStore((state) => state.user)
   const { pathname } = useLocation()
   // The drawer remembers the route it was opened on, so any navigation (a link
   // inside it, browser back) dismisses it without an effect.
@@ -250,22 +234,14 @@ export function MobileNav() {
       </Button>
       <SheetContent
         side="left"
-        data-surface="dark"
         className="w-[280px] gap-0 bg-surface p-0 text-ink sm:max-w-[280px]"
       >
         <SheetTitle className="sr-only">Navigation</SheetTitle>
         <SheetDescription className="sr-only">Main sections of the app</SheetDescription>
-        <div className="flex h-[104px] items-center border-b border-line px-4">
+        <div className="flex min-h-[128px] items-center border-b border-line py-4 pr-14 pl-5">
           <BrandLink onNavigate={close} />
         </div>
-        <nav aria-label="Primary" className="flex-1 space-y-0.5 px-2 pt-2">
-          {NAV_ITEMS.map((item) => (
-            <SidebarNavItem key={item.to} item={item} collapsed={false} onNavigate={close} />
-          ))}
-        </nav>
-        <div className="border-t border-line p-2">
-          <SidebarUserMenu collapsed={false} />
-        </div>
+        <SidebarNav user={user} collapsed={false} onNavigate={close} />
       </SheetContent>
     </Sheet>
   )

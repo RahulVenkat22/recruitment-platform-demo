@@ -8,11 +8,14 @@ provider that knows the candidate.
 from __future__ import annotations
 
 from decimal import Decimal
+from uuid import UUID
 
 from django.conf import settings
+from django.core import signing
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models.functions import Lower
+from django.urls import reverse
 from django.utils import timezone
 
 from common import enums
@@ -28,6 +31,9 @@ class Candidate(UUIDTimestampedModel):
     location = models.CharField(max_length=160, blank=True)
     # Placeholder photo URL; null triggers the initials fallback in the UI.
     avatar_url = models.TextField(null=True, blank=True)
+    # The photo cut out of the resume (resumes.engines.photo): a file name under
+    # RESUME_STORAGE_PATH/photos/, served through /candidates/{id}/photo/.
+    photo = models.CharField(max_length=255, blank=True)
     # e.g. "Senior Backend Engineer at Zoho"
     headline = models.CharField(max_length=200, blank=True)
     current_company = models.CharField(max_length=160, blank=True)
@@ -65,6 +71,23 @@ class Candidate(UUIDTimestampedModel):
     def initials(self) -> str:
         parts = self.full_name.split()
         return "".join(part[0] for part in (parts[:1] + parts[-1:]) if part).upper()
+
+    @property
+    def photo_url(self) -> str | None:
+        """The resume photo's URL, signed so an <img> needs no login yet nobody can guess it."""
+        if not self.photo:
+            return None
+        return f"{reverse('api-v1:candidate-photo', args=[self.pk])}?t={photo_signature(self.pk)}"
+
+    @property
+    def display_avatar_url(self) -> str | None:
+        """The resume photo when there is one, else the stored avatar URL."""
+        return self.photo_url or self.avatar_url
+
+
+def photo_signature(candidate_id: UUID | str) -> str:
+    """The HMAC in a photo URL. It does not expire, so the URL can sit in stored metadata."""
+    return signing.Signer(salt="candidate-photo").signature(str(candidate_id))
 
 
 class CandidateSkill(UUIDTimestampedModel):

@@ -330,7 +330,7 @@ class PipelineService:
                             {
                                 "id": str(app.candidate_id),
                                 "name": app.candidate.full_name,
-                                "avatar_url": app.candidate.avatar_url,
+                                "avatar_url": app.candidate.display_avatar_url,
                             }
                             for app in group
                         ],

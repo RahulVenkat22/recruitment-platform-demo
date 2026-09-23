@@ -1,6 +1,6 @@
-import { SearchIcon } from 'lucide-react'
+import { LogOutIcon, SearchIcon, SettingsIcon } from 'lucide-react'
 import { Fragment, useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { deriveBreadcrumbs } from '@/app/layout/breadcrumbs'
 import { Avatar } from '@/components/shared/Avatar'
 import { MobileNav } from '@/app/layout/Sidebar'
@@ -16,10 +16,19 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { useSignOut } from '@/features/auth/use-sign-out'
 import { useAuthStore } from '@/lib/auth-store'
 import { isPaletteShortcut } from '@/lib/keyboard'
 import { useUiStore } from '@/lib/ui-store'
+import { cn } from '@/lib/utils'
 
 /** Crumbs published by the page's PageHeader win; the route supplies a fallback. */
 function TopBarBreadcrumbs() {
@@ -53,9 +62,50 @@ function TopBarBreadcrumbs() {
   )
 }
 
-export function TopBar() {
+/** The signed-in person's avatar opens the account menu: who they are, settings and sign out. */
+function AccountMenu() {
   const user = useAuthStore((state) => state.user)
+  const navigate = useNavigate()
+  const { signOut, pending } = useSignOut()
   const name = user?.full_name ?? 'Guest'
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Account menu for ${name}`}
+          className={cn(
+            'ml-1 inline-flex rounded-full transition-shadow duration-150 ease-brand',
+            'hover:ring-2 hover:ring-line-strong data-[state=open]:ring-2 data-[state=open]:ring-primary',
+            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+          )}
+        >
+          <Avatar name={name} src={user?.avatar_url} size="md" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60">
+        <DropdownMenuLabel className="font-normal">
+          <span className="block truncate text-[13px] font-medium text-ink">{name}</span>
+          <span className="block truncate text-caption text-ink-muted">{user?.designation}</span>
+          <span className="block truncate text-caption text-ink-subtle">{user?.email}</span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => navigate('/settings')}>
+          <SettingsIcon aria-hidden="true" />
+          Profile and settings
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled={pending} onSelect={() => void signOut()}>
+          <LogOutIcon aria-hidden="true" />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+export function TopBar() {
   const [paletteOpen, setPaletteOpen] = useState(false)
 
   useEffect(() => {
@@ -69,7 +119,7 @@ export function TopBar() {
   }, [])
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6 max-md:gap-2 max-md:px-3">
+    <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6 max-md:gap-2 max-md:px-3">
       <div className="flex min-w-0 items-center gap-2">
         <MobileNav />
         <div className="min-w-0 truncate">
@@ -96,18 +146,7 @@ export function TopBar() {
           <HealthPill />
         </div>
         <NotificationBell />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              to="/settings"
-              aria-label={`${name}, open profile and settings`}
-              className="ml-1 inline-flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              <Avatar name={name} src={user?.avatar_url} size="md" />
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{name}</TooltipContent>
-        </Tooltip>
+        <AccountMenu />
       </div>
     </header>
   )

@@ -86,7 +86,7 @@ export default function JobListPage() {
       {
         id: 'location',
         header: 'Location',
-        enableSorting: false,
+        enableSorting: true,
         cell: ({ row }) => (
           <div className="min-w-0">
             <span className="block truncate text-ink">{row.original.location}</span>
@@ -97,9 +97,9 @@ export default function JobListPage() {
         ),
       },
       {
-        id: 'type',
+        id: 'employment_type',
         header: 'Type',
-        enableSorting: false,
+        enableSorting: true,
         cell: ({ row }) => (
           <span className="text-ink-muted">
             {employmentTypeLabel(row.original.employment_type)}
@@ -107,9 +107,9 @@ export default function JobListPage() {
         ),
       },
       {
-        id: 'created_by',
+        id: 'created_by__first_name',
         header: 'Created by',
-        enableSorting: false,
+        enableSorting: true,
         cell: ({ row }) => (
           <div className="min-w-0">
             <UserChip user={personFromUser(row.original.created_by)} />
@@ -129,6 +129,7 @@ export default function JobListPage() {
         id: 'count_candidates',
         header: 'Pipeline',
         enableSorting: true,
+        sortDescFirst: true,
         cell: ({ row }) => <PipelineCounts counts={row.original.counts} />,
       },
       {

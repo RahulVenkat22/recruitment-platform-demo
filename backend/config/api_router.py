@@ -18,8 +18,10 @@ Registration list, in the order of the API table in plan.md 6.10:
     resumes        resumes/uploads/ (multi-file PDF intake and batch status)
     activity       activities/
     notifications  notifications/, notifications/unread-count/, notifications/read-all/
-    dashboard      meta/enums/                                (registered below)
-                   dashboard/summary|funnel|recent-activity|top-candidates|upcoming-interviews
+    dashboard      meta/enums/, meta/countries/                                (registered below)
+                   dashboard/summary|trends|pipeline|funnel|interviews|attention|team|
+                   upcoming-interviews
+    support        support/tickets/ (+ summary, comments, transition, assign)
 
 To register an app, add ``path("", include("<app>.urls"))`` to ``urlpatterns``.
 """
@@ -36,4 +38,5 @@ urlpatterns = [
     path("", include("resumes.urls")),
     path("", include("notifications.urls")),
     path("", include("dashboard.urls")),
+    path("", include("support.urls")),
 ]

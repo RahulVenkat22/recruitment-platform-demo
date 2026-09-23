@@ -7,6 +7,9 @@
                 applications created (or kept) and scored by the rule engine
     evaluating  the top of the pool is evaluated by the LLM against the
                 resume evidence; scores are blended (resumes.engines.scoring)
+    summarising every other candidate gets two sentences on why they received
+                their percentage, written by the LLM from the scoring facts in
+                batches (the candidate page shows them in the JD's context)
     finalising  new applications at or above the threshold become
                 AI Shortlisted, counts and activities are written
 
@@ -36,6 +39,7 @@ from common.permissions import is_hr_staff
 from matching.adapters import candidate_profile
 from matching.registry import get_engine
 from matching.services import apply_semantic_result, compute_match
+from matching.skills import display_name
 from pipeline.models import Application, SearchRun
 from resumes.engines import evaluation as evaluator
 from resumes.engines.embeddings import EmbeddingError, get_embedding_service
@@ -186,6 +190,7 @@ class SearchService:
             plan = SearchService._analyse(run, jd, keys, progress)
             SearchService._retrieve(run, jd, actor, keys, plan, progress, outcome, started)
             SearchService._evaluate(run, jd, plan, progress, outcome)
+            SearchService._summarise(run, jd, plan, progress, outcome)
             SearchService._finalise(run, jd, actor, keys, progress, outcome, started)
         except Exception as exc:  # noqa: BLE001 - the run row must always reach a final state
             logger.exception("search run %s failed", run.pk)
@@ -405,6 +410,67 @@ class SearchService:
             )
 
     @staticmethod
+    def _summarise(
+        run: SearchRun, jd: Any, plan: QueryPlan, progress: RunProgress, outcome: SearchOutcome
+    ) -> None:
+        """Two sentences on the percentage for every candidate the LLM did not evaluate."""
+        if not bool(getattr(settings, "SEMANTIC_RERANK_ENABLED", False)):
+            return
+        pending = sorted(
+            (app for app in outcome.applications if not app.match.explanation),
+            key=lambda app: float(app.match.overall_pct),
+            reverse=True,
+        )
+        model = settings.LLM_SEARCH_MODEL
+        for start in range(0, len(pending), evaluator.SUMMARY_BATCH):
+            batch = pending[start : start + evaluator.SUMMARY_BATCH]
+            progress.update(
+                "summarising",
+                f"Writing match summaries ({start + len(batch)} of {len(pending)})…",
+                current=start + len(batch),
+                total=len(pending),
+            )
+            facts = [
+                evaluator.MatchFacts(
+                    id=str(app.pk),
+                    name=app.candidate.full_name,
+                    overall_pct=float(app.match.overall_pct),
+                    years=float(app.candidate.total_experience_years),
+                    years_min=jd.experience_min_years,
+                    years_max=jd.experience_max_years,
+                    matched_required=[display_name(k) for k in app.match.matched_required_skills],
+                    missing_required=[display_name(k) for k in app.match.missing_required_skills],
+                    matched_preferred=[display_name(k) for k in app.match.matched_preferred_skills],
+                    experience_score=float(app.match.experience_score),
+                    domain_score=float(app.match.domain_score),
+                    education_score=float(app.match.education_score),
+                    responsibility_score=float(app.match.responsibility_score),
+                    retrieval_score=(
+                        float(app.match.retrieval_score)
+                        if app.match.retrieval_score is not None
+                        else None
+                    ),
+                )
+                for app in batch
+            ]
+            try:
+                summaries = evaluator.summarise(plan, facts, model=model)
+            except LLMError as exc:
+                logger.warning("match summaries stopped at %d of %d: %s", start, len(pending), exc)
+                outcome.errors.setdefault("summary", str(exc))
+                return
+            for app in batch:
+                why = summaries.get(str(app.pk))
+                if not why:
+                    continue
+                app.match.explanation = why
+                app.match.semantic_details = {
+                    **(app.match.semantic_details or {}),
+                    "summary_model": model,
+                }
+                app.match.save(update_fields=["explanation", "semantic_details", "updated_at"])
+
+    @staticmethod
     def _blend_only(
         application: Application, rule_pct: float, retrieval: float | None, info: dict
     ) -> None:
@@ -519,7 +585,7 @@ class SearchService:
                         {
                             "id": str(candidate.pk),
                             "name": candidate.full_name,
-                            "avatar_url": candidate.avatar_url,
+                            "avatar_url": candidate.display_avatar_url,
                         }
                     ],
                 },

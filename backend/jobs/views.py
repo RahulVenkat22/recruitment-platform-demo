@@ -20,7 +20,8 @@ from drf_spectacular.utils import (
 )
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -34,6 +35,7 @@ from common.permissions import (
     can_force_close_job,
     can_manage_participants,
 )
+from jobs.engines import extract_job_description
 from jobs.filters import JobDescriptionFilter
 from jobs.models import JobDescription, JobDescriptionVersion, RecruitmentParticipant
 from jobs.serializers import (
@@ -43,6 +45,8 @@ from jobs.serializers import (
     JobDescriptionDetailSerializer,
     JobDescriptionRowSerializer,
     JobDescriptionUpdateSerializer,
+    JobExtractionSerializer,
+    JobExtractRequestSerializer,
     JobFacetsSerializer,
     MetricsSerializer,
     ParticipantInputSerializer,
@@ -82,8 +86,8 @@ def _require(predicate: bool, message: str) -> None:
             "Each row carries the creator, the first four participants, the participant count "
             "and the pipeline counts (candidates, shortlisted, interviewed, selected, onboarded). "
             "`status`, `department`, `location`, `employment_type` and `work_mode` accept comma "
-            "lists; `mine` limits to JDs the caller created or is listed on; `created_by_role` "
-            "(comma list of user roles) keeps the JDs raised by that level of user; `search` "
+            "lists; `mine` limits to JDs the caller created or is listed on; `created_by` "
+            "(comma list of user ids) keeps the JDs raised by those users; `search` "
             "matches title, department, location, domain or a skill. Rows carry the "
             "interviewer-role participants, the time of the latest timeline event and the "
             "completion percentage for the homepage table."
@@ -97,10 +101,7 @@ def _require(predicate: bool, message: str) -> None:
             OpenApiParameter("location", str, description="Comma list, case-insensitive"),
             OpenApiParameter("employment_type", str, description="Comma list"),
             OpenApiParameter("work_mode", str, description="Comma list"),
-            OpenApiParameter("created_by", str, description="User id"),
-            OpenApiParameter(
-                "created_by_role", str, description="Comma list of hr_admin|hr|interviewer|employee"
-            ),
+            OpenApiParameter("created_by", str, description="Comma list of user ids"),
             OpenApiParameter("mine", bool),
             OpenApiParameter("skill", str, description="One skill (normalised)"),
             OpenApiParameter(
@@ -108,7 +109,8 @@ def _require(predicate: bool, message: str) -> None:
                 str,
                 description=(
                     "-updated_at (default), updated_at, created_at, title, status, department, "
-                    "count_candidates, last_activity_at"
+                    "location, employment_type, created_by__first_name, count_candidates, "
+                    "last_activity_at"
                 ),
             ),
         ],
@@ -157,6 +159,9 @@ class JobDescriptionViewSet(viewsets.ModelViewSet):
         "title",
         "status",
         "department",
+        "location",
+        "employment_type",
+        "created_by__first_name",
         "count_candidates",
         "last_activity_at",
     ]
@@ -554,14 +559,54 @@ class JobDescriptionViewSet(viewsets.ModelViewSet):
                 result.append({"key": str(key), "label": label, "count": int(row["count"])})
             return result
 
+        creators = (
+            visible.order_by()
+            .values("created_by_id", "created_by__first_name", "created_by__last_name")
+            .annotate(count=Count("id", distinct=True))
+            .order_by("-count", "created_by__first_name", "created_by__last_name")[:FACET_LIMIT]
+        )
+        full_name = "{created_by__first_name} {created_by__last_name}"
         payload = {
             "statuses": grouped("status", dict(JDStatus.choices)),
             "departments": grouped("department"),
             "locations": grouped("location"),
             "employment_types": grouped("employment_type", dict(EmploymentType.choices)),
             "work_modes": grouped("work_mode", dict(WorkMode.choices)),
+            "creators": [
+                {
+                    "key": str(row["created_by_id"]),
+                    "label": full_name.format(**row).strip(),
+                    "count": int(row["count"]),
+                }
+                for row in creators
+            ],
         }
         return Response(JobFacetsSerializer(payload).data)
+
+    @extend_schema(
+        operation_id="jobs_extract",
+        summary="Read one job description file (PDF or Word) with the AI; returns the form fields",
+        description=(
+            "Multipart body with one `file` part. The model reads the document and returns the "
+            "create-request fields it found; a file that is not a job description, or holds more "
+            "than one, is refused with `invalid_job_file`."
+        ),
+        request={"multipart/form-data": JobExtractRequestSerializer},
+        responses={
+            200: JobExtractionSerializer,
+            400: ERROR_ENVELOPE,
+            403: ERROR_ENVELOPE,
+            503: ERROR_ENVELOPE,
+        },
+        tags=["jobs"],
+    )
+    @action(detail=False, methods=["post"], parser_classes=[MultiPartParser, FormParser])
+    def extract(self, request: Request) -> Response:
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise ValidationError({"file": ["Attach a PDF or Word (.docx) file."]})
+        payload = {"file_name": upload.name, "fields": extract_job_description(upload)}
+        return Response(JobExtractionSerializer(payload).data)
 
 
 class SkillSuggestionView(APIView):

@@ -15,6 +15,7 @@ whitenoise==6.12.0
 pgvector==0.5.0
 PyMuPDF==1.28.2
 pydantic==2.13.5
+geonamescache==3.0.2
 langchain-core==1.6.3
 langchain-text-splitters==1.1.2
 # The chat and embedding providers behind LLM_PROVIDER (pinned 2026-09-19). The

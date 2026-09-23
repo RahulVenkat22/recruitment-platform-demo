@@ -104,10 +104,7 @@ export default function LoginPage() {
           {...fade(0, reducedMotion)}
           className="flex items-center gap-4 px-6 pt-6 sm:gap-5 lg:px-12 lg:pt-8"
         >
-          <span className="flex items-center gap-2.5">
-            <BrandLogo variant="mark" className="size-9 lg:size-10" />
-            <BrandLogo variant="wordmark" on="dark" className="h-12 lg:h-14" />
-          </span>
+          <BrandLogo variant="wordmark" on="dark" className="h-12 lg:h-14" />
           <span aria-hidden="true" className="h-8 w-px bg-white/15" />
           <TalentOSLogo on="dark" size="md" />
         </motion.header>

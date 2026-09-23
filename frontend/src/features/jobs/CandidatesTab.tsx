@@ -15,21 +15,22 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useApplications } from '@/features/applications/api'
-import {
-  APPLICATION_SORT_OPTIONS,
-  STATUS_GROUP_OPTIONS,
-} from '@/features/applications/application-utils'
+import { APPLICATION_SORT_OPTIONS } from '@/features/applications/application-utils'
 import { ApplicationsTable } from '@/features/applications/ApplicationsTable'
 import { useApplicationActions } from '@/features/applications/useApplicationActions'
 import { useContactMode } from '@/features/communications/useContactMode'
+import { JOB_METRICS, type JobMetricKey } from '@/features/jobs/job-utils'
 import { ViewToggle } from '@/features/jobs/ViewToggle'
 import { useEnumOptions } from '@/lib/enums'
 import { useDebounce, useIsMobile, param, useUrlState } from '@/lib/hooks'
 import { useUiStore, type PageSize } from '@/lib/ui-store'
 import type { JobDetail } from '@/types/domain'
 
+const METRIC_KEYS = JOB_METRICS.map((metric) => metric.key)
+
 const CANDIDATES_SPEC = {
-  cgroup: param.string('all'),
+  /** The metric card the list is narrowed to; "total_found" is everyone. */
+  cmetric: param.enum<JobMetricKey>('total_found', METRIC_KEYS),
   cq: param.string(''),
   csource: param.list<string>([]),
   csort: param.string('-match__overall_pct'),
@@ -37,7 +38,11 @@ const CANDIDATES_SPEC = {
   cview: param.enum<'table' | 'cards'>('table', ['table', 'cards']),
 }
 
-/** plan.md 9.6 Candidates tab: the ranked table scoped to this JD with group chips and bulk actions. */
+/**
+ * plan.md 9.6 Candidates tab: the ranked table scoped to this JD with bulk actions.
+ * The chips are the page's seven metric cards, so a card click and a chip click
+ * show the same people, and the chip counts are the card numbers.
+ */
 export function CandidatesTab({ job }: { job: JobDetail }) {
   const [state, setState] = useUrlState(CANDIDATES_SPEC)
   const pageSize = useUiStore((s) => s.pageSize)
@@ -59,13 +64,14 @@ export function CandidatesTab({ job }: { job: JobDetail }) {
     page: state.cpage,
     page_size: pageSize,
     search: debounced,
-    status_group: state.cgroup === 'all' ? undefined : state.cgroup,
+    metric: state.cmetric === 'total_found' ? undefined : state.cmetric,
     source: state.csource,
     ordering: state.csort,
   })
   const rows = list.data?.results ?? []
   const total = list.data?.count ?? 0
-  const filtered = state.cgroup !== 'all' || state.csource.length > 0 || debounced.trim() !== ''
+  const filtered =
+    state.cmetric !== 'total_found' || state.csource.length > 0 || debounced.trim() !== ''
   const view = mobile ? 'cards' : state.cview
   const canWork = job.permissions.can_work_pipeline
 
@@ -73,12 +79,16 @@ export function CandidatesTab({ job }: { job: JobDetail }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
         <FilterChips
-          aria-label="Status groups"
-          options={STATUS_GROUP_OPTIONS.map((option) => ({ key: option.key, label: option.label }))}
-          selected={[state.cgroup]}
+          aria-label="Pipeline stage"
+          options={JOB_METRICS.map((metric) => ({
+            key: metric.key,
+            label: metric.chip,
+            count: job.metrics[metric.key],
+          }))}
+          selected={[state.cmetric]}
           onChange={(next) => {
-            const chosen = next.find((key) => key !== state.cgroup) ?? 'all'
-            setState({ cgroup: chosen, cpage: 1 })
+            const chosen = next.find((key) => key !== state.cmetric) ?? 'total_found'
+            setState({ cmetric: chosen as JobMetricKey, cpage: 1 })
           }}
         />
         {canWork && (
@@ -162,7 +172,7 @@ export function CandidatesTab({ job }: { job: JobDetail }) {
           variant="outline"
           onClick={() => {
             setDraft('')
-            setState({ cgroup: 'all', csource: [], cq: '', cpage: 1 })
+            setState({ cmetric: 'total_found', csource: [], cq: '', cpage: 1 })
           }}
         >
           Clear filters

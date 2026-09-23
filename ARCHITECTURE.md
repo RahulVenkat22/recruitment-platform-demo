@@ -32,8 +32,9 @@ browser ──► Vite (5175, dev) or nginx (8201, docker) ──► /api/v1/* �
 | `activity` | `Activity` rows and `record_activity()`, the only writer of timeline events |
 | `notifications` | `Notification` rows, `notify()` / `notify_all()`, unread count |
 | `audit` | `AuditLog` rows and `AuditMiddleware` |
-| `dashboard` | Read-only aggregates (summary, funnel, recent activity, top candidates, upcoming interviews) |
-| `seed` | `manage.py seed_demo`, curated pools and generators; history is replayed through the real services |
+| `dashboard` | Read-only aggregates for the HR dashboard (`GET /dashboard/summary|trends|pipeline|funnel|interviews|attention|team|upcoming-interviews/`), HR staff only, every one scoped by `?range=7|30|90` or a custom `?start=&end=` window (inclusive local dates, up to 366 days) and an optional `?user=<id>,<id>` (the job descriptions any of those people created or are listed on, within what the viewer may see). Also `GET /meta/countries/` and `/meta/countries/{code}/cities/`, the reference lists behind the job form's country and location boxes (GeoNames places of 15,000+ people via `geonamescache`, `common/locations.py`); an uploaded file's location is normalised to "City, Country" the same way |
+| `support` | `Ticket` (number from a Postgres sequence, `SUP-1001`…, requester, assignee, category, priority, status open → in progress → resolved → closed, resolution) and `TicketEvent` (the ticket's timeline: raised, comment, status, assignment, priority, edit); `support/services.py::TicketService` is the only writer and notifies the requester, assignee and HR admins through `notify_all`; `support/permissions.py` holds the move matrix (`allowed_moves`, `note_required`); `GET/POST /support/tickets/`, `PATCH …/{id}/`, `…/summary/`, `…/{id}/comments|transition|assign/` |
+| `seed` | `manage.py seed_demo`, curated pools and generators; history is replayed through the real services (eight support tickets included) |
 
 ### 2.2 Layering rule
 
@@ -128,7 +129,7 @@ src/
 - Query errors inside a section render an inline `ErrorState` with a retry; only page-level failures use the block variant.
 - Mutations report through toasts. Destructive actions confirm through `ConfirmDialog`; deleting a JD requires typing its title.
 - Motion follows plan.md 8.3: 400ms page enter, 250ms dialogs, 150ms hovers, `cubic-bezier(.22,1,.36,1)`. `prefers-reduced-motion` turns it all off at the CSS level and through `useReducedMotion` for JS-driven animation.
-- Brand: Buro Happold black, white and lime (`--color-accent`) on warm stone neutrals, Manrope for headings over Geist for UI text (`index.css`). The sidebar and the login panel are dark surfaces: `data-surface="dark"` re-points the colour tokens for that subtree, so every component inside keeps its classes. Logo assets live in `public/brand/` behind `components/shared/BrandLogo`.
+- Brand: Buro Happold black, white and lime (`--color-accent`) on warm stone neutrals, Manrope for headings over Geist for UI text (`index.css`). The sidebar is white on the stone page; the login panel is a dark surface: `data-surface="dark"` re-points the colour tokens for that subtree, so every component inside keeps its classes. Logo assets live in `public/brand/` behind `components/shared/BrandLogo`.
 - Every candidate status change goes through `TransitionDialog`, which requires a reason; the API refuses a transition without one. Timeline events render through `TimelineChanges` (From → To, reason, who) plus the per-category details, and never show identifiers or raw field names (`lib/timeline.ts`).
 - Below 768px the sidebar becomes a drawer opened from the top bar, tables switch to cards or scroll inside their own container, and the Kanban board snaps one column per screen.
 

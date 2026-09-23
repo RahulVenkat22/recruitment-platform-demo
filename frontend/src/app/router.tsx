@@ -2,6 +2,8 @@ import { lazy } from 'react'
 import { Route, Routes } from 'react-router'
 import { AppShell } from '@/app/layout/AppShell'
 import { RequireAuth } from '@/app/RequireAuth'
+import { RequireRole } from '@/app/RequireRole'
+import { HIGH_LEVEL_ROLES } from '@/features/jobs/job-permissions'
 
 // Routes are code-split; the AppShell renders the Suspense boundary around the Outlet.
 const LoginPage = lazy(() => import('@/features/auth/LoginPage'))
@@ -18,6 +20,8 @@ const EmailTemplatesPage = lazy(() => import('@/features/communications/EmailTem
 const InterviewsPage = lazy(() => import('@/features/interviews/InterviewsPage'))
 const NotificationsPage = lazy(() => import('@/features/notifications/NotificationsPage'))
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'))
+const SupportPage = lazy(() => import('@/features/support/SupportPage'))
+const TicketDetailPage = lazy(() => import('@/features/support/TicketDetailPage'))
 const NotFoundPage = lazy(() => import('@/app/NotFoundPage'))
 
 export function AppRoutes() {
@@ -33,7 +37,15 @@ export function AppRoutes() {
       >
         {/* The homepage is the landing page after sign-in and the root URL (Enhancement.md 2). */}
         <Route index element={<HomePage />} />
-        <Route path="dashboard" element={<DashboardPage />} />
+        {/* HR admins and HR only; anyone else is sent back to the homepage. */}
+        <Route
+          path="dashboard"
+          element={
+            <RequireRole roles={HIGH_LEVEL_ROLES}>
+              <DashboardPage />
+            </RequireRole>
+          }
+        />
         <Route path="jobs" element={<JobListPage />} />
         <Route path="jobs/new" element={<JobFormPage mode="create" />} />
         <Route path="jobs/:id" element={<JobDetailPage />} />
@@ -46,6 +58,8 @@ export function AppRoutes() {
         <Route path="templates" element={<EmailTemplatesPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="support" element={<SupportPage />} />
+        <Route path="support/:id" element={<TicketDetailPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

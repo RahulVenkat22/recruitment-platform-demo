@@ -223,7 +223,7 @@ export interface paths {
         };
         /**
          * Job descriptions the caller can see
-         * @description Each row carries the creator, the first four participants, the participant count and the pipeline counts (candidates, shortlisted, interviewed, selected, onboarded). `status`, `department`, `location`, `employment_type` and `work_mode` accept comma lists; `mine` limits to JDs the caller created or is listed on; `created_by_role` (comma list of user roles) keeps the JDs raised by that level of user; `search` matches title, department, location, domain or a skill. Rows carry the interviewer-role participants, the time of the latest timeline event and the completion percentage for the homepage table.
+         * @description Each row carries the creator, the first four participants, the participant count and the pipeline counts (candidates, shortlisted, interviewed, selected, onboarded). `status`, `department`, `location`, `employment_type` and `work_mode` accept comma lists; `mine` limits to JDs the caller created or is listed on; `created_by` (comma list of user ids) keeps the JDs raised by those users; `search` matches title, department, location, domain or a skill. Rows carry the interviewer-role participants, the time of the latest timeline event and the completion percentage for the homepage table.
          */
         get: operations["jobs_list"];
         put?: never;
@@ -232,6 +232,26 @@ export interface paths {
          * @description ``/api/v1/job-descriptions/`` and its sub-resources.
          */
         post: operations["jobs_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-descriptions/extract/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read one job description file (PDF or Word) with the AI; returns the form fields
+         * @description Multipart body with one `file` part. The model reads the document and returns the create-request fields it found; a file that is not a job description, or holds more than one, is refused with `invalid_job_file`.
+         */
+        post: operations["jobs_extract"];
         delete?: never;
         options?: never;
         head?: never;
@@ -661,7 +681,7 @@ export interface paths {
         };
         /**
          * Ranked applications
-         * @description Filter with job_description, candidate, owner, search_run, status (comma list), status_group (new|shortlisted|in_progress|interview|selected|closed or a Kanban column key), source (comma list), min_match, is_starred and search. Default order is match descending.
+         * @description Filter with job_description, candidate, owner, search_run, status (comma list), status_group (new|shortlisted|in_progress|interview|selected|closed or a Kanban column key), metric (a JD metric-row card: shortlisted|contacted|in_interview|selected|rejected|onboarded), source (comma list), min_match, is_starred and search. Default order is match descending.
          */
         get: operations["applications_list"];
         put?: never;
@@ -1295,6 +1315,26 @@ export interface paths {
         patch: operations["candidates_partial_update"];
         trace?: never;
     };
+    "/api/v1/candidates/{id}/photo/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The photo cut from the candidate's resume; its signed URL is the row's avatar_url
+         * @description No login: an <img> cannot send the access token, so the URL carries an HMAC instead.
+         */
+        get: operations["candidates_photo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/candidates/{id}/resume-link/": {
         parameters: {
             query?: never;
@@ -1462,6 +1502,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/meta/countries/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every country, alphabetical
+         * @description ``GET /api/v1/meta/countries/``: every country, for the job description form.
+         */
+        get: operations["meta_countries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meta/countries/{code}/cities/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The places in a country (15,000 people or more), alphabetical
+         * @description ``GET /api/v1/meta/countries/{code}/cities/``: the places in one country.
+         */
+        get: operations["meta_cities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/summary/": {
         parameters: {
             query?: never;
@@ -1469,8 +1549,51 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Eight metric cards with deltas against the previous seven days */
+        /**
+         * Eight headline figures with deltas against the previous window and sparklines
+         * @description HR admins and HR only: the dashboard is the recruiting team's view (plan.md 6.9).
+         */
         get: operations["dashboard_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/trends/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daily hiring activity across the window
+         * @description HR admins and HR only: the dashboard is the recruiting team's view (plan.md 6.9).
+         */
+        get: operations["dashboard_trends"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/pipeline/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where candidates stand now: by stage, by source and per job description
+         * @description HR admins and HR only: the dashboard is the recruiting team's view (plan.md 6.9).
+         */
+        get: operations["dashboard_pipeline"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1486,7 +1609,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recruitment funnel, optionally for one job description */
+        /**
+         * Recruitment funnel, optionally for one job description
+         * @description HR admins and HR only: the dashboard is the recruiting team's view (plan.md 6.9).
+         */
         get: operations["dashboard_funnel"];
         put?: never;
         post?: never;
@@ -1496,15 +1622,18 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/dashboard/recent-activity/": {
+    "/api/v1/dashboard/interviews/": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Last 15 activities across visible job descriptions */
-        get: operations["dashboard_recent_activity"];
+        /**
+         * Interview outcomes across the window and the interviewers' load
+         * @description HR admins and HR only: the dashboard is the recruiting team's view (plan.md 6.9).
+         */
+        get: operations["dashboard_interviews"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1513,15 +1642,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/dashboard/top-candidates/": {
+    "/api/v1/dashboard/attention/": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Top 8 applications by match across open job descriptions */
-        get: operations["dashboard_top_candidates"];
+        /**
+         * Counts of things waiting on someone right now
+         * @description HR admins and HR only: the dashboard is the recruiting team's view (plan.md 6.9).
+         */
+        get: operations["dashboard_attention"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/team/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who did what across the window, over everything the viewer may see
+         * @description HR admins and HR only: the dashboard is the recruiting team's view (plan.md 6.9).
+         */
+        get: operations["dashboard_team"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1537,10 +1689,120 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The next five interviews */
+        /**
+         * The next five interviews
+         * @description HR admins and HR only: the dashboard is the recruiting team's view (plan.md 6.9).
+         */
         get: operations["dashboard_upcoming_interviews"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support/tickets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Support tickets the current user may see
+         * @description HR admins see every ticket; everyone else sees the tickets they raised or were assigned. `search` matches the number, subject and description.
+         */
+        get: operations["support_tickets_list"];
+        put?: never;
+        /** Raise a ticket (everyone); the support team is notified */
+        post: operations["support_tickets_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support/tickets/summary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Counts by status for the filter chips */
+        get: operations["support_tickets_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support/tickets/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One ticket with its timeline and what you may do with it */
+        get: operations["support_tickets_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit the details (requester or support team, until closed) */
+        patch: operations["support_tickets_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/support/tickets/{id}/assign/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hand the ticket to someone (support team only) */
+        post: operations["support_tickets_assign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support/tickets/{id}/comments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a comment to the ticket's timeline */
+        post: operations["support_tickets_comment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support/tickets/{id}/transition/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move the ticket: start work, resolve, close or reopen */
+        post: operations["support_tickets_transition"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1701,6 +1963,13 @@ export interface components {
          * @enum {string}
          */
         ApplicationStatusEnum: "new" | "ai_shortlisted" | "hr_review" | "contact_pending" | "contacted" | "phone_screening" | "interview_scheduled" | "technical_interview" | "hr_interview" | "final_interview" | "selected" | "offer_sent" | "offer_accepted" | "onboarding" | "onboarded" | "rejected" | "withdrawn" | "on_hold";
+        AttentionCounts: {
+            overdue_follow_ups: number;
+            feedback_pending: number;
+            offers_expiring: number;
+            stale_candidates: number;
+            quiet_roles: number;
+        };
         /**
          * @description Body of ``POST /auth/login/`` and ``POST /auth/refresh/``; the refresh
          *     token travels only in the ``aimious_refresh`` cookie.
@@ -2099,15 +2368,54 @@ export interface components {
          * @enum {string}
          */
         CommunicationOutcomeEnum: "connected" | "no_answer" | "voicemail" | "email_sent" | "replied" | "not_interested" | "callback_requested";
+        Country: {
+            code: string;
+            name: string;
+        };
+        CountryCities: {
+            country: components["schemas"]["Country"];
+            cities: string[];
+        };
+        /**
+         * @description One headline figure: the value now (or across the window for flows), its
+         *     change against the previous window, and a daily series for the sparkline.
+         */
+        DashboardMetric: {
+            /**
+             * Format: double
+             * @description Null when there is no data yet
+             */
+            value: number | null;
+            /**
+             * Format: double
+             * @description Change against the previous window; null when either side has no data
+             */
+            delta: number | null;
+            unit: components["schemas"]["UnitEnum"];
+            /** @description A short qualifier, e.g. '12 openings' */
+            detail: string | null;
+            /** @description Daily counts across the window, oldest first; null for snapshots and rates */
+            series: number[] | null;
+        };
+        DashboardPipeline: {
+            stages: components["schemas"]["StageCount"][];
+            sources: components["schemas"]["KeyCount"][];
+            jobs: components["schemas"]["JobPipelineRow"][];
+        };
         DashboardSummary: {
-            active_jds: components["schemas"]["Metric"];
-            total_candidates: components["schemas"]["Metric"];
-            new_candidates: components["schemas"]["Metric"];
-            shortlisted: components["schemas"]["Metric"];
-            interviews_scheduled: components["schemas"]["Metric"];
-            selected: components["schemas"]["Metric"];
-            offers_pending: components["schemas"]["Metric"];
-            onboarded: components["schemas"]["Metric"];
+            range_days: number;
+            open_roles: components["schemas"]["DashboardMetric"];
+            in_pipeline: components["schemas"]["DashboardMetric"];
+            new_candidates: components["schemas"]["DashboardMetric"];
+            interviews: components["schemas"]["DashboardMetric"];
+            offers_pending: components["schemas"]["DashboardMetric"];
+            hires: components["schemas"]["DashboardMetric"];
+            offer_acceptance: components["schemas"]["DashboardMetric"];
+            time_to_hire: components["schemas"]["DashboardMetric"];
+        };
+        DashboardTrends: {
+            range_days: number;
+            points: components["schemas"]["TrendPoint"][];
         };
         Detail: {
             detail: string;
@@ -2204,6 +2512,8 @@ export interface components {
         FunnelStage: {
             key: string;
             label: string;
+            /** @description Application statuses counted as having reached this stage; empty for Found */
+            statuses: string[];
             value: number;
             /** @description Percent of the previous stage; null for the first */
             conversion_pct: number | null;
@@ -2287,6 +2597,22 @@ export interface components {
             meeting_link?: (string) | null;
             location?: string | null;
         };
+        InterviewInsights: {
+            range_days: number;
+            /** @description Interviews scheduled inside the window */
+            total: number;
+            completed: number;
+            cancelled: number;
+            no_show: number;
+            /** @description Open interviews still ahead, right now */
+            upcoming: number;
+            /** @description Interviews that have happened but have no feedback yet, right now */
+            feedback_pending: number;
+            /** Format: double */
+            avg_score: number | null;
+            recommendations: components["schemas"]["KeyCount"][];
+            interviewers: components["schemas"]["InterviewerLoad"][];
+        };
         /**
          * @description * `video` - Video
          *     * `phone` - Phone
@@ -2332,6 +2658,13 @@ export interface components {
          * @enum {string}
          */
         InterviewUpdateStatusEnum: "no_show";
+        InterviewerLoad: {
+            user: components["schemas"]["UserSummary"];
+            total: number;
+            completed: number;
+            /** Format: double */
+            avg_score: number | null;
+        };
         /**
          * @description * `draft` - Draft
          *     * `open` - Open
@@ -2481,6 +2814,40 @@ export interface components {
             readonly last_activity_at: string;
             readonly completion_pct: number;
         };
+        /** @description ``POST /job-descriptions/extract/``: one job description as a PDF or Word file. */
+        JobExtractRequestRequest: {
+            /**
+             * Format: binary
+             * @description One job description as a PDF or Word (.docx) file, up to 10 MB.
+             */
+            file: string;
+        };
+        /** @description The create-request fields the model read from the file; one it could not read is left out. */
+        JobExtractedFields: {
+            title?: string;
+            department?: string;
+            location?: string;
+            work_mode?: components["schemas"]["WorkModeEnum"];
+            employment_type?: components["schemas"]["EmploymentTypeEnum"];
+            experience_min_years?: number;
+            experience_max_years?: number;
+            openings?: number;
+            domain?: string;
+            salary_min?: number;
+            salary_max?: number;
+            salary_currency?: string;
+            required_skills?: string[];
+            preferred_skills?: string[];
+            education_requirements?: string;
+            responsibilities?: string;
+            qualifications?: string;
+            additional_requirements?: string;
+            description?: string;
+        };
+        JobExtraction: {
+            file_name: string;
+            fields: components["schemas"]["JobExtractedFields"];
+        };
         /** @description Filter popover options with counts over the JDs the caller can see. */
         JobFacets: {
             statuses: components["schemas"]["FacetOption"][];
@@ -2488,6 +2855,7 @@ export interface components {
             locations: components["schemas"]["FacetOption"][];
             employment_types: components["schemas"]["FacetOption"][];
             work_modes: components["schemas"]["FacetOption"][];
+            creators: components["schemas"]["FacetOption"][];
         };
         /** @description What the requesting user may do with this JD, so the UI shows the right buttons. */
         JobPermissions: {
@@ -2498,6 +2866,25 @@ export interface components {
             can_manage: boolean;
             can_force_close: boolean;
             can_comment: boolean;
+        };
+        /** @description One job description with its candidates split by where they stand now. */
+        JobPipelineRow: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly title: string;
+            readonly department: string;
+            readonly status: components["schemas"]["JDStatusEnum"];
+            readonly openings: number;
+            readonly total: number;
+            readonly awaiting: number;
+            readonly shortlisted: number;
+            readonly contacted: number;
+            readonly interviewed: number;
+            readonly selected: number;
+            readonly onboarded: number;
+            readonly parked: number;
+            /** Format: date-time */
+            readonly last_activity_at: string | null;
         };
         JobRef: {
             /** Format: uuid */
@@ -2571,6 +2958,11 @@ export interface components {
             label: string;
             statuses: string[];
         };
+        KeyCount: {
+            key: string;
+            label: string;
+            value: number;
+        };
         KeyLabel: {
             key: string;
             label: string;
@@ -2627,11 +3019,6 @@ export interface components {
             };
             kanban: components["schemas"]["Kanban"];
         };
-        Metric: {
-            value: number;
-            /** @description Change against the previous seven days */
-            delta: number;
-        };
         /** @description ``GET .../metrics/`` (plan.md 6.10). */
         Metrics: {
             total_found: number;
@@ -2679,9 +3066,10 @@ export interface components {
          *     * `onboarding` - Onboarding
          *     * `mention` - Mention
          *     * `system` - System
+         *     * `support` - Support
          * @enum {string}
          */
-        NotificationTypeEnum: "assignment" | "status_change" | "interview" | "feedback" | "offer" | "onboarding" | "mention" | "system";
+        NotificationTypeEnum: "assignment" | "status_change" | "interview" | "feedback" | "offer" | "onboarding" | "mention" | "system" | "support";
         /** @enum {unknown} */
         NullEnum: null;
         Offer: {
@@ -2986,6 +3374,21 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["SearchRun"][];
         };
+        PaginatedTicketRowList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["TicketRow"][];
+        };
         PaginatedUserSummaryList: {
             /** @example 123 */
             count: number;
@@ -3153,6 +3556,15 @@ export interface components {
             phone?: string | null;
             avatar_url?: (string) | null;
             timezone?: string;
+        };
+        /** @description ``PATCH /support/tickets/{id}/``: any of the create fields. */
+        PatchedTicketUpdateRequest: {
+            subject?: string;
+            description?: string;
+            category?: components["schemas"]["TicketCategoryEnum"];
+            priority?: components["schemas"]["TicketPriorityEnum"];
+            /** Format: uuid */
+            job_description_id?: string | null;
         };
         /** @description ``PATCH /users/{id}/`` (hr_admin only): role and active flag. */
         PatchedUserAdminUpdateRequest: {
@@ -3326,6 +3738,13 @@ export interface components {
             display_name: string;
             count: number;
         };
+        StageCount: {
+            key: string;
+            label: string;
+            value: number;
+            /** @description Application statuses this stage covers */
+            statuses: string[];
+        };
         /** @description ``POST .../status/``: the target status and an optional note for the timeline. */
         StatusChangeRequest: {
             status: components["schemas"]["JDStatusEnum"];
@@ -3353,6 +3772,168 @@ export interface components {
          * @enum {string}
          */
         StorageStatusEnum: "pending_upload" | "uploaded" | "failed";
+        TeamMember: {
+            user: components["schemas"]["UserSummary"];
+            /** @description Job descriptions created or listed on */
+            roles: number;
+            sourcing: number;
+            outreach: number;
+            interviews: number;
+            closing: number;
+            total: number;
+        };
+        TicketAssignRequest: {
+            /**
+             * Format: uuid
+             * @description Null takes the ticket away from its assignee
+             */
+            assignee_id: string | null;
+        };
+        /**
+         * @description * `access` - Access & permissions
+         *     * `job_description` - Job description
+         *     * `candidate_data` - Candidate data
+         *     * `interviews` - Interviews & scheduling
+         *     * `offers` - Offers & onboarding
+         *     * `technical` - Technical issue
+         *     * `feature_request` - Feature request
+         *     * `other` - Other
+         * @enum {string}
+         */
+        TicketCategoryEnum: "access" | "job_description" | "candidate_data" | "interviews" | "offers" | "technical" | "feature_request" | "other";
+        TicketCommentRequest: {
+            message: string;
+        };
+        /** @description ``POST /support/tickets/``. */
+        TicketCreateRequest: {
+            subject: string;
+            description: string;
+            /** @default other */
+            category: components["schemas"]["TicketCategoryEnum"];
+            /** @default medium */
+            priority: components["schemas"]["TicketPriorityEnum"];
+            /** Format: uuid */
+            job_description_id?: string | null;
+        };
+        /**
+         * @description ``GET /support/tickets/{id}/``: the row plus the text, the timeline and
+         *     what the current user may do.
+         */
+        TicketDetail: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly number: string;
+            readonly subject: string;
+            readonly category: components["schemas"]["TicketCategoryEnum"];
+            readonly category_label: string;
+            readonly priority: components["schemas"]["TicketPriorityEnum"];
+            readonly priority_label: string;
+            readonly status: components["schemas"]["TicketStatusEnum"];
+            readonly status_label: string;
+            readonly requester: components["schemas"]["UserSummary"];
+            readonly assignee: components["schemas"]["UserSummary"] | null;
+            readonly job: components["schemas"]["JobRef"] | null;
+            readonly comment_count: number;
+            /** Format: date-time */
+            readonly last_activity_at: string;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            /** Format: date-time */
+            readonly closed_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            readonly description: string;
+            readonly resolution: string;
+            readonly events: components["schemas"]["TicketEvent"][];
+            readonly permissions: components["schemas"]["TicketPermissions"];
+        };
+        TicketEvent: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly kind: components["schemas"]["TicketEventKindEnum"];
+            readonly kind_label: string;
+            readonly actor: components["schemas"]["UserSummary"] | null;
+            readonly title: string;
+            readonly message: string;
+            readonly metadata: unknown;
+            /** Format: date-time */
+            readonly occurred_at: string;
+        };
+        /**
+         * @description * `created` - Raised
+         *     * `comment` - Comment
+         *     * `status` - Status change
+         *     * `assignment` - Assignment
+         *     * `priority` - Priority change
+         *     * `edit` - Details edited
+         * @enum {string}
+         */
+        TicketEventKindEnum: "created" | "comment" | "status" | "assignment" | "priority" | "edit";
+        TicketPermissions: {
+            can_edit: boolean;
+            can_comment: boolean;
+            can_assign: boolean;
+            /** @description Statuses the current user may move the ticket into, in button order */
+            moves: components["schemas"]["TicketStatusEnum"][];
+        };
+        /**
+         * @description * `low` - Low
+         *     * `medium` - Medium
+         *     * `high` - High
+         *     * `urgent` - Urgent
+         * @enum {string}
+         */
+        TicketPriorityEnum: "low" | "medium" | "high" | "urgent";
+        /** @description A row of ``GET /support/tickets/``. */
+        TicketRow: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly number: string;
+            readonly subject: string;
+            readonly category: components["schemas"]["TicketCategoryEnum"];
+            readonly category_label: string;
+            readonly priority: components["schemas"]["TicketPriorityEnum"];
+            readonly priority_label: string;
+            readonly status: components["schemas"]["TicketStatusEnum"];
+            readonly status_label: string;
+            readonly requester: components["schemas"]["UserSummary"];
+            readonly assignee: components["schemas"]["UserSummary"] | null;
+            readonly job: components["schemas"]["JobRef"] | null;
+            readonly comment_count: number;
+            /** Format: date-time */
+            readonly last_activity_at: string;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            /** Format: date-time */
+            readonly closed_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description * `open` - Open
+         *     * `in_progress` - In Progress
+         *     * `resolved` - Resolved
+         *     * `closed` - Closed
+         * @enum {string}
+         */
+        TicketStatusEnum: "open" | "in_progress" | "resolved" | "closed";
+        /** @description Counts by status for the list's filter chips. */
+        TicketSummary: {
+            total: number;
+            open: number;
+            in_progress: number;
+            resolved: number;
+            closed: number;
+        };
+        TicketTransitionRequest: {
+            status: components["schemas"]["TicketStatusEnum"];
+            /** @description The resolution when resolving; the reason when closing early or reopening */
+            note?: string;
+        };
         /**
          * @description * `friendly` - friendly
          *     * `formal` - formal
@@ -3375,6 +3956,26 @@ export interface components {
             application: components["schemas"]["ApplicationDetail"];
             activity: components["schemas"]["Activity"];
         };
+        TrendPoint: {
+            /** Format: date */
+            date: string;
+            /** @description Candidates found (applications created) */
+            candidates: number;
+            shortlisted: number;
+            /** @description Interviews held, cancellations excluded */
+            interviews: number;
+            /** @description Offers sent */
+            offers: number;
+            /** @description Onboardings completed */
+            hires: number;
+        };
+        /**
+         * @description * `count` - count
+         *     * `percent` - percent
+         *     * `days` - days
+         * @enum {string}
+         */
+        UnitEnum: "count" | "percent" | "days";
         UnreadCount: {
             unread: number;
         };
@@ -3947,10 +4548,8 @@ export interface operations {
     jobs_list: {
         parameters: {
             query?: {
-                /** @description User id */
+                /** @description Comma list of user ids */
                 created_by?: string;
-                /** @description Comma list of hr_admin|hr|interviewer|employee */
-                created_by_role?: string;
                 /** @description Comma list, case-insensitive */
                 department?: string;
                 /** @description Comma list */
@@ -3958,7 +4557,7 @@ export interface operations {
                 /** @description Comma list, case-insensitive */
                 location?: string;
                 mine?: boolean;
-                /** @description -updated_at (default), updated_at, created_at, title, status, department, count_candidates, last_activity_at */
+                /** @description -updated_at (default), updated_at, created_at, title, status, department, location, employment_type, created_by__first_name, count_candidates, last_activity_at */
                 ordering?: string;
                 /** @description A page number within the paginated result set. */
                 page?: number;
@@ -4020,6 +4619,50 @@ export interface operations {
             };
             /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    jobs_extract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["JobExtractRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobExtraction"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4439,7 +5082,6 @@ export interface operations {
         parameters: {
             query?: {
                 created_by?: string;
-                created_by_role?: string;
                 department?: string;
                 employment_type?: string;
                 location?: string;
@@ -4474,7 +5116,6 @@ export interface operations {
         parameters: {
             query?: {
                 created_by?: string;
-                created_by_role?: string;
                 department?: string;
                 employment_type?: string;
                 location?: string;
@@ -4683,7 +5324,6 @@ export interface operations {
         parameters: {
             query?: {
                 created_by?: string;
-                created_by_role?: string;
                 department?: string;
                 employment_type?: string;
                 location?: string;
@@ -4902,8 +5542,9 @@ export interface operations {
                 candidate?: string;
                 is_starred?: boolean;
                 job_description?: string;
+                metric?: string;
                 min_match?: number;
-                /** @description -match__overall_pct (default), last_activity_at, created_at, candidate__full_name, candidate__total_experience_years, status */
+                /** @description -match__overall_pct (default), last_activity_at, created_at, candidate__full_name, candidate__total_experience_years, job_description__title, status */
                 ordering?: string;
                 owner?: string;
                 /** @description A page number within the paginated result set. */
@@ -5326,6 +5967,7 @@ export interface operations {
                 candidate?: string;
                 is_starred?: boolean;
                 job_description?: string;
+                metric?: string;
                 min_match?: number;
                 /** @description Which field to use when ordering the results. */
                 ordering?: string;
@@ -5451,7 +6093,7 @@ export interface operations {
                 interviewer?: string;
                 job_description?: string;
                 mine?: boolean;
-                /** @description scheduled_at (default), -scheduled_at */
+                /** @description scheduled_at (default), created_at, status, round, score, application__candidate__full_name, application__job_description__title, interviewer__first_name; prefix with - for descending */
                 ordering?: string;
                 /** @description A page number within the paginated result set. */
                 page?: number;
@@ -6809,7 +7451,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description A UUID string identifying this candidate. */
                 id: string;
             };
             cookie?: never;
@@ -6838,7 +7479,6 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description A UUID string identifying this candidate. */
                 id: string;
             };
             cookie?: never;
@@ -6882,12 +7522,42 @@ export interface operations {
             };
         };
     };
+    candidates_photo: {
+        parameters: {
+            query: {
+                /** @description The signature in avatar_url */
+                t: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     candidates_resume_link: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description A UUID string identifying this candidate. */
                 id: string;
             };
             cookie?: never;
@@ -7151,9 +7821,58 @@ export interface operations {
             };
         };
     };
-    dashboard_summary: {
+    meta_countries: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Country"][];
+                };
+            };
+        };
+    };
+    meta_cities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountryCities"];
+                };
+            };
+        };
+    };
+    dashboard_summary: {
+        parameters: {
+            query?: {
+                /** @description Last day of a custom window (inclusive; later than today reads as today), at most 366 days after start */
+                end?: string;
+                /** @description Window in days: 7, 30 (default) or 90; ignored when start and end are given */
+                range?: 30 | 7 | 90;
+                /** @description First day of a custom window (inclusive, the viewer's local date); needs end */
+                start?: string;
+                /** @description Comma-separated user ids: narrow to the job descriptions any of these people created or are listed on */
+                user?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7170,10 +7889,74 @@ export interface operations {
             };
         };
     };
+    dashboard_trends: {
+        parameters: {
+            query?: {
+                /** @description Last day of a custom window (inclusive; later than today reads as today), at most 366 days after start */
+                end?: string;
+                /** @description Window in days: 7, 30 (default) or 90; ignored when start and end are given */
+                range?: 30 | 7 | 90;
+                /** @description First day of a custom window (inclusive, the viewer's local date); needs end */
+                start?: string;
+                /** @description Comma-separated user ids: narrow to the job descriptions any of these people created or are listed on */
+                user?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardTrends"];
+                };
+            };
+        };
+    };
+    dashboard_pipeline: {
+        parameters: {
+            query?: {
+                /** @description Last day of a custom window (inclusive; later than today reads as today), at most 366 days after start */
+                end?: string;
+                /** @description Window in days: 7, 30 (default) or 90; ignored when start and end are given */
+                range?: 30 | 7 | 90;
+                /** @description First day of a custom window (inclusive, the viewer's local date); needs end */
+                start?: string;
+                /** @description Comma-separated user ids: narrow to the job descriptions any of these people created or are listed on */
+                user?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardPipeline"];
+                };
+            };
+        };
+    };
     dashboard_funnel: {
         parameters: {
             query?: {
+                /** @description Last day of a custom window (inclusive; later than today reads as today), at most 366 days after start */
+                end?: string;
                 job_description?: string;
+                /** @description Window in days: 7, 30 (default) or 90; ignored when start and end are given */
+                range?: 30 | 7 | 90;
+                /** @description First day of a custom window (inclusive, the viewer's local date); needs end */
+                start?: string;
+                /** @description Comma-separated user ids: narrow to the job descriptions any of these people created or are listed on */
+                user?: string;
             };
             header?: never;
             path?: never;
@@ -7191,9 +7974,18 @@ export interface operations {
             };
         };
     };
-    dashboard_recent_activity: {
+    dashboard_interviews: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Last day of a custom window (inclusive; later than today reads as today), at most 366 days after start */
+                end?: string;
+                /** @description Window in days: 7, 30 (default) or 90; ignored when start and end are given */
+                range?: 30 | 7 | 90;
+                /** @description First day of a custom window (inclusive, the viewer's local date); needs end */
+                start?: string;
+                /** @description Comma-separated user ids: narrow to the job descriptions any of these people created or are listed on */
+                user?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7205,14 +7997,23 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Activity"][];
+                    "application/json": components["schemas"]["InterviewInsights"];
                 };
             };
         };
     };
-    dashboard_top_candidates: {
+    dashboard_attention: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Last day of a custom window (inclusive; later than today reads as today), at most 366 days after start */
+                end?: string;
+                /** @description Window in days: 7, 30 (default) or 90; ignored when start and end are given */
+                range?: 30 | 7 | 90;
+                /** @description First day of a custom window (inclusive, the viewer's local date); needs end */
+                start?: string;
+                /** @description Comma-separated user ids: narrow to the job descriptions any of these people created or are listed on */
+                user?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7224,14 +8025,51 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApplicationRow"][];
+                    "application/json": components["schemas"]["AttentionCounts"];
+                };
+            };
+        };
+    };
+    dashboard_team: {
+        parameters: {
+            query?: {
+                /** @description Last day of a custom window (inclusive; later than today reads as today), at most 366 days after start */
+                end?: string;
+                /** @description Window in days: 7, 30 (default) or 90; ignored when start and end are given */
+                range?: 30 | 7 | 90;
+                /** @description First day of a custom window (inclusive, the viewer's local date); needs end */
+                start?: string;
+                /** @description Comma-separated user ids: narrow to the job descriptions any of these people created or are listed on */
+                user?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamMember"][];
                 };
             };
         };
     };
     dashboard_upcoming_interviews: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Last day of a custom window (inclusive; later than today reads as today), at most 366 days after start */
+                end?: string;
+                /** @description Window in days: 7, 30 (default) or 90; ignored when start and end are given */
+                range?: 30 | 7 | 90;
+                /** @description First day of a custom window (inclusive, the viewer's local date); needs end */
+                start?: string;
+                /** @description Comma-separated user ids: narrow to the job descriptions any of these people created or are listed on */
+                user?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7245,6 +8083,318 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Interview"][];
                 };
+            };
+        };
+    };
+    support_tickets_list: {
+        parameters: {
+            query?: {
+                assigned_to_me?: boolean;
+                assignee?: string;
+                /** @description Multiple values may be separated by commas. */
+                category?: string[];
+                job_description?: string;
+                mine?: boolean;
+                /** @description -last_activity_at (default), created_at, number, subject, status, priority */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description Multiple values may be separated by commas. */
+                priority?: string[];
+                requester?: string;
+                search?: string;
+                /** @description Multiple values may be separated by commas. */
+                status?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedTicketRowList"];
+                };
+            };
+        };
+    };
+    support_tickets_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketCreateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TicketCreateRequest"];
+                "multipart/form-data": components["schemas"]["TicketCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    support_tickets_summary: {
+        parameters: {
+            query?: {
+                /** @description Only tickets assigned to me */
+                assigned_to_me?: boolean;
+                /** @description Only tickets I raised */
+                mine?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketSummary"];
+                };
+            };
+        };
+    };
+    support_tickets_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this ticket. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    support_tickets_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this ticket. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedTicketUpdateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedTicketUpdateRequest"];
+                "multipart/form-data": components["schemas"]["PatchedTicketUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    support_tickets_assign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this ticket. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketAssignRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TicketAssignRequest"];
+                "multipart/form-data": components["schemas"]["TicketAssignRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    support_tickets_comment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this ticket. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketCommentRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TicketCommentRequest"];
+                "multipart/form-data": components["schemas"]["TicketCommentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    support_tickets_transition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this ticket. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketTransitionRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TicketTransitionRequest"];
+                "multipart/form-data": components["schemas"]["TicketTransitionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

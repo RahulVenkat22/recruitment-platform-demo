@@ -25,6 +25,7 @@ const PHASE_STAGE: Record<string, number> = {
   retrieving: 1,
   scoring: 2,
   evaluating: 2,
+  summarising: 2,
   finalising: 3,
   done: 3,
 }

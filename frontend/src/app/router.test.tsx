@@ -99,13 +99,12 @@ describe('app shell routing', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows the signed-in user in the sidebar and top bar', async () => {
+  it('shows the signed-in user in the top bar account menu, not the sidebar', async () => {
+    const user = userEvent.setup()
     renderApp('/dashboard')
     await screen.findByRole('heading', { level: 1, name: 'Dashboard' })
 
-    const sidebar = screen.getByRole('complementary')
-    expect(within(sidebar).getByText('Rahul Venkat')).toBeInTheDocument()
-    expect(within(sidebar).getByText('HR Manager')).toBeInTheDocument()
+    expect(screen.getByRole('complementary')).not.toHaveTextContent('Rahul Venkat')
     // The top bar is the first header in the document; PageHeader renders a second one inside main.
     const [banner] = screen.getAllByRole('banner')
     expect(within(banner).getByRole('img', { name: 'Rahul Venkat' })).toBeInTheDocument()
@@ -113,6 +112,13 @@ describe('app shell routing', () => {
       'href',
       '/notifications',
     )
+
+    await user.click(within(banner).getByRole('button', { name: 'Account menu for Rahul Venkat' }))
+    const menu = await screen.findByRole('menu')
+    expect(within(menu).getByText('Rahul Venkat')).toBeInTheDocument()
+    expect(within(menu).getByText('HR Manager')).toBeInTheDocument()
+    expect(within(menu).getByText('rahul@aimious.demo')).toBeInTheDocument()
+    expect(within(menu).getByRole('menuitem', { name: 'Profile and settings' })).toBeInTheDocument()
   })
 
   it('derives breadcrumbs from the route before a page publishes its own', async () => {

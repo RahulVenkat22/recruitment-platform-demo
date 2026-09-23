@@ -28,6 +28,6 @@ EXPOSE 8200
 CMD ["gunicorn", "config.wsgi:application", \
      "--bind", "0.0.0.0:8200", \
      "--workers", "3", \
-     "--timeout", "60", \
+     "--timeout", "300", \
      "--access-logfile", "-", \
      "--error-logfile", "-"]

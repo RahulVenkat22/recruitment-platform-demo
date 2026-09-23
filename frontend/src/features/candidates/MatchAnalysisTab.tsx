@@ -208,6 +208,12 @@ function AIEvaluation({ match }: { match: CandidateMatch }) {
             </ul>
           </div>
         )}
+        {details?.summary_model && !evaluated && (
+          <p className="text-caption text-ink-subtle">
+            Written by {details.summary_model} from the scoring facts; the AI reviewed only the top
+            of the pool in depth for this search.
+          </p>
+        )}
         {details?.model && (
           <p className="text-caption text-ink-subtle">
             Evaluated by {details.model}

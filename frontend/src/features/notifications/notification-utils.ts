@@ -3,6 +3,7 @@ import {
   CalendarClockIcon,
   ClipboardCheckIcon,
   FileSignatureIcon,
+  LifeBuoyIcon,
   RocketIcon,
   ShuffleIcon,
   UserPlusIcon,
@@ -19,6 +20,7 @@ export const TYPE_ICONS: Record<string, LucideIcon> = {
   onboarding: RocketIcon,
   mention: BellIcon,
   system: BellIcon,
+  support: LifeBuoyIcon,
 }
 
 /** Notification links are SPA routes ("/candidates/…?jd=…"); anything else falls back to the list. */

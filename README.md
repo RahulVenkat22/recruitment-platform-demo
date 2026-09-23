@@ -14,7 +14,7 @@ Django + Django REST Framework serve a JSON API under `/api/v1/`; a Vite + React
 | ![Login](docs/screenshots/login-1440.png) | ![Homepage](docs/screenshots/home-1440.png) |
 | Login on the Buro Happold graphite panel, with one-click demo accounts | Homepage: every job description with status, interviewer, latest update, completion and the row actions |
 | ![Dashboard](docs/screenshots/dashboard-1440.png) | ![Search candidates](docs/screenshots/search-1440.png) |
-| Dashboard: metric cards, funnel, recent activity, top candidates, upcoming interviews | Search Candidates: the search panel, the AI loading experience and ranked results with match rings |
+| Dashboard (HR admins and HR): headline figures with sparklines, the hiring activity trend, what needs attention, the funnel, open roles, sources, interview outcomes, team activity and upcoming interviews, scoped by a 7/30/90-day window and optionally to one person | Search Candidates: the search panel, the AI loading experience and ranked results with match rings |
 | ![Job description timeline](docs/screenshots/jd-timeline-1440.png) | ![Kanban](docs/screenshots/jd-kanban-1440.png) |
 | Job Description timeline with category filter chips | Kanban board with drag and drop, dialog-first columns and the parked tray |
 | ![AI match analysis](docs/screenshots/candidate-match-1440.png) | ![Candidate timeline on a phone](docs/screenshots/candidate-timeline-400.png) |
@@ -84,17 +84,18 @@ Sign in as Rahul for the full experience. Arun sees masked candidate contact det
 
 ## The demo walk-through
 
-The sidebar runs Homepage, Job Descriptions, Search Candidates, Interviews, Candidates, Dashboard, Notifications; signing in lands on the Homepage.
+The sidebar groups Homepage and Dashboard (HR admins and HR only) under Main, then Job Descriptions, Search Candidates, Interviews, Candidates and Email Templates under Recruiting, then Notifications and Support under General; signing in lands on the Homepage.
 
 1. **Homepage**: your job descriptions as a work table (JD, status, interviewer, latest update, % completed). HR admins and HR toggle **Mine** off to see everyone's work, filter by **User level**, and use the row menu to **Add comment** (lands on the JD timeline) or **Force close** (with a confirmation; the JD becomes *Force Closed*).
-2. **Dashboard**: eight metric cards with 7-day deltas, the recruitment funnel, recent activity, top candidates and upcoming interviews.
-3. **Job Descriptions**: table or card view with filters. Open **Senior Python Developer**, the richest pipeline.
-4. **Create a Job Description**: skills as tag inputs, and the **People Involved in the Recruitment** picker that adds colleagues with a role in the recruitment.
-5. **Timeline tab**: toggle the category chips (Job Description, Candidate Search, Candidate Shortlisted, Candidate Contact, Interview, Interview Feedback, Candidate Selected, Offer, Onboarding, Rejected / On Hold). Every event reads in plain language: changes show **From → To**, the reason given, and who made the change.
-6. **Search Candidates**: pick the JD, choose sources, run the search. While it runs, the AI loading experience rotates through what the system is doing; results are ranked by match with skill chips that highlight matched and missing required skills. Shortlist in bulk.
-7. **Candidate detail**: profile, **AI Match Analysis** (five weighted components, strengths, gaps, skill coverage), the stage stepper timeline, interviews and communications. **John Doe** carries the complete journey that ends onboarded. Every status change confirms the current and new status and requires a reason.
-8. **Kanban tab**: drag a card forward. Interview, Offer and Onboarding columns open their dialog first; every other drop opens the status confirmation. Every move lands on the timeline.
-9. **Interviews**, **Notifications** (bell with unread count), **Settings** (profile, security, preferences; users list for admins). The **Back** control on every detail page returns to the page you came from.
+2. **Dashboard** (HR admins and HR only; interviewers and employees never see it): eight headline figures with sparklines and deltas against the previous window, the hiring activity trend, what needs attention, the recruitment funnel, open roles, candidates by source, interview outcomes, team activity and upcoming interviews. A 7/30/90-day window and a person picker scope every figure; every chart flips to a table.
+3. **Support**: raise a ticket (subject, category, priority, an optional related role and the details) and get a number like `SUP-1009`. The list shows every ticket you raised or were assigned (HR admins see all of them) with status chips, search, priority and category filters; the ticket page has the description, the resolution, a timeline of every comment, assignment and status change, and exactly the buttons you may use (start work, resolve, close, reopen, assign). Every step notifies the requester, the assignee and, until someone picks it up, the support team.
+4. **Job Descriptions**: table or card view with filters. Open **Senior Python Developer**, the richest pipeline.
+5. **Create a Job Description**: skills as tag inputs, and the **People Involved in the Recruitment** picker that adds colleagues with a role in the recruitment.
+6. **Timeline tab**: toggle the category chips (Job Description, Candidate Search, Candidate Shortlisted, Candidate Contact, Interview, Interview Feedback, Candidate Selected, Offer, Onboarding, Rejected / On Hold). Every event reads in plain language: changes show **From → To**, the reason given, and who made the change.
+7. **Search Candidates**: pick the JD, choose sources, run the search. While it runs, the AI loading experience rotates through what the system is doing; results are ranked by match with skill chips that highlight matched and missing required skills. Shortlist in bulk.
+8. **Candidate detail**: profile, **AI Match Analysis** (five weighted components, strengths, gaps, skill coverage), the stage stepper timeline, interviews and communications. **John Doe** carries the complete journey that ends onboarded. Every status change confirms the current and new status and requires a reason.
+9. **Kanban tab**: drag a card forward. Interview, Offer and Onboarding columns open their dialog first; every other drop opens the status confirmation. Every move lands on the timeline.
+10. **Interviews**, **Notifications** (bell with unread count), **Settings** (profile, security, preferences; users list for admins). The **Back** control on every detail page returns to the page you came from.
 
 ## Ports
 

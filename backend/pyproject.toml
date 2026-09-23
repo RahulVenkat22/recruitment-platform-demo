@@ -23,6 +23,7 @@ known-first-party = [
   "notifications",
   "audit",
   "dashboard",
+  "support",
   "seed",
   "tests",
 ]
@@ -47,6 +48,7 @@ source = [
   "notifications",
   "audit",
   "dashboard",
+  "support",
   "seed",
 ]
 omit = ["*/migrations/*", "*/apps.py"]
@@ -84,6 +86,7 @@ root_packages = [
   "notifications",
   "audit",
   "dashboard",
+  "support",
   "seed",
 ]
 include_external_packages = false
@@ -103,6 +106,7 @@ containers = [
   "notifications",
   "audit",
   "dashboard",
+  "support",
   "seed",
 ]
 layers = [
@@ -127,6 +131,7 @@ source_modules = [
   "notifications",
   "audit",
   "dashboard",
+  "support",
   "seed",
 ]
 forbidden_modules = ["config"]

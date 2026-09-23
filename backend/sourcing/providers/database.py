@@ -120,7 +120,7 @@ def to_dto(candidate: Candidate, source: str) -> NormalizedCandidate:
             for row in candidate.certifications.all()
         ],
         summary=candidate.summary,
-        avatar_url=candidate.avatar_url,
+        avatar_url=candidate.display_avatar_url,
         linkedin_url=candidate.linkedin_url,
         github_url=candidate.github_url,
         resume_text=candidate.resume_text,

@@ -10,6 +10,9 @@ from __future__ import annotations
 from typing import Any
 
 from django.db.models import Max, Prefetch, QuerySet
+from django.http import FileResponse
+from django.utils.crypto import constant_time_compare
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiResponse,
@@ -18,13 +21,14 @@ from drf_spectacular.utils import (
 )
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import NotFound
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
 from candidates import services
 from candidates.filters import CandidateFilter
-from candidates.models import Candidate, CandidateSkill, CandidateSource
+from candidates.models import Candidate, CandidateSkill, CandidateSource, photo_signature
 from candidates.serializers import (
     CandidateDetailSerializer,
     CandidateRowSerializer,
@@ -32,6 +36,7 @@ from candidates.serializers import (
 )
 from common.permissions import IsHrStaff, is_hr_staff, visible_job_descriptions_for
 from pipeline.models import Application
+from resumes.engines.photo import photo_path
 from resumes.models import ResumeDocument
 from resumes.serializers import ResumeLinkSerializer
 from resumes.services.links import resume_link_for
@@ -157,8 +162,11 @@ class CandidateViewSet(
     ]
     ordering = ["-last_activity", "full_name"]
     http_method_names = ["get", "post", "patch", "head", "options"]
+    lookup_value_regex = "[0-9a-fA-F-]{36}"
 
     def get_permissions(self):
+        if self.action == "photo":
+            return [AllowAny()]
         if self.action in ("create", "partial_update"):
             return [IsAuthenticated(), IsHrStaff()]
         return [IsAuthenticated()]
@@ -212,3 +220,27 @@ class CandidateViewSet(
         candidate = self.get_object()
         link = resume_link_for(candidate)
         return Response(ResumeLinkSerializer(link).data)
+
+    @extend_schema(
+        operation_id="candidates_photo",
+        summary="The photo cut from the candidate's resume; its signed URL is the row's avatar_url",
+        parameters=[
+            OpenApiParameter("t", str, required=True, description="The signature in avatar_url")
+        ],
+        responses={(200, "image/jpeg"): OpenApiTypes.BINARY, 404: ERROR_ENVELOPE},
+        auth=[],
+        tags=["candidates"],
+    )
+    @action(detail=True, methods=["get"], authentication_classes=[], throttle_classes=[])
+    def photo(self, request: Request, pk: str | None = None) -> FileResponse:
+        """No login: an <img> cannot send the access token, so the URL carries an HMAC instead."""
+        candidate = Candidate.objects.filter(pk=pk).exclude(photo="").first()
+        token = request.query_params.get("t", "")
+        if candidate is None or not constant_time_compare(token, photo_signature(candidate.pk)):
+            raise NotFound("No photo for this candidate.")
+        path = photo_path(candidate.photo)
+        if not path.is_file():
+            raise NotFound("No photo for this candidate.")
+        response = FileResponse(open(path, "rb"), content_type="image/jpeg")  # noqa: SIM115
+        response["Cache-Control"] = "private, max-age=86400"
+        return response

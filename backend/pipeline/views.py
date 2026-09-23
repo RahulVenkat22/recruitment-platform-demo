@@ -212,8 +212,9 @@ class SearchRunViewSet(
         description=(
             "Filter with job_description, candidate, owner, search_run, status (comma list), "
             "status_group (new|shortlisted|in_progress|interview|selected|closed or a Kanban "
-            "column key), source (comma list), min_match, is_starred and search. Default order "
-            "is match descending."
+            "column key), metric (a JD metric-row card: shortlisted|contacted|in_interview|"
+            "selected|rejected|onboarded), source (comma list), min_match, is_starred and "
+            "search. Default order is match descending."
         ),
         parameters=[
             OpenApiParameter("job_description", str),
@@ -221,6 +222,7 @@ class SearchRunViewSet(
             OpenApiParameter("owner", str),
             OpenApiParameter("status", str),
             OpenApiParameter("status_group", str),
+            OpenApiParameter("metric", str),
             OpenApiParameter("source", str),
             OpenApiParameter("min_match", float),
             OpenApiParameter("is_starred", bool),
@@ -230,7 +232,8 @@ class SearchRunViewSet(
                 str,
                 description=(
                     "-match__overall_pct (default), last_activity_at, created_at, "
-                    "candidate__full_name, candidate__total_experience_years, status"
+                    "candidate__full_name, candidate__total_experience_years, "
+                    "job_description__title, status"
                 ),
             ),
         ],
@@ -266,6 +269,7 @@ class ApplicationViewSet(
         "stage_entered_at",
         "candidate__full_name",
         "candidate__total_experience_years",
+        "job_description__title",
         "status",
     ]
     ordering = ["-match__overall_pct", "-created_at"]
@@ -595,7 +599,15 @@ def _refresh(view: viewsets.GenericViewSet, obj: Any, code: int = status.HTTP_20
                 "bucket", str, description="upcoming | today | completed | past | pending_feedback"
             ),
             OpenApiParameter("search", str),
-            OpenApiParameter("ordering", str, description="scheduled_at (default), -scheduled_at"),
+            OpenApiParameter(
+                "ordering",
+                str,
+                description=(
+                    "scheduled_at (default), created_at, status, round, score, "
+                    "application__candidate__full_name, application__job_description__title, "
+                    "interviewer__first_name; prefix with - for descending"
+                ),
+            ),
         ],
         tags=["interviews"],
     ),
@@ -636,7 +648,16 @@ class InterviewViewSet(
     permission_classes = [IsAuthenticated]
     serializer_class = InterviewSerializer
     filterset_class = InterviewFilter
-    ordering_fields = ["scheduled_at", "created_at", "status", "round"]
+    ordering_fields = [
+        "scheduled_at",
+        "created_at",
+        "status",
+        "round",
+        "score",
+        "application__candidate__full_name",
+        "application__job_description__title",
+        "interviewer__first_name",
+    ]
     ordering = ["scheduled_at"]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 

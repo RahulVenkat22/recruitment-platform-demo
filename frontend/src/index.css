@@ -43,7 +43,7 @@
   --color-accent-strong: #8fa000;
   --color-accent-ink: #6b7500;
 
-  /* Graphite: the sidebar, the login panel and the mobile header band */
+  /* Graphite: the login panel and the mobile header band */
   --color-graphite: #0a0a0a;
   --color-graphite-2: #171717;
 
@@ -237,7 +237,7 @@
 }
 
 /*
- * Dark surfaces (the sidebar, the phone navigation drawer, the login panel):
+ * Dark surfaces (the login panel):
  * the same tokens re-pointed, so UserChip, Avatar and every button inside keep
  * their classes and simply read white on graphite with lime as the action colour.
  * Portaled layers (menus, tooltips) render on body and stay light.

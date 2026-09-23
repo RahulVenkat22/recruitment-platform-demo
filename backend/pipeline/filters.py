@@ -1,6 +1,6 @@
 """Query-string filters for ``GET /api/v1/applications/`` and ``GET /searches/``
-(plan.md 6.10): scope, status or status group, source, owner, match floor and
-free text."""
+(plan.md 6.10): scope, status, status group or metric-row card, source, owner,
+match floor and free text."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ from common.enums import (
     OfferStatus,
     OnboardingStatus,
 )
+from jobs.services import METRIC_STATUSES
 from pipeline.models import (
     Application,
     Communication,
@@ -74,6 +75,8 @@ class ApplicationFilter(django_filters.FilterSet):
     search_run = django_filters.UUIDFilter(field_name="search_run_id")
     status = django_filters.CharFilter(method="filter_status")
     status_group = django_filters.CharFilter(method="filter_status_group")
+    # One card of the JD page's metric row (plan.md 6.10 metrics): the applications it counts.
+    metric = django_filters.CharFilter(method="filter_metric")
     source = django_filters.CharFilter(method="filter_source")
     min_match = django_filters.NumberFilter(field_name="match__overall_pct", lookup_expr="gte")
     is_starred = django_filters.BooleanFilter()
@@ -93,6 +96,10 @@ class ApplicationFilter(django_filters.FilterSet):
             if key == "all":
                 return qs
             statuses.update(STATUS_GROUPS.get(key, ()))
+        return qs.filter(status__in=statuses) if statuses else qs
+
+    def filter_metric(self, qs: QuerySet, name: str, value: str) -> QuerySet:
+        statuses = METRIC_STATUSES.get(value)
         return qs.filter(status__in=statuses) if statuses else qs
 
     def filter_source(self, qs: QuerySet, name: str, value: str) -> QuerySet:

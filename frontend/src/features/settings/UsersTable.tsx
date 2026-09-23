@@ -1,36 +1,68 @@
+import type { ColumnDef, SortingState } from '@tanstack/react-table'
 import { useQuery } from '@tanstack/react-query'
 import { UsersIcon } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { DataTable } from '@/components/shared/DataTable'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
-import { SkeletonTableRows } from '@/components/shared/Skeletons'
 import { UserChip } from '@/components/shared/UserChip'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { api, endpoints } from '@/lib/api'
 import { useEnumOptions } from '@/lib/enums'
 import { qk } from '@/lib/query-keys'
-import { personFromUser, type Paginated, type UserRow } from '@/types/domain'
+import { fetchUsers } from '@/lib/users'
+import { personFromUser, type UserRow } from '@/types/domain'
 
 const PAGE_SIZE = 100
 
-async function fetchUsers(): Promise<UserRow[]> {
-  const { data } = await api.get<Paginated<UserRow> | UserRow[]>(endpoints.users, {
-    params: { page_size: PAGE_SIZE, ordering: 'first_name' },
-  })
-  return Array.isArray(data) ? data : data.results
-}
-
-/** Read-only directory for HR admins: name, designation, department, role and email. */
+/** Read-only directory for HR admins: name, designation, department, role and email, sortable by each. */
 export function UsersTable() {
-  const query = useQuery({ queryKey: qk.users.list({ page_size: PAGE_SIZE }), queryFn: fetchUsers })
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'name', desc: false }])
+  const [first] = sorting
+  const ordering = first ? `${first.desc ? '-' : ''}${first.id}` : 'name'
+  const query = useQuery({
+    queryKey: qk.users.list({ page_size: PAGE_SIZE, ordering }),
+    queryFn: () => fetchUsers({ page_size: PAGE_SIZE, ordering }),
+  })
   const roles = useEnumOptions('user_role')
-  const roleLabel = (key: string) => roles.find((role) => role.key === key)?.label ?? key
+
+  const columns = useMemo<ColumnDef<UserRow, unknown>[]>(
+    () => [
+      {
+        id: 'name',
+        header: 'Name',
+        enableSorting: true,
+        cell: ({ row }) => <UserChip user={personFromUser(row.original)} />,
+      },
+      {
+        id: 'designation',
+        header: 'Designation',
+        enableSorting: true,
+        cell: ({ row }) => <span className="text-ink-muted">{row.original.designation}</span>,
+      },
+      {
+        id: 'department',
+        header: 'Department',
+        enableSorting: true,
+        cell: ({ row }) => <span className="text-ink-muted">{row.original.department}</span>,
+      },
+      {
+        id: 'role',
+        header: 'Role',
+        enableSorting: true,
+        cell: ({ row }) => (
+          <span className="inline-flex h-5 items-center rounded-pill bg-surface-2 px-2 text-caption text-ink-muted">
+            {roles.find((role) => role.key === row.original.role)?.label ?? row.original.role}
+          </span>
+        ),
+      },
+      {
+        id: 'email',
+        header: 'Email',
+        enableSorting: true,
+        cell: ({ row }) => <span className="text-ink-muted">{row.original.email}</span>,
+      },
+    ],
+    [roles],
+  )
 
   if (query.isError) {
     return (
@@ -44,48 +76,22 @@ export function UsersTable() {
   }
 
   return (
-    <div className="overflow-hidden rounded-card border border-line">
-      {/* The Table wrapper scrolls horizontally; the min width keeps five columns readable. */}
-      <Table className="min-w-[640px]">
-        <TableHeader className="bg-surface-2">
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Designation</TableHead>
-            <TableHead>Department</TableHead>
-            <TableHead>Role</TableHead>
-            <TableHead>Email</TableHead>
-          </TableRow>
-        </TableHeader>
-        {query.isPending ? (
-          <SkeletonTableRows rows={6} columns={5} />
-        ) : (
-          <TableBody>
-            {query.data.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell>
-                  <UserChip user={personFromUser(row)} />
-                </TableCell>
-                <TableCell className="text-ink-muted">{row.designation}</TableCell>
-                <TableCell className="text-ink-muted">{row.department}</TableCell>
-                <TableCell>
-                  <span className="inline-flex h-5 items-center rounded-pill bg-surface-2 px-2 text-caption text-ink-muted">
-                    {roleLabel(row.role)}
-                  </span>
-                </TableCell>
-                <TableCell className="text-ink-muted">{row.email}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        )}
-      </Table>
-      {query.isSuccess && query.data.length === 0 && (
+    <DataTable<UserRow>
+      aria-label="Users"
+      columns={columns}
+      data={query.data ?? []}
+      loading={query.isPending || query.isFetching}
+      getRowId={(row) => row.id}
+      sorting={{ state: sorting, onChange: setSorting }}
+      skeletonRows={6}
+      emptyState={
         <EmptyState
           size="sm"
           icon={UsersIcon}
           title="No users yet"
           description="People appear here once they have an account."
         />
-      )}
-    </div>
+      }
+    />
   )
 }

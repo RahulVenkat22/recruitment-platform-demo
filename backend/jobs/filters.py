@@ -1,17 +1,18 @@
 """Query-string filters for ``GET /api/v1/job-descriptions/`` (plan.md 6.10):
 ``search``, ``status``, ``department``, ``location``, ``employment_type``,
-``work_mode``, ``created_by``, ``created_by_role``, ``mine`` and ``skill``.
+``work_mode``, ``created_by``, ``mine`` and ``skill``.
 Multi-value filters take a comma list (``?status=open,on_hold``) so the filter
 popovers can send one param."""
 
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 import django_filters
 from django.db.models import Q, QuerySet
 
-from common.enums import EmploymentType, JDStatus, UserRole, WorkMode
+from common.enums import EmploymentType, JDStatus, WorkMode
 from jobs.models import JobDescription
 from matching.skills import normalize_skill
 
@@ -49,6 +50,21 @@ class _CsvTextFilter(django_filters.CharFilter):
         return qs.filter(condition)
 
 
+class _CsvUuidFilter(django_filters.CharFilter):
+    """``?field=id1,id2`` -> ``field__in=[id1, id2]``; a value that is no UUID matches nothing."""
+
+    def filter(self, qs: QuerySet, value: str) -> QuerySet:  # noqa: A003
+        wanted: list[UUID] = []
+        for item in _csv(value):
+            try:
+                wanted.append(UUID(item))
+            except ValueError:
+                return qs.none()
+        if not wanted:
+            return qs
+        return qs.filter(**{f"{self.field_name}__in": wanted})
+
+
 class JobDescriptionFilter(django_filters.FilterSet):
     search = django_filters.CharFilter(method="filter_search")
     status = _CsvChoiceFilter(field_name="status", choices=JDStatus.choices)
@@ -56,9 +72,8 @@ class JobDescriptionFilter(django_filters.FilterSet):
     location = _CsvTextFilter(field_name="location")
     employment_type = _CsvChoiceFilter(field_name="employment_type", choices=EmploymentType.choices)
     work_mode = _CsvChoiceFilter(field_name="work_mode", choices=WorkMode.choices)
-    created_by = django_filters.UUIDFilter(field_name="created_by_id")
-    # The homepage "User level" filter (Enhancement.md 3): JDs raised by users of these roles.
-    created_by_role = _CsvChoiceFilter(field_name="created_by__role", choices=UserRole.choices)
+    # The homepage "Created by" filter (Enhancement.md 3): JDs raised by any of these users.
+    created_by = _CsvUuidFilter(field_name="created_by_id")
     mine = django_filters.BooleanFilter(method="filter_mine")
     skill = django_filters.CharFilter(method="filter_skill")
 

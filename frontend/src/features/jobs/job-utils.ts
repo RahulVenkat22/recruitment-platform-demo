@@ -1,5 +1,5 @@
 import { formatCurrencyINR } from '@/lib/format'
-import type { JobRow, JobSnapshot, Participant, Person } from '@/types/domain'
+import type { JobMetrics, JobRow, JobSnapshot, Participant, Person } from '@/types/domain'
 
 /** The subset of a JD that the formatting helpers read; rows, details and snapshots all satisfy it. */
 export type JobLike = Pick<
@@ -197,4 +197,22 @@ export function nextStatusOptions(status: string): { key: string; label: string 
     default:
       return []
   }
+}
+
+/** The seven metric cards on the JD page (plan.md 9.6); each one is also a Candidates tab chip. */
+export const JOB_METRICS = [
+  { key: 'total_found', label: 'Candidates found', chip: 'All' },
+  { key: 'shortlisted', label: 'Shortlisted', chip: 'Shortlisted' },
+  { key: 'contacted', label: 'Contacted', chip: 'Contacted' },
+  { key: 'in_interview', label: 'In interview', chip: 'In interview' },
+  { key: 'selected', label: 'Selected', chip: 'Selected' },
+  { key: 'rejected', label: 'Rejected', chip: 'Rejected' },
+  { key: 'onboarded', label: 'Onboarded', chip: 'Onboarded' },
+] as const satisfies readonly { key: keyof JobMetrics; label: string; chip: string }[]
+
+export type JobMetricKey = (typeof JOB_METRICS)[number]['key']
+
+/** Where a metric card goes: the Candidates tab, filtered to the applications it counts. */
+export function metricTabLink(key: JobMetricKey): string {
+  return key === 'total_found' ? '?tab=candidates' : `?tab=candidates&cmetric=${key}`
 }

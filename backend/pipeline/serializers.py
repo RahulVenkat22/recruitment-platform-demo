@@ -108,6 +108,7 @@ class CandidateSummarySerializer(PIIMaskingMixin, serializers.ModelSerializer):
     """The candidate columns of a ranked row (plan.md 9.8); contact details masked by role."""
 
     total_experience_years = serializers.FloatField(read_only=True)
+    avatar_url = serializers.CharField(source="display_avatar_url", read_only=True, allow_null=True)
     skills = serializers.SerializerMethodField()
     sources = serializers.SerializerMethodField()
 

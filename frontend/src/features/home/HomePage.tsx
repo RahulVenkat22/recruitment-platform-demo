@@ -169,7 +169,7 @@ function WorkCard({
  * Homepage (Enhancement.md 3): the user's job descriptions as a work overview.
  * Low-level users see only the JDs they created or are involved in; HR admins and
  * HR can switch between "Mine" and everything they are allowed to see, filter by
- * the level of user who raised the JD, and act on a row (comment, force close).
+ * who raised the JD, and act on a row (comment, force close).
  */
 export default function HomePage() {
   const navigate = useNavigate()
@@ -186,7 +186,6 @@ export default function HomePage() {
   const actions = useJobWorkActions()
   const facets = useJobFacets()
   const statuses = useEnumOptions('jd_status')
-  const roles = useEnumOptions('user_role')
 
   // Low-level users always see their own work; the toggle exists for HR only.
   const mine = highLevel ? state.mine : true
@@ -203,12 +202,12 @@ export default function HomePage() {
     search: state.q,
     status: state.status,
     mine,
-    created_by_role: everyone ? state.level : undefined,
+    created_by: everyone ? state.creator : undefined,
     ordering: state.sort,
   })
   const rows = list.data?.results ?? []
   const total = list.data?.count ?? 0
-  const filtered = state.q !== '' || state.status.length > 0 || state.level.length > 0
+  const filtered = state.q !== '' || state.status.length > 0 || state.creator.length > 0
 
   const statusChips = useMemo(() => {
     const counts = new Map((facets.data?.statuses ?? []).map((row) => [row.key, row.count]))
@@ -260,6 +259,7 @@ export default function HomePage() {
         id: 'last_activity_at',
         header: 'Latest update time',
         enableSorting: true,
+        sortDescFirst: true,
         cell: ({ row }) => <UpdatedAt value={row.original.last_activity_at} />,
       },
       {
@@ -272,9 +272,9 @@ export default function HomePage() {
     ]
     if (everyone) {
       defs.push({
-        id: 'created_by',
+        id: 'created_by__first_name',
         header: 'Created by',
-        enableSorting: false,
+        enableSorting: true,
         cell: ({ row }) => (
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <UserChip user={personFromUser(row.original.created_by)} />
@@ -348,7 +348,7 @@ export default function HomePage() {
               id={mineId}
               size="sm"
               checked={state.mine}
-              onCheckedChange={(next) => setState({ mine: next, level: [], page: 1 })}
+              onCheckedChange={(next) => setState({ mine: next, creator: [], page: 1 })}
             />
             <Label htmlFor={mineId} className="text-small font-normal text-ink-muted">
               Mine
@@ -373,10 +373,12 @@ export default function HomePage() {
         </div>
         {everyone && (
           <FilterPopover
-            label="User level"
-            options={roles.map((option) => ({ key: option.key, label: option.label }))}
-            selected={state.level}
-            onChange={(level) => setState({ level, page: 1 })}
+            label="Creator"
+            options={facets.data?.creators ?? []}
+            selected={state.creator}
+            onChange={(creator) => setState({ creator, page: 1 })}
+            searchable
+            emptyLabel="No matching people"
           />
         )}
         <div className="ml-auto flex items-center gap-2">

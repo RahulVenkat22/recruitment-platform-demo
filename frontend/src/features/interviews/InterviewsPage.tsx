@@ -60,6 +60,8 @@ import { useAuthStore } from '@/lib/auth-store'
 import { weekKey } from '@/lib/datetime'
 import { useEnumOptions } from '@/lib/enums'
 import { formatDateTime, formatWhen } from '@/lib/format'
+import { ariaSort, directionOf, toggleSort } from '@/components/shared/sort-utils'
+import { SortButton } from '@/components/shared/SortButton'
 import { param, useDebounce, useIsMobile, useUrlState } from '@/lib/hooks'
 import { focusRovingSibling, rovingIndex } from '@/lib/keyboard'
 import { useUiStore, type PageSize } from '@/lib/ui-store'
@@ -90,6 +92,8 @@ const SPEC = {
   q: param.string(''),
   view: param.enum<'list' | 'calendar'>('list', ['list', 'calendar']),
   week: param.string(''),
+  /** A column sort chosen in the list; empty means the bucket's own order. */
+  sort: param.string(''),
   page: param.number(1),
 }
 
@@ -147,14 +151,17 @@ export default function InterviewsPage() {
     mine: state.mine,
     search: debounced,
   }
+  // Finished interviews read newest first; everything else in the order it comes up.
+  const defaultSort =
+    state.bucket === 'completed' || state.bucket === 'all' ? '-scheduled_at' : 'scheduled_at'
+  const sort = state.sort || defaultSort
   const list = useInterviews(
     {
       ...common,
       bucket: state.bucket,
       page: state.page,
       page_size: pageSize,
-      ordering:
-        state.bucket === 'completed' || state.bucket === 'all' ? '-scheduled_at' : 'scheduled_at',
+      ordering: sort,
     },
     view === 'list',
   )
@@ -295,6 +302,17 @@ export default function InterviewsPage() {
     </div>
   )
 
+  const sortableHead = (key: string, label: string, className?: string, descFirst = false) => (
+    <TableHead aria-sort={ariaSort(directionOf(sort, key))} className={className}>
+      <SortButton
+        direction={directionOf(sort, key)}
+        onClick={() => setState({ sort: toggleSort(sort, key, descFirst), page: 1 })}
+      >
+        {label}
+      </SortButton>
+    </TableHead>
+  )
+
   let body: ReactNode
   if (view === 'calendar') {
     body = (
@@ -323,13 +341,14 @@ export default function InterviewsPage() {
             <Table aria-label="Interviews" className="min-w-[880px]">
               <TableHeader className="bg-surface-2">
                 <TableRow>
-                  <TableHead className="w-44">Date &amp; time</TableHead>
-                  <TableHead>Candidate</TableHead>
-                  <TableHead>Job description</TableHead>
-                  <TableHead>Round</TableHead>
-                  <TableHead>Interviewer</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Score</TableHead>
+                  {/* The bucket's own order is the first direction, so one click reverses it. */}
+                  {sortableHead('scheduled_at', 'Date & time', 'w-44', defaultSort.startsWith('-'))}
+                  {sortableHead('application__candidate__full_name', 'Candidate')}
+                  {sortableHead('application__job_description__title', 'Job description')}
+                  {sortableHead('round', 'Round')}
+                  {sortableHead('interviewer__first_name', 'Interviewer')}
+                  {sortableHead('status', 'Status')}
+                  {sortableHead('score', 'Score', 'text-right', true)}
                   <TableHead className="w-40 text-right">
                     <span className="sr-only">Actions</span>
                   </TableHead>

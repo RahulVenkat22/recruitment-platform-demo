@@ -68,6 +68,8 @@ export type KanbanColumnMeta = Schemas['KanbanColumn']
 
 /** Body of `GET /meta/enums/` (plan.md 6.4, 7.2). */
 export type EnumCatalogue = Schemas['MetaEnums']
+export type Country = Schemas['Country']
+export type CountryCities = Schemas['CountryCities']
 
 // The enum keys below are string-typed in the schema; these unions are the
 // plan.md 6.4 vocabulary and feed the typed fallback tables in lib/enums.ts.
@@ -108,6 +110,9 @@ export type ActivityCategory =
 
 export type JDStatus = 'draft' | 'open' | 'on_hold' | 'closed' | 'force_closed' | 'archived'
 
+export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
+export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent'
+
 // ------------------------------------------------------------------ jobs (plan.md 6.10)
 
 export type JDStatusKey = Schemas['JDStatusEnum']
@@ -132,6 +137,9 @@ export type JobMetrics = Schemas['Metrics']
 export type JobPermissions = Schemas['JobPermissions']
 export type JobFacets = Schemas['JobFacets']
 export type FacetOption = Schemas['FacetOption']
+/** `POST /job-descriptions/extract/`: the fields the AI read from an uploaded JD file. */
+export type JobExtraction = Schemas['JobExtraction']
+export type JobExtractedFields = Schemas['JobExtractedFields']
 export type SkillSuggestion = Schemas['SkillSuggestion']
 
 export type JobVersion = Schemas['VersionRow']
@@ -229,6 +237,8 @@ export interface SemanticDetails {
   evidence?: SemanticEvidence[]
   model?: string
   seconds?: number
+  /** Set when the explanation is a search-time summary of the scoring facts, not a full evaluation. */
+  summary_model?: string
 }
 export type SearchResponse = Schemas['SearchResponse']
 export type JobRef = Schemas['JobRef']
@@ -327,6 +337,33 @@ export type Notification = Schemas['Notification']
 export type NotificationType = Schemas['NotificationTypeEnum']
 export type UnreadCount = Schemas['UnreadCount']
 export type DashboardSummary = Schemas['DashboardSummary']
-export type DashboardMetric = Schemas['Metric']
+export type DashboardMetric = Schemas['DashboardMetric']
+export type DashboardTrends = Schemas['DashboardTrends']
+export type TrendPoint = Schemas['TrendPoint']
+export type DashboardPipeline = Schemas['DashboardPipeline']
+export type JobPipelineRow = Schemas['JobPipelineRow']
+export type KeyCount = Schemas['KeyCount']
+export type StageCount = Schemas['StageCount']
 export type Funnel = Schemas['Funnel']
 export type FunnelStage = Schemas['FunnelStage']
+export type InterviewInsights = Schemas['InterviewInsights']
+export type InterviewerLoad = Schemas['InterviewerLoad']
+export type AttentionCounts = Schemas['AttentionCounts']
+export type TeamMember = Schemas['TeamMember']
+
+// ------------------------------------------------------------------ support tickets
+
+/** A row of `GET /support/tickets/`. */
+export type TicketRow = Schemas['TicketRow']
+/** `GET /support/tickets/{id}/`: the row plus text, timeline and permissions. */
+export type TicketDetail = Schemas['TicketDetail']
+export type TicketEvent = Schemas['TicketEvent']
+export type TicketPermissions = Schemas['TicketPermissions']
+export type TicketCreateRequest = Schemas['TicketCreateRequest']
+export type TicketPatch = Schemas['PatchedTicketUpdateRequest']
+export type TicketCommentRequest = Schemas['TicketCommentRequest']
+export type TicketTransitionRequest = Schemas['TicketTransitionRequest']
+export type TicketAssignRequest = Schemas['TicketAssignRequest']
+export type TicketSummary = Schemas['TicketSummary']
+export type TicketCategory = Schemas['TicketCategoryEnum']
+export type TicketEventKind = Schemas['TicketEventKindEnum']
