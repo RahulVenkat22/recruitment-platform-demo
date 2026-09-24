@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 
 from common import locations
 from common.permissions import IsHrStaff
-from dashboard import exports, services
+from dashboard import exports, pdf, services
 from dashboard.serializers import (
     AttentionCountsSerializer,
     CountryCitiesSerializer,
@@ -286,16 +286,23 @@ class DashboardInsightsView(_DashboardView):
         return Response(DashboardInsightsSerializer(services.insights(self.scope(request))).data)
 
 
+EXPORT_WRITERS = {
+    "csv": ("text/csv; charset=utf-8", exports.to_csv),
+    "xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", exports.to_xlsx),
+    "pdf": ("application/pdf", pdf.render),
+}
+
+
 class DashboardExportView(_DashboardView):
     @extend_schema(
         operation_id="dashboard_export",
-        summary="Every dashboard figure and table as a CSV, an Excel workbook or a PDF",
+        summary="Every dashboard figure and table as a CSV, an Excel workbook or a PDF report",
         parameters=[
             OpenApiParameter(
                 "kind",
                 str,
                 OpenApiParameter.PATH,
-                enum=list(exports.WRITERS),
+                enum=list(EXPORT_WRITERS),
                 description="The file to build: csv, xlsx or pdf",
             ),
             *SCOPE_PARAMETERS,
@@ -306,15 +313,15 @@ class DashboardExportView(_DashboardView):
             ),
         ],
         responses={
-            (200, content_type): OpenApiTypes.BINARY for content_type, _ in exports.WRITERS.values()
+            (200, content_type): OpenApiTypes.BINARY for content_type, _ in EXPORT_WRITERS.values()
         },
         tags=["dashboard"],
     )
     def get(self, request: Request, kind: str) -> HttpResponse:
         scope = self.scope(request)
-        content_type, write = exports.WRITERS[kind]
-        report = exports.report(scope, request.query_params.get("job_description") or None)
-        response = HttpResponse(write(report), content_type=content_type)
+        content_type, write = EXPORT_WRITERS[kind]
+        snapshot = exports.snapshot(scope, request.query_params.get("job_description") or None)
+        response = HttpResponse(write(snapshot), content_type=content_type)
         response["Content-Disposition"] = f'attachment; filename="{exports.filename(scope, kind)}"'
         return response
 

@@ -1,14 +1,13 @@
 """The dashboard as a file: every figure and table the page shows, for the same
-window and people, as one CSV, one Excel workbook or one PDF."""
+window and people, as one CSV or one Excel workbook. The PDF is drawn in
+``dashboard.pdf`` from the same snapshot."""
 
 import csv
 import io
 from dataclasses import dataclass
 from datetime import date, datetime
-from html import escape
 from typing import Any
 
-import pymupdf
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -20,6 +19,131 @@ from dashboard.services import Scope
 
 Cell = str | int | float | date | datetime | None
 
+ROLE_STAGES = ("shortlisted", "contacted", "interviewed", "selected", "onboarded")
+ACTIVE_ROLE_STATUSES = (enums.JDStatus.OPEN, enums.JDStatus.ON_HOLD)
+UNITS = {"count": "", "percent": "%", "days": " days"}
+DELTA_UNITS = {"count": "", "percent": " pp", "days": " days"}
+
+
+@dataclass(frozen=True)
+class Snapshot:
+    """Everything the dashboard shows for one scope, straight from the services."""
+
+    scope: Scope
+    window: str
+    # "Last 30 days" or "26 Aug to 24 Sep 2026": the window where space is short.
+    short_window: str
+    # "Job descriptions of Priya Nair, Arun Kumar"; None for everything the viewer sees.
+    people: str | None
+    exported: str
+    summary: dict[str, Any]
+    attention: dict[str, int]
+    trends: dict[str, Any]
+    insights: dict[str, Any]
+    pipeline: dict[str, Any]
+    funnel: dict[str, Any]
+    funnel_job: Any | None
+    interviews: dict[str, Any]
+    team: list[dict[str, Any]]
+    upcoming: list[Any]
+
+    @property
+    def jobs(self) -> list[Any]:
+        """The roles being hired for, busiest first, as the Open roles widget lists them."""
+        jobs = [job for job in self.pipeline["jobs"] if job.status in ACTIVE_ROLE_STATUSES]
+        jobs.sort(key=lambda job: (-sum(getattr(job, key) for key in ROLE_STAGES), -job.total))
+        return jobs
+
+    @property
+    def lines(self) -> list[str]:
+        return [self.window, *([self.people] if self.people else []), self.exported]
+
+
+def window_label(scope: Scope) -> str:
+    """Last 30 days (26 Aug to 24 Sep 2026); a custom window is just its dates."""
+    dates = scope.dates
+    span = f"{dates[0]:%d %b %Y} to {dates[-1]:%d %b %Y}"
+    return span if scope.start and scope.end else f"Last {scope.days} days ({span})"
+
+
+def short_window_label(scope: Scope) -> str:
+    dates = scope.dates
+    if not (scope.start and scope.end):
+        return f"Last {scope.days} days"
+    first = f"{dates[0]:%d %b}" if dates[0].year == dates[-1].year else f"{dates[0]:%d %b %Y}"
+    return f"{first} to {dates[-1]:%d %b %Y}"
+
+
+def filename(scope: Scope, kind: str) -> str:
+    dates = scope.dates
+    return f"dashboard-{dates[0]:%Y-%m-%d}-to-{dates[-1]:%Y-%m-%d}.{kind}"
+
+
+def snapshot(scope: Scope, job_description: str | None = None) -> Snapshot:
+    pipeline = services.pipeline(scope)
+    people = None
+    if scope.user_ids:
+        users = User.objects.filter(pk__in=scope.user_ids).order_by("first_name", "last_name")
+        people = f"Job descriptions of {', '.join(user.full_name for user in users)}"
+    return Snapshot(
+        scope=scope,
+        window=window_label(scope),
+        short_window=short_window_label(scope),
+        people=people,
+        exported=(
+            f"Exported {scope.now.astimezone(scope.tz):%d %b %Y, %H:%M} by {scope.viewer.full_name}"
+        ),
+        summary=services.summary(scope),
+        attention=services.attention(scope),
+        trends=services.trends(scope),
+        insights=services.insights(scope),
+        pipeline=pipeline,
+        funnel=services.funnel(scope, job_description),
+        funnel_job=next((job for job in pipeline["jobs"] if str(job.id) == job_description), None),
+        interviews=services.interview_insights(scope),
+        team=services.team(scope),
+        upcoming=services.upcoming_interviews(scope),
+    )
+
+
+# ------------------------------------------------------------------ figures
+
+
+def number(value: float | None) -> float | int | None:
+    if value is None:
+        return None
+    return int(value) if float(value).is_integer() else round(value, 1)
+
+
+def figure(metric: dict[str, Any]) -> Cell:
+    """The value with its unit: 1284 stays a number, 62.5% and 18.5 days read as text."""
+    value = number(metric["value"])
+    if value is None:
+        return None
+    return value if metric["unit"] == "count" else f"{value}{UNITS[metric['unit']]}"
+
+
+def change_label(metric: dict[str, Any]) -> str:
+    """The change against the previous window: "+362", "-3.5 pp", "+2.1 days"."""
+    delta = number(metric["delta"])
+    if delta is None:
+        return ""
+    sign = "+" if delta > 0 else ""
+    return f"{sign}{delta}{DELTA_UNITS[metric['unit']]}"
+
+
+def cell_text(cell: Cell) -> str:
+    if cell is None:
+        return ""
+    if isinstance(cell, datetime):
+        return f"{cell:%a, %d %b %Y %H:%M}"
+    if isinstance(cell, date):
+        return f"{cell:%a, %d %b %Y}"
+    return str(cell)
+
+
+# ------------------------------------------------------------------ tables
+
 
 @dataclass(frozen=True)
 class Table:
@@ -28,14 +152,6 @@ class Table:
     rows: list[list[Cell]]
     # One line under the title: what "now" means, the role the funnel is narrowed to…
     note: str = ""
-
-
-@dataclass(frozen=True)
-class Report:
-    title: str
-    # The window, the people, and who exported it when.
-    lines: list[str]
-    tables: list[Table]
 
 
 ATTENTION_ITEMS = (
@@ -62,92 +178,29 @@ TREND_SERIES = (
     ("offers", "Offers sent"),
     ("hires", "Hires"),
 )
-ROLE_STAGES = ("shortlisted", "contacted", "interviewed", "selected", "onboarded")
-ACTIVE_ROLE_STATUSES = (enums.JDStatus.OPEN, enums.JDStatus.ON_HOLD)
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-UNITS = {"count": "", "percent": "%", "days": " days"}
-DELTA_UNITS = {"count": "", "percent": " pp", "days": " days"}
 
 
-def window_label(scope: Scope) -> str:
-    """Last 30 days (26 Aug to 24 Sep 2026); a custom window is just its dates."""
-    dates = scope.dates
-    span = f"{dates[0]:%d %b %Y} to {dates[-1]:%d %b %Y}"
-    return span if scope.start and scope.end else f"Last {scope.days} days ({span})"
-
-
-def filename(scope: Scope, kind: str) -> str:
-    dates = scope.dates
-    return f"dashboard-{dates[0]:%Y-%m-%d}-to-{dates[-1]:%Y-%m-%d}.{kind}"
-
-
-def _number(value: float | None) -> float | int | None:
-    if value is None:
-        return None
-    return int(value) if float(value).is_integer() else round(value, 1)
-
-
-def _figure(metric: dict[str, Any]) -> Cell:
-    """The value with its unit: 1284 stays a number, 62.5% and 18.5 days read as text."""
-    value = _number(metric["value"])
-    if value is None:
-        return None
-    return value if metric["unit"] == "count" else f"{value}{UNITS[metric['unit']]}"
-
-
-def _change(metric: dict[str, Any]) -> str:
-    delta = _number(metric["delta"])
-    if delta is None:
-        return ""
-    sign = "+" if delta > 0 else ""
-    return f"{sign}{delta}{DELTA_UNITS[metric['unit']]}"
-
-
-def _name(user: Any) -> str:
-    return user.full_name
-
-
-def report(scope: Scope, job_description: str | None = None) -> Report:
+def tables(snap: Snapshot) -> list[Table]:
     """Every widget on the page as a table, in the page's order."""
-    window = window_label(scope)
-    summary = services.summary(scope)
-    attention = services.attention(scope)
-    trends = services.trends(scope)
-    insights = services.insights(scope)
-    pipeline = services.pipeline(scope)
-    funnel = services.funnel(scope, job_description)
-    interviews = services.interview_insights(scope)
-    team = services.team(scope)
-    upcoming = services.upcoming_interviews(scope)
-
-    jobs = [job for job in pipeline["jobs"] if job.status in ACTIVE_ROLE_STATUSES]
-    jobs.sort(key=lambda job: (-sum(getattr(job, key) for key in ROLE_STAGES), -job.total))
-    funnel_job = next((job for job in pipeline["jobs"] if str(job.id) == job_description), None)
+    window, summary, attention, insights = snap.window, snap.summary, snap.attention, snap.insights
     match, offers, outreach, searches = (
         insights["match"],
         insights["offers"],
         insights["outreach"],
         insights["searches"],
     )
-    avg_response = _number(offers["avg_response_days"])
-
-    lines = [window]
-    if scope.user_ids:
-        people = User.objects.filter(pk__in=scope.user_ids).order_by("first_name", "last_name")
-        lines.append(f"Job descriptions of {', '.join(_name(user) for user in people)}")
-    lines.append(
-        f"Exported {scope.now.astimezone(scope.tz):%d %b %Y, %H:%M} by {_name(scope.viewer)}"
-    )
-
-    tables = [
+    avg_response = number(offers["avg_response_days"])
+    tz = snap.scope.tz
+    return [
         Table(
             "Headline figures",
             ["Figure", "Value", "Change vs previous window", "Covers", "Note"],
             [
                 [
                     label,
-                    _figure(summary[key]),
-                    _change(summary[key]),
+                    figure(summary[key]),
+                    change_label(summary[key]),
                     "Right now" if covers == "now" else window,
                     summary[key]["detail"] or "",
                 ]
@@ -165,7 +218,7 @@ def report(scope: Scope, job_description: str | None = None) -> Report:
             ["Day", *(label for _key, label in TREND_SERIES)],
             [
                 [point["date"], *(point[key] for key, _label in TREND_SERIES)]
-                for point in trends["points"]
+                for point in snap.trends["points"]
             ],
             note=f"{window}, by day",
         ),
@@ -173,7 +226,7 @@ def report(scope: Scope, job_description: str | None = None) -> Report:
             "Pipeline health",
             ["Stage", "Candidates", "Avg days in stage", "Over a week"],
             [
-                [stage["label"], stage["value"], _number(stage["avg_days"]), stage["stuck"]]
+                [stage["label"], stage["value"], number(stage["avg_days"]), stage["stuck"]]
                 for stage in insights["stages"]
             ],
             note="Right now",
@@ -183,9 +236,9 @@ def report(scope: Scope, job_description: str | None = None) -> Report:
             ["Stage", "Candidates", "Of previous (%)"],
             [
                 [stage["label"], stage["value"], stage["conversion_pct"]]
-                for stage in funnel["stages"]
+                for stage in snap.funnel["stages"]
             ],
-            note=funnel_job.title if funnel_job else "All roles",
+            note=snap.funnel_job.title if snap.funnel_job else "All roles",
         ),
         Table(
             "Open roles",
@@ -214,7 +267,7 @@ def report(scope: Scope, job_description: str | None = None) -> Report:
                     job.parked,
                     job.total,
                 ]
-                for job in jobs
+                for job in snap.jobs
             ],
             note="Right now, candidates in play per role",
         ),
@@ -258,7 +311,7 @@ def report(scope: Scope, job_description: str | None = None) -> Report:
         Table(
             "Candidates by source",
             ["Source", "Candidates"],
-            [[source["label"], source["value"]] for source in pipeline["sources"]],
+            [[source["label"], source["value"]] for source in snap.pipeline["sources"]],
             note="Right now",
         ),
         Table(
@@ -296,16 +349,16 @@ def report(scope: Scope, job_description: str | None = None) -> Report:
             "Interviews",
             ["Figure", "Value"],
             [
-                ["Held", interviews["total"]],
-                ["Completed", interviews["completed"]],
-                ["Cancelled", interviews["cancelled"]],
-                ["No-show", interviews["no_show"]],
-                ["Average score", interviews["avg_score"]],
-                ["Upcoming (right now)", interviews["upcoming"]],
-                ["Feedback owed (right now)", interviews["feedback_pending"]],
+                ["Held", snap.interviews["total"]],
+                ["Completed", snap.interviews["completed"]],
+                ["Cancelled", snap.interviews["cancelled"]],
+                ["No-show", snap.interviews["no_show"]],
+                ["Average score", snap.interviews["avg_score"]],
+                ["Upcoming (right now)", snap.interviews["upcoming"]],
+                ["Feedback owed (right now)", snap.interviews["feedback_pending"]],
                 *(
                     [f"Recommendation: {row['label']}", row["value"]]
-                    for row in interviews["recommendations"]
+                    for row in snap.interviews["recommendations"]
                 ),
             ],
             note=window,
@@ -314,8 +367,8 @@ def report(scope: Scope, job_description: str | None = None) -> Report:
             "Interviewer load",
             ["Interviewer", "Held", "Completed", "Avg score"],
             [
-                [_name(row["user"]), row["total"], row["completed"], row["avg_score"]]
-                for row in interviews["interviewers"]
+                [row["user"].full_name, row["total"], row["completed"], row["avg_score"]]
+                for row in snap.interviews["interviewers"]
             ],
             note=window,
         ),
@@ -330,7 +383,7 @@ def report(scope: Scope, job_description: str | None = None) -> Report:
             ["Person", "Roles", "Sourcing", "Outreach", "Interviews", "Closing", "Total"],
             [
                 [
-                    _name(member["user"]),
+                    member["user"].full_name,
                     member["roles"],
                     member["sourcing"],
                     member["outreach"],
@@ -338,7 +391,7 @@ def report(scope: Scope, job_description: str | None = None) -> Report:
                     member["closing"],
                     member["total"],
                 ]
-                for member in team
+                for member in snap.team
             ],
             note=f"{window}, across everything you can see",
         ),
@@ -347,62 +400,51 @@ def report(scope: Scope, job_description: str | None = None) -> Report:
             ["When", "Round", "Candidate", "Role", "Interviewer"],
             [
                 [
-                    interview.scheduled_at.astimezone(scope.tz).replace(tzinfo=None),
+                    interview.scheduled_at.astimezone(tz).replace(tzinfo=None),
                     interview.get_round_display(),
                     interview.application.candidate.full_name,
                     interview.application.job_description.title,
-                    _name(interview.interviewer),
+                    interview.interviewer.full_name,
                 ]
-                for interview in upcoming
+                for interview in snap.upcoming
             ],
             note="The next five, in your time zone",
         ),
     ]
-    return Report("Dashboard", lines, tables)
 
 
 # ------------------------------------------------------------------ writers
 
 
-def _text(cell: Cell) -> str:
-    if cell is None:
-        return ""
-    if isinstance(cell, datetime):
-        return f"{cell:%a, %d %b %Y %H:%M}"
-    if isinstance(cell, date):
-        return f"{cell:%a, %d %b %Y}"
-    return str(cell)
-
-
-def to_csv(report: Report) -> bytes:
+def to_csv(snap: Snapshot) -> bytes:
     """One file, each table under its title, with a byte-order mark so Excel reads UTF-8."""
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow([report.title])
-    writer.writerows([line] for line in report.lines)
-    for table in report.tables:
+    writer.writerow(["Dashboard"])
+    writer.writerows([line] for line in snap.lines)
+    for table in tables(snap):
         writer.writerow([])
         writer.writerow([table.title, table.note] if table.note else [table.title])
         writer.writerow(table.columns)
-        writer.writerows([_text(cell) for cell in row] for row in table.rows)
+        writer.writerows([cell_text(cell) for cell in row] for row in table.rows)
     return ("﻿" + buffer.getvalue()).encode("utf-8")
 
 
 HEADER_FILL = PatternFill("solid", fgColor="E8EDF5")
 
 
-def to_xlsx(report: Report) -> bytes:
+def to_xlsx(snap: Snapshot) -> bytes:
     """One sheet per table, a bold frozen header row and dates as real dates."""
     book = Workbook()
     about = book.active
     about.title = "About"
-    about.append([report.title])
+    about.append(["Dashboard"])
     about["A1"].font = Font(bold=True, size=14)
-    for line in report.lines:
+    for line in snap.lines:
         about.append([line])
     about.column_dimensions["A"].width = 80
 
-    for table in report.tables:
+    for table in tables(snap):
         sheet = book.create_sheet(table.title)
         if table.note:
             sheet.append([table.note])
@@ -421,66 +463,9 @@ def to_xlsx(report: Report) -> bytes:
                     cell.number_format = "ddd, d mmm yyyy"
         sheet.freeze_panes = sheet.cell(row=header + 1, column=1)
         for index, column in enumerate(table.columns, start=1):
-            longest = max([len(column), *(len(_text(row[index - 1])) for row in table.rows)])
+            longest = max([len(column), *(len(cell_text(row[index - 1])) for row in table.rows)])
             sheet.column_dimensions[get_column_letter(index)].width = min(longest, 60) + 3
 
     buffer = io.BytesIO()
     book.save(buffer)
     return buffer.getvalue()
-
-
-PDF_CSS = """
-body { font-family: sans-serif; font-size: 8.5pt; color: #1a1a1a; }
-h1 { font-size: 18pt; margin: 0; }
-h2 { font-size: 11pt; margin: 16pt 0 0 0; }
-p { margin: 2pt 0 0 0; color: #555555; }
-table { border-collapse: collapse; margin-top: 5pt; }
-th, td { border: 1px solid #cfd4dc; padding: 2pt 6pt; text-align: left; }
-th { font-weight: bold; border-bottom: 2px solid #9aa3b2; }
-"""
-PAGE_MARGIN = 36
-# Story cannot paginate a table taller than a page once it has started near the foot
-# of one (it lays the same rows out again for ever), so long tables go in as a run of
-# short tables, each with the header row, that always fit on a page.
-PDF_ROWS_PER_TABLE = 15
-
-
-def to_pdf(report: Report) -> bytes:
-    """Landscape A4 pages (the open roles table is twelve columns wide) laid out from
-    HTML by PyMuPDF's Story engine. Header cells carry no background fill: Story
-    repaints fills at the same spot on every later page."""
-    parts = [
-        f"<h1>{escape(report.title)}</h1>",
-        *(f"<p>{escape(line)}</p>" for line in report.lines),
-    ]
-    for table in report.tables:
-        parts.append(f"<h2>{escape(table.title)}</h2>")
-        if table.note:
-            parts.append(f"<p>{escape(table.note)}</p>")
-        head = "".join(f"<th>{escape(column)}</th>" for column in table.columns)
-        for first in range(0, max(len(table.rows), 1), PDF_ROWS_PER_TABLE):
-            body = "".join(
-                "<tr>" + "".join(f"<td>{escape(_text(cell))}</td>" for cell in row) + "</tr>"
-                for row in table.rows[first : first + PDF_ROWS_PER_TABLE]
-            )
-            parts.append(f"<table><tr>{head}</tr>{body}</table>")
-
-    story = pymupdf.Story(html="".join(parts), user_css=PDF_CSS)
-    page = pymupdf.paper_rect("a4-l")
-    buffer = io.BytesIO()
-    writer = pymupdf.DocumentWriter(buffer)
-    more = True
-    while more:
-        device = writer.begin_page(page)
-        more, _ = story.place(page + (PAGE_MARGIN, PAGE_MARGIN, -PAGE_MARGIN, -PAGE_MARGIN))
-        story.draw(device)
-        writer.end_page()
-    writer.close()
-    return buffer.getvalue()
-
-
-WRITERS = {
-    "csv": ("text/csv; charset=utf-8", to_csv),
-    "xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", to_xlsx),
-    "pdf": ("application/pdf", to_pdf),
-}
