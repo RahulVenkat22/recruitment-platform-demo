@@ -1,5 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { useIsMobile, useMediaQuery, usePrefersReducedMotion } from '@/lib/hooks/useMediaQuery'
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
+import { useUiStore } from '@/lib/ui-store'
 
 type Listener = (event: MediaQueryListEvent) => void
 
@@ -41,6 +43,31 @@ describe('useMediaQuery', () => {
   const original = window.matchMedia
   afterEach(() => {
     window.matchMedia = original
+    useUiStore.setState({ motionEffects: true })
+  })
+
+  it('responds immediately to system motion changes without a reload', () => {
+    const media = installMatchMedia({ '(prefers-reduced-motion: reduce)': false })
+    useUiStore.setState({ motionEffects: true })
+    const { result } = renderHook(() => useMotionPreference())
+    expect(result.current).toBe(false)
+    act(() => media.set('(prefers-reduced-motion: reduce)', true))
+    expect(result.current).toBe(true)
+    act(() => media.set('(prefers-reduced-motion: reduce)', false))
+    expect(result.current).toBe(false)
+  })
+
+  it('lets the user turn off effects while the system preference always wins', () => {
+    const media = installMatchMedia({ '(prefers-reduced-motion: reduce)': false })
+    useUiStore.setState({ motionEffects: true })
+    const { result } = renderHook(() => useMotionPreference())
+    act(() => useUiStore.getState().setMotionEffects(false))
+    expect(result.current).toBe(true)
+    act(() => media.set('(prefers-reduced-motion: reduce)', true))
+    act(() => useUiStore.getState().setMotionEffects(true))
+    expect(result.current).toBe(true)
+    act(() => media.set('(prefers-reduced-motion: reduce)', false))
+    expect(result.current).toBe(false)
   })
 
   it('reads the current match and follows changes', () => {

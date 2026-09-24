@@ -129,7 +129,7 @@ export default function NotificationsPage() {
     <>
       <PageHeader
         title="Notifications"
-        subtitle="Assignments, status changes, interviews, feedback, offers, onboarding and support tickets across your roles."
+        subtitle="All the moments that move your team forward. Keep up with the people, roles and conversations that matter."
         breadcrumbs={[{ label: 'Notifications' }]}
         actions={
           <Button
@@ -190,7 +190,7 @@ export default function NotificationsPage() {
                         >
                           <StaggerItem
                             index={day.offset + index}
-                            className="flex flex-wrap items-start gap-3 px-4 py-3"
+                            className="flex flex-wrap items-start gap-4 px-5 py-4"
                           >
                             {row.actor ? (
                               <Avatar

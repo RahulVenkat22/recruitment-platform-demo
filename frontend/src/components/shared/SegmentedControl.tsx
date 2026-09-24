@@ -1,5 +1,8 @@
 import { focusRovingSibling, rovingIndex } from '@/lib/keyboard'
 import { cn } from '@/lib/utils'
+import { useId } from 'react'
+import { motion } from 'motion/react'
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 
 export interface SegmentedOption<T extends string> {
   key: T
@@ -26,6 +29,8 @@ export function SegmentedControl<T extends string>({
   size = 'md',
   className,
 }: SegmentedControlProps<T>) {
+  const id = useId()
+  const reduced = useMotionPreference()
   return (
     <div
       role="radiogroup"
@@ -55,14 +60,20 @@ export function SegmentedControl<T extends string>({
               focusRovingSibling(event.currentTarget.parentElement, next)
             }}
             className={cn(
-              'flex-1 rounded-[6px] px-2 font-medium whitespace-nowrap transition-colors',
+              'relative isolate flex-1 rounded-lg px-3 font-medium whitespace-nowrap transition-colors',
               size === 'sm' ? 'h-7 text-caption' : 'h-8 text-small',
-              checked
-                ? 'bg-surface text-ink shadow-card'
-                : 'text-ink-muted hover:text-ink focus-visible:text-ink',
+              checked ? 'text-primary' : 'text-ink-muted hover:text-ink focus-visible:text-ink',
             )}
             style={checked && option.tone ? { color: option.tone } : undefined}
           >
+            {checked && (
+              <motion.span
+                aria-hidden="true"
+                layoutId={reduced ? undefined : `${id}-selection`}
+                className="absolute inset-0 -z-10 rounded-lg bg-surface shadow-card"
+                transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+              />
+            )}
             {option.label}
           </button>
         )

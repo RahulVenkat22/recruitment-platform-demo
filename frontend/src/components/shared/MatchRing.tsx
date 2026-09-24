@@ -1,4 +1,5 @@
-import { motion, useReducedMotion } from 'motion/react'
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
+import { motion } from 'motion/react'
 import { matchTone, type MatchTone } from '@/components/shared/match-tone'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -25,7 +26,7 @@ export interface MatchRingProps {
 
 /** SVG ring for a match percentage; the arc sweeps in from zero on first render. */
 export function MatchRing({ value, size = 'md', showLabel = true, className }: MatchRingProps) {
-  const reducedMotion = useReducedMotion()
+  const reducedMotion = useMotionPreference()
   const pct = Math.round(Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0)))
   const tone = matchTone(pct)
   const { px, stroke, text } = SIZES[size]
@@ -70,7 +71,7 @@ export function MatchRing({ value, size = 'md', showLabel = true, className }: M
               strokeDasharray={circumference}
               initial={reducedMotion ? false : { strokeDashoffset: circumference }}
               animate={{ strokeDashoffset: offset }}
-              transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: reducedMotion ? 0 : 0.9, ease: [0.22, 1, 0.36, 1] }}
               className={TONE_CLASSES[tone]}
             />
           </svg>

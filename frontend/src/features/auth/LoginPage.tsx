@@ -1,215 +1,185 @@
 import {
+  ArrowRightIcon,
+  CheckCheckIcon,
   FileTextIcon,
-  GaugeIcon,
-  ListChecksIcon,
-  ScanSearchIcon,
+  FingerprintIcon,
   SparklesIcon,
-  WaypointsIcon,
+  UsersIcon,
 } from 'lucide-react'
-import { motion, useReducedMotion } from 'motion/react'
-import { Fragment, useEffect, useState } from 'react'
+import { motion } from 'motion/react'
+import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 import { BrandLogo } from '@/components/shared/BrandLogo'
 import { TalentOSLoader } from '@/components/shared/TalentOSLoader'
-import { TalentOSLogo, TalentOSMark } from '@/components/shared/TalentOSLogo'
-import { GlassCard } from '@/features/auth/GlassCard'
-import { LoginBackdrop } from '@/features/auth/LoginBackdrop'
+import { TalentOSLogo } from '@/components/shared/TalentOSLogo'
+import { TalentOrbit } from '@/components/shared/TalentOrbit'
 import { LoginForm } from '@/features/auth/LoginForm'
 import { useAuthStore } from '@/lib/auth-store'
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import { EASE_BRAND } from '@/lib/motion'
 
 interface FromState {
   from?: { pathname?: string; search?: string }
 }
+const SIGN_IN_HOLD_MS = 900
 
-/** How long the welcome loader stays up after a successful sign-in before the app opens. */
-const SIGN_IN_HOLD_MS = 5000
-
-/** Where to go after signing in: the page RequireAuth bounced from, or the homepage (Enhancement.md 2). */
 function redirectTarget(state: unknown): string {
   const from = (state as FromState | null)?.from
   return from?.pathname ? `${from.pathname}${from.search ?? ''}` : '/'
 }
 
-function fade(delay: number, reduced: boolean | null) {
-  return {
-    initial: reduced ? false : { opacity: 0, y: 14 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.6, ease: EASE_BRAND, delay },
-  }
-}
-
-const FLOW = [
-  { icon: FileTextIcon, label: 'Résumés' },
-  { icon: SparklesIcon, label: 'AI matching' },
-  { icon: WaypointsIcon, label: 'Roles & skills' },
-]
-
-const CAPABILITIES = [
-  { icon: ScanSearchIcon, label: 'Semantic résumé search' },
-  { icon: GaugeIcon, label: 'Explainable match scores' },
-  { icon: ListChecksIcon, label: 'One timeline per hire' },
-]
-
-/** Reads the scene for people who skip it: résumés, through the matcher, out to roles. */
-function FlowLegend({ reduced }: { reduced: boolean | null }) {
-  return (
-    <div className="flex items-center gap-3">
-      {FLOW.map((step, index) => (
-        <Fragment key={step.label}>
-          <span className="inline-flex items-center gap-2 rounded-pill border border-white/10 bg-white/[0.04] px-3 py-1.5 text-small text-ink-muted backdrop-blur-sm">
-            <step.icon aria-hidden="true" className="size-4 text-accent" />
-            {step.label}
-          </span>
-          {index < FLOW.length - 1 && (
-            <span aria-hidden="true" className="relative h-px w-12 bg-white/15">
-              <motion.span
-                className="absolute -top-[2.5px] size-1.5 rounded-full bg-accent shadow-[0_0_10px_#C4D600]"
-                animate={reduced ? undefined : { x: [0, 42], opacity: [0, 1, 1, 0] }}
-                transition={{
-                  duration: 1.8,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                  delay: index * 0.9,
-                }}
-              />
-            </span>
-          )}
-        </Fragment>
-      ))}
-    </div>
-  )
-}
-
-/**
- * Public route: a full-bleed WebGL scene of résumés flowing through the
- * TalentOS matching engine, with the Buro Happold and TalentOS logos up top,
- * the pitch on the left and a frosted sign-in card on the right. Phones stack
- * the same pieces. Motion eases in on load and stops under reduced motion.
- * A successful sign-in holds on the TalentOS loader for five seconds before
- * the app opens; visitors who arrive already signed in are sent straight on.
- */
 export default function LoginPage() {
   const status = useAuthStore((state) => state.status)
   const user = useAuthStore((state) => state.user)
   const location = useLocation()
   const navigate = useNavigate()
-  const reducedMotion = useReducedMotion()
+  const reduced = useMotionPreference()
   const target = redirectTarget(location.state)
-  // Captured on mount: `authed` now but not then means the form on this page signed the visitor in.
   const [arrivedSignedIn] = useState(status === 'authed')
   const signingIn = status === 'authed' && !arrivedSignedIn
 
   useEffect(() => {
+    document.title = 'Welcome back · TalentOS'
+  }, [])
+  useEffect(() => {
     if (!signingIn) return
-    // Fetch the homepage chunk during the hold so the app opens the moment it ends.
     void import('@/features/home/HomePage')
-    const timer = window.setTimeout(() => navigate(target, { replace: true }), SIGN_IN_HOLD_MS)
+    const timer = window.setTimeout(
+      () => navigate(target, { replace: true }),
+      reduced ? 0 : SIGN_IN_HOLD_MS,
+    )
     return () => window.clearTimeout(timer)
-  }, [signingIn, navigate, target])
+  }, [signingIn, navigate, target, reduced])
 
   if (status === 'authed' && arrivedSignedIn) return <Navigate to={target} replace />
 
+  const enter = (delay: number) => ({
+    initial: reduced ? (false as const) : { opacity: 0, y: 18 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.65, ease: EASE_BRAND, delay: reduced ? 0 : delay },
+  })
+
   return (
-    <main
-      data-surface="dark"
-      className="relative min-h-dvh overflow-hidden bg-graphite text-ink selection:bg-accent selection:text-graphite"
-    >
-      <LoginBackdrop paused={signingIn} />
-
-      <div className="relative z-10 flex min-h-dvh flex-col">
-        <motion.header
-          {...fade(0, reducedMotion)}
-          className="flex items-center gap-4 px-6 pt-6 sm:gap-5 lg:px-12 lg:pt-8"
+    <main className="grid min-h-dvh bg-surface lg:grid-cols-[1.08fr_1fr]">
+      <section
+        data-surface="dark"
+        aria-label="About TalentOS"
+        className="login-showcase relative isolate flex flex-col overflow-hidden px-8 py-8 text-white max-lg:hidden xl:px-14"
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 opacity-25 [background-image:radial-gradient(#b7c8d2_1px,transparent_1px)] [background-size:28px_28px] [mask-image:linear-gradient(to_bottom,transparent,black)]"
+        />
+        <motion.div {...enter(0)} className="flex items-center gap-5">
+          <BrandLogo on="dark" className="h-11" />
+          <span className="h-8 w-px bg-white/20" />
+          <TalentOSLogo size="sm" />
+        </motion.div>
+        <motion.div {...enter(0.12)} className="mt-14 xl:mt-20">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[10px] font-medium tracking-[0.14em] text-[#dceba0] uppercase">
+            <SparklesIcon aria-hidden="true" className="size-3" /> AI-powered recruitment
+            intelligence
+          </span>
+          <h2 className="mt-6 max-w-lg text-[46px]/[1.12] font-semibold tracking-[-0.045em] xl:text-[56px]">
+            People make
+            <br />
+            the difference.
+            <br />
+            <span className="text-[#dceba0]">Find yours.</span>
+          </h2>
+          <p className="mt-5 max-w-[360px] text-[15px]/[26px] text-[#b9cdd4]">
+            A more thoughtful way to find talent. Connect skills, potential and possibility in one
+            intelligent workspace.
+          </p>
+        </motion.div>
+        <motion.div
+          {...enter(0.3)}
+          className="relative flex min-h-[320px] flex-1 items-center justify-center py-7"
         >
-          <BrandLogo variant="wordmark" on="dark" className="h-12 lg:h-14" />
-          <span aria-hidden="true" className="h-8 w-px bg-white/15" />
-          <TalentOSLogo on="dark" size="md" />
-        </motion.header>
-
-        <div className="flex flex-1 flex-col gap-8 px-6 pt-8 pb-8 lg:grid lg:grid-cols-[minmax(0,1fr)_440px] lg:grid-rows-[auto_minmax(12rem,1fr)_auto] lg:gap-x-16 lg:px-12 lg:pt-10 lg:pb-6 xl:grid-cols-[minmax(0,1fr)_460px]">
-          <section
-            aria-label="About TalentOS"
-            className="max-w-[40rem] lg:col-start-1 lg:row-start-1 [text-shadow:0_2px_28px_rgb(0_0_0/0.75)]"
+          <TalentOrbit />
+          <div
+            aria-hidden="true"
+            className="absolute top-12 left-0 rounded-2xl border border-white/15 bg-[#1d424b]/90 px-4 py-3 shadow-xl animate-bh-float"
           >
-            <motion.p
-              {...fade(0.15, reducedMotion)}
-              className="mb-3 text-caption font-medium tracking-[0.14em] text-accent uppercase"
-            >
-              Talent for the built environment
-            </motion.p>
-            <motion.h2
-              {...fade(0.25, reducedMotion)}
-              className="text-display text-white lg:text-[42px]/[48px] xl:text-[50px]/[56px]"
-            >
-              AI-powered recruitment intelligence
-            </motion.h2>
-            <motion.p
-              {...fade(0.35, reducedMotion)}
-              className="mt-4 hidden max-w-[30rem] text-[15px]/[24px] text-ink-muted sm:block lg:text-[16px]/[26px] lg:[@media(max-height:820px)]:hidden"
-            >
-              Every résumé becomes a living profile. TalentOS reads it, understands it and matches
-              it to the roles that shape tomorrow's cities, then carries every hire from first
-              contact to day one on a single timeline.
-            </motion.p>
-          </section>
-
-          <div className="hidden lg:col-start-1 lg:row-start-3 lg:block">
-            <motion.div {...fade(0.45, reducedMotion)}>
-              <FlowLegend reduced={reducedMotion} />
-            </motion.div>
-            <motion.ul
-              {...fade(0.55, reducedMotion)}
-              className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-small text-ink-muted [text-shadow:0_1px_12px_rgb(0_0_0/0.8)] [@media(max-height:820px)]:hidden"
-            >
-              {CAPABILITIES.map((item) => (
-                <li key={item.label} className="inline-flex items-center gap-2">
-                  <item.icon aria-hidden="true" className="size-4 text-accent" />
-                  {item.label}
-                </li>
-              ))}
-            </motion.ul>
+            <span className="flex items-center gap-2 text-[12px] text-white">
+              <FileTextIcon className="size-4 text-[#dceba0]" /> Every resume, understood
+            </span>
+            <span className="mt-1 block text-[10px] text-[#b9cdd4]">
+              Skills. Experience. Potential.
+            </span>
           </div>
-
-          <motion.section
-            aria-labelledby="login-heading"
-            initial={reducedMotion ? false : { opacity: 0, y: 22, scale: 0.985 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.7, ease: EASE_BRAND, delay: 0.2 }}
-            className="w-full max-w-[460px] justify-self-end lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:self-center"
+          <div
+            aria-hidden="true"
+            className="absolute right-0 bottom-12 rounded-2xl border border-white/15 bg-[#1d424b]/90 px-4 py-3 shadow-xl animate-bh-float [animation-delay:-3s]"
           >
-            <GlassCard className="p-7 sm:p-9">
-              <div className="flex items-center gap-2.5">
-                <TalentOSMark size={26} />
-                <span className="text-caption font-medium tracking-[0.14em] text-accent uppercase">
-                  Recruitment platform
-                </span>
-              </div>
-              <h1 id="login-heading" className="mt-5 text-display text-white">
-                Welcome back
-              </h1>
-              <p className="mt-1.5 text-ink-muted">Sign in to continue</p>
-              <LoginForm className="mt-8" />
-              <p className="mt-8 text-caption text-ink-subtle">
-                © 2026 Buro Happold · For authorised staff only.
-              </p>
-            </GlassCard>
-          </motion.section>
-        </div>
-
-        <motion.footer
-          {...fade(0.6, reducedMotion)}
-          className="flex flex-wrap items-center gap-x-4 gap-y-1 px-6 pb-6 text-caption text-ink-subtle lg:px-12 lg:pb-8"
+            <span className="flex items-center gap-2 text-[12px] text-white">
+              <CheckCheckIcon className="size-4 text-[#dceba0]" /> The right people. The right role.
+            </span>
+            <span className="mt-1 block text-[10px] text-[#b9cdd4]">
+              Matching with a reason behind it.
+            </span>
+          </div>
+        </motion.div>
+        <motion.div
+          {...enter(0.4)}
+          className="flex flex-wrap items-center gap-3 border-t border-white/15 pt-5 text-[11px] text-[#b9cdd4]"
         >
-          <span>© 2026 Buro Happold</span>
-          <span aria-hidden="true" className="size-1 rounded-full bg-line-strong" />
-          <span>TalentOS · Internal recruitment platform</span>
-          <span aria-hidden="true" className="hidden size-1 rounded-full bg-line-strong sm:block" />
-          <span className="hidden sm:block">Move your cursor to explore the matching engine</span>
-        </motion.footer>
-      </div>
-
-      {signingIn && (
+          <span className="flex items-center gap-2">
+            <UsersIcon className="size-3.5 text-[#dceba0]" /> Discover
+          </span>
+          <ArrowRightIcon className="size-3" />
+          <span>Connect</span>
+          <ArrowRightIcon className="size-3" />
+          <span>Hire</span>
+          <span className="ml-auto text-[#8ca8b4]">Built around people.</span>
+        </motion.div>
+      </section>
+      <section
+        className="login-form-panel flex min-h-dvh flex-col px-6 py-7 sm:px-12"
+        aria-labelledby="login-heading"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div className="lg:hidden">
+            <BrandLogo className="h-10" />
+          </div>
+          <span className="ml-auto flex items-center gap-2 rounded-full border border-line bg-surface/70 px-3 py-1.5 text-[10px] text-ink-subtle">
+            <FingerprintIcon aria-hidden="true" className="size-3.5 text-primary" /> Your secure
+            workspace
+          </span>
+        </div>
+        <motion.div
+          {...enter(0.15)}
+          className="mx-auto flex w-full max-w-[390px] flex-1 flex-col justify-center py-12"
+        >
+          <TalentOSLogo on="light" size="lg" />
+          <p className="mt-9 text-[10px] font-semibold tracking-[0.16em] text-primary uppercase">
+            Good to have you here
+          </p>
+          <h1
+            id="login-heading"
+            className="mt-3 font-heading text-[36px]/[1.2] font-bold tracking-[-0.04em] text-ink"
+          >
+            Welcome back
+          </h1>
+          <p className="mt-3 text-[14px] text-ink-muted">Sign in to continue</p>
+          <LoginForm className="mt-8" />
+          <div className="mt-8 flex items-start gap-2.5 rounded-xl bg-primary-soft/60 p-3.5">
+            <SparklesIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+            <p className="text-[11px]/[18px] text-ink-muted">
+              From the first hello to the first day.
+              <br />
+              <span className="font-medium text-primary">
+                Your entire hiring journey, beautifully connected.
+              </span>
+            </p>
+          </div>
+        </motion.div>
+        <footer className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-ink-subtle">
+          <span>© {new Date().getFullYear()} Buro Happold</span>
+          <span>For authorised staff only</span>
+        </footer>
+      </section>
+      {signingIn && !reduced && (
         <TalentOSLoader
           durationMs={SIGN_IN_HOLD_MS}
           name={user?.first_name || user?.full_name || undefined}

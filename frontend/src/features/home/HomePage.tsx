@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { WorkspaceOverview } from '@/features/home/WorkspaceOverview'
 import { CompletionMeter } from '@/features/home/CompletionMeter'
 import {
   HOME_CLEARED,
@@ -225,7 +226,7 @@ export default function HomePage() {
     const defs: ColumnDef<JobRow, unknown>[] = [
       {
         id: 'title',
-        header: 'JD',
+        header: 'Job description',
         enableSorting: true,
         meta: { className: 'min-w-64' },
         cell: ({ row }) => (
@@ -258,14 +259,14 @@ export default function HomePage() {
       },
       {
         id: 'last_activity_at',
-        header: 'Latest update time',
+        header: 'Last activity',
         enableSorting: true,
         sortDescFirst: true,
         cell: ({ row }) => <UpdatedAt value={row.original.last_activity_at} />,
       },
       {
         id: 'completion',
-        header: '% Completed',
+        header: 'Progress',
         enableSorting: false,
         meta: { className: 'w-44' },
         cell: ({ row }) => <CompletionMeter value={row.original.completion_pct} />,
@@ -407,12 +408,8 @@ export default function HomePage() {
   return (
     <>
       <PageHeader
-        title="Homepage"
-        subtitle={`${greeting()}, ${firstName}. ${
-          everyone
-            ? 'Every job description you are allowed to see, and how far each recruitment has come.'
-            : 'Your job descriptions, and how far each recruitment has come.'
-        }`}
+        title={`${greeting()}, ${firstName}`}
+        subtitle="A fresh perspective on your hiring. Let’s make your next great connection."
         breadcrumbs={[{ label: 'Homepage' }]}
         actions={
           <>
@@ -433,8 +430,27 @@ export default function HomePage() {
           </>
         }
       />
+      <WorkspaceOverview
+        facets={facets.data}
+        loading={facets.isPending}
+        failed={facets.isError}
+        canCreate={canCreate}
+      />
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-h3 font-bold text-ink">Your hiring workspace</h2>
+          <p className="mt-1 text-small text-ink-subtle">
+            {everyone
+              ? 'Every role, every update. Keep good things moving.'
+              : 'Your roles and the progress you’re making together.'}
+          </p>
+        </div>
+        <span className="rounded-full border border-line bg-surface px-3 py-1 text-caption text-ink-muted">
+          {list.isPending ? 'Loading roles…' : `${total} ${total === 1 ? 'role' : 'roles'}`}
+        </span>
+      </div>
       <div className="space-y-4">
-        {toolbar}
+        <div className="rounded-card border border-line bg-surface/75 p-4">{toolbar}</div>
         {list.isError ? (
           <ErrorState
             title="Couldn't load your job descriptions"

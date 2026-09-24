@@ -22,7 +22,7 @@ describe('app shell routing', () => {
   it('renders the dashboard with every sidebar item at /dashboard', async () => {
     renderApp('/dashboard')
 
-    // First lookup in the file pays for the lazy dashboard chunk; allow for a loaded CI box.
+    // Lazy route imports need a longer outer test budget than the 10s element lookup.
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Dashboard' }, { timeout: 10_000 }),
     ).toBeInTheDocument()
@@ -38,12 +38,16 @@ describe('app shell routing', () => {
     expect(within(nav).getByRole('link', { name: 'Candidates' })).not.toHaveAttribute(
       'aria-current',
     )
-  })
+  }, 15_000)
 
   it('renders the homepage at the root path', async () => {
     renderApp('/')
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Homepage' }, { timeout: 10_000 }),
+      await screen.findByRole(
+        'heading',
+        { level: 1, name: /Good (morning|afternoon|evening), Rahul/ },
+        { timeout: 10_000 },
+      ),
     ).toBeInTheDocument()
     const nav = screen.getByRole('navigation', { name: 'Primary' })
     expect(within(nav).getByRole('link', { name: 'Homepage' })).toHaveAttribute(
@@ -51,19 +55,23 @@ describe('app shell routing', () => {
       'page',
     )
     expect(within(nav).getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute('aria-current')
-  })
+  }, 15_000)
 
   it('marks the parent nav item active on nested routes', async () => {
     renderApp('/jobs/abc/edit')
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Edit Job Description' }),
+      await screen.findByRole(
+        'heading',
+        { level: 1, name: 'Edit Job Description' },
+        { timeout: 10_000 },
+      ),
     ).toBeInTheDocument()
     const nav = screen.getByRole('navigation', { name: 'Primary' })
     expect(within(nav).getByRole('link', { name: 'Job Descriptions' })).toHaveAttribute(
       'aria-current',
       'page',
     )
-  })
+  }, 15_000)
 
   it('renders the not-found page for unknown paths', async () => {
     renderApp('/nowhere')
@@ -93,12 +101,12 @@ describe('app shell routing', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows the signed-in user in the top bar account menu, not the sidebar', async () => {
+  it('shows the signed-in user in the sidebar and the top bar account menu', async () => {
     const user = userEvent.setup()
     renderApp('/dashboard')
     await screen.findByRole('heading', { level: 1, name: 'Dashboard' })
 
-    expect(screen.getByRole('complementary')).not.toHaveTextContent('Rahul Venkat')
+    expect(screen.getByRole('complementary')).toHaveTextContent('Rahul Venkat')
     // The top bar is the first header in the document; PageHeader renders a second one inside main.
     const [banner] = screen.getAllByRole('banner')
     expect(within(banner).getByRole('img', { name: 'Rahul Venkat' })).toBeInTheDocument()

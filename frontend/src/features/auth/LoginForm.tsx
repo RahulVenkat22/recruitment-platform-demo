@@ -1,6 +1,7 @@
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowRightIcon, CircleAlertIcon, EyeIcon, EyeOffIcon, Loader2Icon } from 'lucide-react'
-import { motion, useReducedMotion } from 'motion/react'
+import { motion } from 'motion/react'
 import { useEffect, useId, useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -42,7 +43,7 @@ function rise(index: number, reduced: boolean | null) {
 
 export function LoginForm({ className }: LoginFormProps) {
   const ids = { identifier: useId(), password: useId(), remember: useId(), error: useId() }
-  const reducedMotion = useReducedMotion()
+  const reducedMotion = useMotionPreference()
   const [showPassword, setShowPassword] = useState(false)
   const [failure, setFailure] = useState<LoginFailure | null>(null)
   const [shake, setShake] = useState(false)

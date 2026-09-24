@@ -1,3 +1,4 @@
+import { WorkflowGuide } from '@/components/shared/WorkflowGuide'
 import {
   Loader2Icon,
   MailPlusIcon,
@@ -64,11 +65,14 @@ function TemplateCard({
   onDelete: () => void
 }) {
   return (
-    <li className="flex flex-col gap-2 rounded-card border border-line bg-surface p-4 shadow-card">
+    <li className="section-reveal flex flex-col gap-3 rounded-card border border-line bg-surface p-5 shadow-card">
+      <span className="grid size-10 place-items-center rounded-xl bg-primary-soft text-primary">
+        <MailsIcon aria-hidden="true" className="size-5" />
+      </span>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-body font-medium text-ink">{template.name}</h3>
+            <h3 className="text-h3 font-semibold text-ink">{template.name}</h3>
             {template.is_default && <Badge variant="secondary">Default</Badge>}
           </div>
           <p className="mt-1 text-small text-ink">{template.subject}</p>
@@ -97,7 +101,9 @@ function TemplateCard({
           />
         )}
       </div>
-      <p className="line-clamp-5 text-small whitespace-pre-line text-ink-muted">{template.body}</p>
+      <p className="line-clamp-5 rounded-xl bg-surface-2/70 p-4 text-small leading-6 whitespace-pre-line text-ink-muted">
+        {template.body}
+      </p>
       <p className="mt-auto text-caption text-ink-subtle">
         Updated {formatRelative(template.updated_at)}
       </p>
@@ -285,6 +291,23 @@ export default function EmailTemplatesPage() {
             </Button>
           ) : undefined
         }
+      />
+      <WorkflowGuide
+        label="Thoughtful outreach, made simple"
+        steps={[
+          {
+            title: 'Write with a head start',
+            description: 'Start with your words or draft a message with AI.',
+          },
+          {
+            title: 'Make every hello personal',
+            description: 'Placeholders adapt your message to each candidate.',
+          },
+          {
+            title: 'Keep your team in sync',
+            description: 'Share reusable templates across your workspace.',
+          },
+        ]}
       />
       {list.isPending ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

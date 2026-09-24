@@ -1,33 +1,29 @@
-/*
- * Chart colours for the dashboard. Every value below was checked with the
- * data-viz palette validator on the white card surface rather than by eye:
- * the categorical order clears the colour-vision-deficiency and normal-vision
- * separation floors with every slot at 3:1 or better, and the ordinal ramp
- * reads light-to-dark in one hue with visible steps.
+/* Dashboard palette: teal-led categories and a sequential teal ramp.
+ * Direct labels, legends and the table view keep values available beyond colour.
  */
 
 /** Chart chrome as hex (SVG attributes cannot read the CSS tokens in index.css). */
 export const CHART_INK = {
   surface: '#ffffff',
-  grid: '#e1e1db',
-  baseline: '#b7b7ae',
-  axis: '#5d615c',
+  grid: '#e7edf2',
+  baseline: '#a5b4c2',
+  axis: '#5f7184',
 } as const
 
 /**
- * Categorical theme, fixed order: brand olive first, then indigo, amber, blue and
+ * Categorical theme, fixed order: brand teal first, then indigo, amber, blue and
  * rose. Series take slots in sequence and keep them; nothing is cycled past five.
  */
-export const SERIES = ['#6b7500', '#3f3fb5', '#b7791f', '#1d4ed8', '#b42318'] as const
+export const SERIES = ['#11796c', '#6874be', '#b7791f', '#3988b1', '#b65779'] as const
 
-/** Ordinal lime ramp, light to dark, for ordered pipeline stages. */
+/** Ordinal teal ramp, light to dark, for ordered pipeline stages. */
 export const ORDINAL_RAMP = [
-  '#abac0c',
-  '#949507',
-  '#7e7f03',
-  '#696900',
-  '#545400',
-  '#404005',
+  '#69a89b',
+  '#489784',
+  '#2a8574',
+  '#177260',
+  '#135e52',
+  '#124c44',
 ] as const
 
 /** Funnel stage -> ramp step; the per-role bars use the same steps for the same stages. */
@@ -57,12 +53,12 @@ export const OUTCOME_COLORS: Record<string, string> = {
 export const SPARK = SERIES[0]
 
 /**
- * Sequential lime ramp for the activity heatmap, quiet to busy; empty cells take
+ * Sequential teal ramp for the activity heatmap, quiet to busy; empty cells take
  * the surface. Lightness falls monotonically through the steps, and every cell
  * carries its value in a hover readout and the table twin, as the pale steps
  * sit under 3:1 against the card.
  */
-export const HEAT_RAMP = ['#f3f7d2', '#dde48a', '#c4d600', '#8fa000', '#6b7500'] as const
+export const HEAT_RAMP = ['#eaf4ef', '#c4e2d4', '#8cc5ae', '#419b81', '#176e5c'] as const
 
 /** Offer statuses are states: blue in flight, amber negotiating, green won, red lost, grey closed. */
 export const OFFER_COLORS: Record<string, string> = {

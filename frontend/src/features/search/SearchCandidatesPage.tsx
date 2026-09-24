@@ -1,3 +1,5 @@
+import { WorkflowGuide } from '@/components/shared/WorkflowGuide'
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import {
   BriefcaseIcon,
   CheckIcon,
@@ -15,7 +17,7 @@ import {
   UserSearchIcon,
   type LucideIcon,
 } from 'lucide-react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
@@ -212,7 +214,7 @@ export default function SearchCandidatesPage() {
   const pageSize = useUiStore((s) => s.pageSize)
   const setPageSize = useUiStore((s) => s.setPageSize)
   const mobile = useIsMobile()
-  const reducedMotion = useReducedMotion()
+  const reducedMotion = useMotionPreference()
   const jobs = useJobList({ page_size: 100, ordering: 'title' })
   const job = useJob(state.jd || undefined)
   const runs = useSearchRuns(state.jd || undefined)
@@ -663,6 +665,23 @@ export default function SearchCandidatesPage() {
         breadcrumbs={[{ label: 'Search Candidates' }]}
       />
 
+      <WorkflowGuide
+        label="How AI matching works"
+        steps={[
+          {
+            title: '01 · Define the opportunity',
+            description: 'Choose a role and its requirements.',
+          },
+          {
+            title: '02 · Let intelligence connect',
+            description: 'Search your selected talent sources.',
+          },
+          {
+            title: '03 · Meet your best matches',
+            description: 'Review ranked profiles and the reasons behind them.',
+          },
+        ]}
+      />
       <div className="space-y-5">
         <section
           aria-labelledby="search-panel-heading"

@@ -42,7 +42,7 @@ export function ChartCard({
       aria-busy={busy || undefined}
       data-slot="chart-card"
       className={cn(
-        'flex min-w-0 flex-col rounded-card border border-line bg-surface p-5 shadow-card',
+        'section-reveal flex min-w-0 flex-col rounded-card border border-line bg-surface p-5 shadow-card',
         className,
       )}
     >
@@ -89,7 +89,9 @@ export function ChartCard({
           bodyClassName,
         )}
       >
-        {showTable && table ? table : children}
+        <div key={showTable ? 'table' : 'chart'} className="section-reveal">
+          {showTable && table ? table : children}
+        </div>
       </div>
     </section>
   )
