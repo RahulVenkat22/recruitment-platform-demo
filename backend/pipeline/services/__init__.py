@@ -3,6 +3,7 @@ offers and onboardings. ``PipelineService.transition`` is the only writer of
 ``Application.status``; the domain services call it for their side effects."""
 
 from pipeline.services.calls import CallService
+from pipeline.services.chat import SearchChatService
 from pipeline.services.communications import CommunicationService
 from pipeline.services.interviews import ROUND_STATUS, InterviewService
 from pipeline.services.kanban import Board, BoardColumn, KanbanService
@@ -38,6 +39,7 @@ __all__ = [
     "PURPOSES",
     "TONES",
     "PipelineService",
+    "SearchChatService",
     "allowed_moves",
     "checklist_progress",
     "draft_email",

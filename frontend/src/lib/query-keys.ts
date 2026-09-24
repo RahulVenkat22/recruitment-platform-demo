@@ -45,6 +45,7 @@ export const qk = {
     byJob: (jobId: string) => ['searches', 'byJob', jobId] as const,
     live: () => ['searches', 'live'] as const,
     detail: (id: string) => ['searches', 'detail', id] as const,
+    chat: (id: string) => ['searches', 'chat', id] as const,
   },
   candidates: {
     all: ['candidates'] as const,

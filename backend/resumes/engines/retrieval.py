@@ -73,10 +73,15 @@ def _excerpt(content: str) -> str:
     return body[:EXCERPT_CHARS] + ("…" if len(body) > EXCERPT_CHARS else "")
 
 
-def nearest_chunks(vector: list[float], *, limit: int, candidate_id=None) -> list[ChunkHit]:
+def nearest_chunks(
+    vector: list[float], *, limit: int, candidate_id=None, candidate_ids=None
+) -> list[ChunkHit]:
+    """The chunks closest to ``vector``, optionally within one candidate or a set of them."""
     qs = ResumeChunk.objects.filter(document__status=ResumeStatus.PARSED)
     if candidate_id is not None:
         qs = qs.filter(candidate_id=candidate_id)
+    if candidate_ids is not None:
+        qs = qs.filter(candidate_id__in=list(candidate_ids))
     rows = (
         qs.annotate(distance=CosineDistance("embedding", vector))
         .order_by("distance")
@@ -174,6 +179,12 @@ def evidence_for(
 def has_resume_chunks(candidate_id) -> bool:
     return ResumeChunk.objects.filter(
         candidate_id=candidate_id, document__status=ResumeStatus.PARSED
+    ).exists()
+
+
+def any_resume_chunks(candidate_ids) -> bool:
+    return ResumeChunk.objects.filter(
+        candidate_id__in=list(candidate_ids), document__status=ResumeStatus.PARSED
     ).exists()
 
 

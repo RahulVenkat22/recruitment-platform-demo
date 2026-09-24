@@ -1,5 +1,6 @@
 """Routes owned by the pipeline app: ``sources/``, ``searches/``, ``applications/``,
-``interviews/``, ``communications/``, ``offers/``, ``onboardings/`` (plan.md 6.10)."""
+``interviews/``, ``communications/``, ``offers/``, ``onboardings/`` (plan.md 6.10), plus
+``searches/{id}/chat/``, the streamed conversation about one search's results."""
 
 from django.urls import path
 from rest_framework.routers import SimpleRouter
@@ -13,6 +14,7 @@ from pipeline.views import (
     OfferViewSet,
     OnboardingViewSet,
     PhoneCallViewSet,
+    SearchChatView,
     SearchRunViewSet,
     SourcesView,
     VapiWebhookView,
@@ -32,5 +34,6 @@ urlpatterns = [
     path("sources/", SourcesView.as_view(), name="sources"),
     path("email/", EmailConfigView.as_view(), name="email-config"),
     path("calls/webhook/vapi/", VapiWebhookView.as_view(), name="vapi-webhook"),
+    path("searches/<uuid:pk>/chat/", SearchChatView.as_view(), name="search-chat"),
     *router.urls,
 ]

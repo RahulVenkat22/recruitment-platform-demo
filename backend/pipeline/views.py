@@ -6,6 +6,7 @@ from dataclasses import asdict
 from typing import Any
 
 from django.db.models import Q, QuerySet
+from django.http import StreamingHttpResponse
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiResponse,
@@ -14,8 +15,9 @@ from drf_spectacular.utils import (
 )
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.permissions import SAFE_METHODS, AllowAny, IsAuthenticated
+from rest_framework.renderers import JSONRenderer
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -90,6 +92,8 @@ from pipeline.serializers import (
     PhoneCallCreateSerializer,
     PhoneCallSerializer,
     ProviderHealthSerializer,
+    SearchChatAskSerializer,
+    SearchChatThreadSerializer,
     SearchRequestSerializer,
     SearchResponseSerializer,
     SearchRunSerializer,
@@ -106,6 +110,7 @@ from pipeline.services import (
     OnboardingService,
     OutreachService,
     PipelineService,
+    SearchChatService,
     allowed_moves,
     draft_email,
     email_config,
@@ -221,6 +226,87 @@ class SearchRunViewSet(
         if not can_run_search(request.user, run.job_description):
             raise PermissionDenied("You cannot cancel searches for this job description.")
         SearchService.cancel(run)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class EventStreamRenderer(JSONRenderer):
+    """Lets a client that accepts only ``text/event-stream`` reach the chat view: the
+    answer itself is a ``StreamingHttpResponse`` that never goes through a renderer,
+    and anything else (an error envelope) is still written as JSON."""
+
+    media_type = "text/event-stream"
+    format = "event-stream"
+
+
+class SearchChatView(APIView):
+    """``/searches/{id}/chat/``: a conversation about one search's results, private to the
+    user asking. ``GET`` the thread, ``POST`` a question (the answer streams back as
+    server-sent events), ``DELETE`` to start over."""
+
+    permission_classes = [IsAuthenticated]
+    renderer_classes = [JSONRenderer, EventStreamRenderer]
+
+    def _run(self, request: Request, pk: str) -> SearchRun:
+        visible = visible_job_descriptions_for(request.user).values("pk")
+        run = (
+            SearchRun.objects.filter(pk=pk, job_description_id__in=visible)
+            .select_related("job_description", "requested_by")
+            .first()
+        )
+        if run is None:
+            raise NotFound("Search not found.")
+        return run
+
+    @extend_schema(
+        operation_id="searches_chat_retrieve",
+        summary="The conversation about this search's results",
+        responses={200: SearchChatThreadSerializer, 404: ERROR_ENVELOPE},
+        tags=["searches"],
+    )
+    def get(self, request: Request, pk: str) -> Response:
+        run = self._run(request, pk)
+        thread = SearchChatService.thread(run, request.user)
+        return Response(SearchChatThreadSerializer(thread, context={"request": request}).data)
+
+    @extend_schema(
+        operation_id="searches_chat_ask",
+        summary="Ask about the results; the answer streams back",
+        description=(
+            "Answers only from this search's results. The response is `text/event-stream`: "
+            "`context` (the candidates the answer is grounded in), `token` events carrying "
+            "the text as it is written, then `done` with the stored question and answer, or "
+            "`error` with a message. A question that fails is not kept."
+        ),
+        request=SearchChatAskSerializer,
+        responses={
+            200: OpenApiResponse(description="text/event-stream of context, token, done or error"),
+            400: ERROR_ENVELOPE,
+            404: ERROR_ENVELOPE,
+            409: ERROR_ENVELOPE,
+            503: ERROR_ENVELOPE,
+        },
+        tags=["searches"],
+    )
+    def post(self, request: Request, pk: str) -> StreamingHttpResponse:
+        run = self._run(request, pk)
+        serializer = SearchChatAskSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        stream = SearchChatService.ask(run, request.user, serializer.validated_data["message"])
+        response = StreamingHttpResponse(stream, content_type="text/event-stream; charset=utf-8")
+        response["Cache-Control"] = "no-cache"
+        # nginx would otherwise hold the whole answer back until the stream closes.
+        response["X-Accel-Buffering"] = "no"
+        return response
+
+    @extend_schema(
+        operation_id="searches_chat_clear",
+        summary="Forget this conversation",
+        responses={204: None, 404: ERROR_ENVELOPE},
+        tags=["searches"],
+    )
+    def delete(self, request: Request, pk: str) -> Response:
+        run = self._run(request, pk)
+        SearchChatService.clear(run, request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
