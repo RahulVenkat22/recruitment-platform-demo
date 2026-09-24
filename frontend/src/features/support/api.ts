@@ -94,11 +94,27 @@ function useInvalidateSupport() {
   }
 }
 
+type TicketBody = Omit<TicketCreateRequest, 'attachments'>
+
+/** Files only travel as multipart; without any, the body goes as JSON as before. */
+function withFiles(
+  body: Record<string, unknown>,
+  attachments: readonly File[],
+): FormData | Record<string, unknown> {
+  if (attachments.length === 0) return body
+  const form = new FormData()
+  for (const [key, value] of Object.entries(body)) {
+    form.append(key, value === null || value === undefined ? '' : String(value))
+  }
+  for (const file of attachments) form.append('attachments', file, file.name)
+  return form
+}
+
 export function useCreateTicket() {
   const invalidate = useInvalidateSupport()
   return useMutation({
-    mutationFn: async (body: TicketCreateRequest) => {
-      const { data } = await api.post<TicketDetail>(endpoints.tickets, body)
+    mutationFn: async ({ body, attachments = [] }: { body: TicketBody; attachments?: File[] }) => {
+      const { data } = await api.post<TicketDetail>(endpoints.tickets, withFiles(body, attachments))
       return data
     },
     onSuccess: (ticket) => invalidate(ticket),
@@ -119,10 +135,19 @@ export function useUpdateTicket() {
 export function useCommentTicket() {
   const invalidate = useInvalidateSupport()
   return useMutation({
-    mutationFn: async ({ id, message }: { id: string; message: string }) => {
-      const { data } = await api.post<TicketDetail>(endpoints.ticketAction(id, 'comments'), {
-        message,
-      })
+    mutationFn: async ({
+      id,
+      message,
+      attachments = [],
+    }: {
+      id: string
+      message: string
+      attachments?: File[]
+    }) => {
+      const { data } = await api.post<TicketDetail>(
+        endpoints.ticketAction(id, 'comments'),
+        withFiles({ message }, attachments),
+      )
       return data
     },
     onSuccess: (ticket) => invalidate(ticket),

@@ -83,6 +83,19 @@ export async function runSearch(jobId: string, sources: string[]): Promise<Searc
   return data
 }
 
+/** The newest run that is still going, on any job description the viewer can see. */
+export async function fetchLiveSearchRun(): Promise<SearchRun | null> {
+  const { data } = await api.get<Paginated<SearchRun>>(endpoints.searches, {
+    params: { page_size: 10 },
+  })
+  return data.results.find((run) => !isRunFinished(run)) ?? null
+}
+
+/** Stops a running search and removes it (``DELETE /searches/{id}/``). */
+export async function cancelSearch(id: string): Promise<void> {
+  await api.delete(endpoints.search(id))
+}
+
 export async function fetchApplications(
   params: ApplicationListParams,
 ): Promise<Paginated<ApplicationRow>> {
@@ -157,6 +170,16 @@ export function useSources() {
   return useQuery({ queryKey: qk.sources.health(), queryFn: fetchSources, staleTime: 60_000 })
 }
 
+/** Lets the search page pick a running search back up when it opens without a job description. */
+export function useLiveSearchRun(enabled: boolean) {
+  return useQuery({
+    queryKey: qk.searches.live(),
+    queryFn: fetchLiveSearchRun,
+    enabled,
+    staleTime: 0,
+  })
+}
+
 export function useSearchRuns(jobId: string | undefined) {
   return useQuery({
     queryKey: qk.searches.byJob(jobId ?? ''),
@@ -165,17 +188,12 @@ export function useSearchRuns(jobId: string | undefined) {
   })
 }
 
-export function useApplications(
-  params: ApplicationListParams,
-  enabled = true,
-  options: { refetchInterval?: number | false } = {},
-) {
+export function useApplications(params: ApplicationListParams, enabled = true) {
   return useQuery({
     queryKey: qk.applications.list(toQuery(params)),
     queryFn: () => fetchApplications(params),
     placeholderData: keepPreviousData,
     enabled,
-    refetchInterval: options.refetchInterval ?? false,
   })
 }
 
@@ -254,6 +272,14 @@ export function useRunSearch() {
   return useMutation({
     mutationFn: ({ jobId, sources }: { jobId: string; sources: string[] }) =>
       runSearch(jobId, sources),
+    onSuccess: (_result, { jobId }) => invalidate(jobId),
+  })
+}
+
+export function useCancelSearch() {
+  const invalidate = useInvalidatePipeline()
+  return useMutation({
+    mutationFn: ({ id }: { id: string; jobId: string }) => cancelSearch(id),
     onSuccess: (_result, { jobId }) => invalidate(jobId),
   })
 }

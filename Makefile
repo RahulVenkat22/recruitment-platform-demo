@@ -54,7 +54,7 @@ ENVFILE   := $(ROOT)/.env
 LOAD_ENV  := __env_snapshot="$$(export -p)"; set -a; if [ -f "$(ENVFILE)" ]; then . "$(ENVFILE)"; fi; set +a; eval "$$__env_snapshot" 2>/dev/null || true
 
 # Demo accounts (plan.md section 18).
-DEMO_ACCOUNTS := rahul priya karthik anitha arun divya suresh nisha vikram lakshmi
+DEMO_ACCOUNTS := rahul priya karthik anitha arun divya suresh nisha vikram lakshmi meera arjun
 DEMO_PASSWORD := Demo@1234
 
 # ------------------------------------------------------------------ colours --
@@ -240,6 +240,7 @@ demo: docker-up ## docker-up, then migrate + seed inside the api container and p
 	@printf '  Password  $(DEMO_PASSWORD) for every account\n'
 	@printf '  Accounts  '; for u in $(DEMO_ACCOUNTS); do printf '%s@aimious.demo ' "$$u"; done; printf '\n'
 	@printf '  Admin     rahul@aimious.demo (HR Manager)\n'
+	@printf '  Support   meera@aimious.demo, arjun@aimious.demo (Admin: assign and work tickets)\n'
 
 # =============================================================================
 # Housekeeping

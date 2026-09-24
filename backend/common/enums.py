@@ -19,13 +19,13 @@ class ApplicationStatus(models.TextChoices):
 
     NEW = "new", "New"
     AI_SHORTLISTED = "ai_shortlisted", "AI Shortlisted"
-    HR_REVIEW = "hr_review", "HR Review"
+    HR_REVIEW = "hr_review", "TA Review"
     CONTACT_PENDING = "contact_pending", "Contact Pending"
     CONTACTED = "contacted", "Contacted"
     PHONE_SCREENING = "phone_screening", "Phone Screening"
     INTERVIEW_SCHEDULED = "interview_scheduled", "Interview Scheduled"
     TECHNICAL_INTERVIEW = "technical_interview", "Technical Interview"
-    HR_INTERVIEW = "hr_interview", "HR Interview"
+    HR_INTERVIEW = "hr_interview", "TA Interview"
     FINAL_INTERVIEW = "final_interview", "Final Interview"
     SELECTED = "selected", "Selected"
     OFFER_SENT = "offer_sent", "Offer Sent"
@@ -179,6 +179,8 @@ class UserRole(models.TextChoices):
     HR = "hr", "HR"
     INTERVIEWER = "interviewer", "Interviewer"
     EMPLOYEE = "employee", "Employee"
+    # Runs the support desk: sees every ticket, assigns and works them. Everywhere else an employee.
+    ADMIN = "admin", "Admin"
 
 
 class ParticipantRole(models.TextChoices):
@@ -235,7 +237,7 @@ class InterviewRound(models.TextChoices):
     TECHNICAL = "technical", "Technical"
     SYSTEM_DESIGN = "system_design", "System Design"
     MANAGERIAL = "managerial", "Managerial"
-    HR = "hr", "HR"
+    HR = "hr", "TA"
     FINAL = "final", "Final"
 
 

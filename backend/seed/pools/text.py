@@ -595,7 +595,7 @@ APPLICATION_ACTIVITY_DESCRIPTIONS: dict[str, ActivityText] = {
     ),
     "application.shortlisted": ActivityText(
         "{actor} shortlisted {names}.",
-        "Moved to HR Review for recruiter outreach.",
+        "Moved to TA Review for recruiter outreach.",
     ),
     "application.status_changed": ActivityText(
         "{actor} moved {candidate} from {from_status} to {to_status}.",

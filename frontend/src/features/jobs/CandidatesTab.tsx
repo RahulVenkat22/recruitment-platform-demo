@@ -1,6 +1,7 @@
 import { SearchIcon, SearchXIcon, UserSearchIcon, UsersIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { ClearFiltersButton } from '@/components/shared/ClearFiltersButton'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { FilterChips } from '@/components/shared/FilterChips'
@@ -75,6 +76,11 @@ export function CandidatesTab({ job }: { job: JobDetail }) {
   const view = mobile ? 'cards' : state.cview
   const canWork = job.permissions.can_work_pipeline
 
+  function clearFilters() {
+    setDraft('')
+    setState({ cmetric: 'total_found', csource: [], cq: '', cpage: 1 })
+  }
+
   const toolbar = (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
@@ -129,6 +135,7 @@ export function CandidatesTab({ job }: { job: JobDetail }) {
           selected={state.csource}
           onChange={(csource) => setState({ csource, cpage: 1 })}
         />
+        <ClearFiltersButton active={filtered} onClick={clearFilters} />
         <Select value={state.csort} onValueChange={(csort) => setState({ csort, cpage: 1 })}>
           <SelectTrigger size="sm" aria-label="Sort" className="bg-surface">
             <span className="text-ink-subtle">Sort:</span>
@@ -167,14 +174,7 @@ export function CandidatesTab({ job }: { job: JobDetail }) {
       icon={SearchXIcon}
       title="No candidates match these filters"
       action={
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            setDraft('')
-            setState({ cmetric: 'total_found', csource: [], cq: '', cpage: 1 })
-          }}
-        >
+        <Button type="button" variant="outline" onClick={clearFilters}>
           Clear filters
         </Button>
       }

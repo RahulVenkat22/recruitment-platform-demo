@@ -75,9 +75,9 @@ def test_package_exports_every_pool_module():
 
 
 def test_ten_users_with_unique_lowercase_demo_emails():
-    assert len(users.USERS) == 10
+    assert len(users.USERS) == 12
     emails = [user.email for user in users.USERS]
-    assert len(set(emails)) == 10
+    assert len(set(emails)) == 12
     for user in users.USERS:
         assert user.email == f"{user.first_name.lower()}@aimious.demo"
         assert users.USERS_BY_EMAIL[user.email] is user
@@ -105,6 +105,8 @@ def test_users_match_plan_section_10_table():
         "nisha@aimious.demo": ("Nisha Patel", "interviewer", "DevOps Lead", "Platform"),
         "vikram@aimious.demo": ("Vikram Shah", "employee", "Product Manager", "Product"),
         "lakshmi@aimious.demo": ("Lakshmi Narayanan", "employee", "Frontend Lead", "Engineering"),
+        "meera@aimious.demo": ("Meera Nair", "admin", "IT Support Lead", "IT Support"),
+        "arjun@aimious.demo": ("Arjun Pillai", "admin", "Support Engineer", "IT Support"),
     }
     assert {user.email for user in users.USERS} == set(expected)
     for user in users.USERS:
@@ -127,8 +129,8 @@ def test_user_avatars_are_distinct_randomuser_portraits_except_vikram():
         folder = "men" if user.gender == "male" else "women"
         assert match.group(1) == folder
         indexes.append(int(match.group(2)))
-    assert len(indexes) == 9
-    assert len(set(indexes)) == 9
+    assert len(indexes) == 11
+    assert len(set(indexes)) == 11
 
 
 def test_password_constant():

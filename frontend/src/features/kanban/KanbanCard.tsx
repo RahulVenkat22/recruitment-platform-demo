@@ -1,4 +1,4 @@
-import { useDraggable } from '@dnd-kit/core'
+import { useDraggable, type DraggableSyntheticListeners } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { ClockIcon, GripVerticalIcon } from 'lucide-react'
 import type { CSSProperties, ReactNode } from 'react'
@@ -26,6 +26,8 @@ export interface KanbanCardProps {
 
 interface CardBodyProps extends KanbanCardProps {
   dragHandle?: ReactNode
+  /** Pointer listeners from useDraggable; spread on the card so it can be picked up anywhere. */
+  dragListeners?: DraggableSyntheticListeners
   dragging?: boolean
   setNodeRef?: (node: HTMLElement | null) => void
   style?: CSSProperties
@@ -37,6 +39,7 @@ function CardBody({
   overlay = false,
   className,
   dragHandle,
+  dragListeners,
   dragging = false,
   setNodeRef,
   style,
@@ -53,10 +56,12 @@ function CardBody({
       data-status={card.status}
       data-candidate={card.candidate.full_name}
       style={style}
+      {...dragListeners}
       className={cn(
         'group/card relative rounded-card border border-line bg-surface p-3 shadow-card transition-[box-shadow,opacity]',
+        dragListeners && 'cursor-grab',
         dragging && 'opacity-30',
-        overlay && 'rotate-2 shadow-card-hover ring-2 ring-primary/30',
+        overlay && 'rotate-2 cursor-grabbing shadow-card-hover ring-2 ring-primary/30',
         className,
       )}
     >
@@ -125,23 +130,26 @@ function CardBody({
   )
 }
 
-/** The draggable card in a column; registers with the DndContext and renders the grip. */
+/**
+ * The draggable card in a column: the whole card is the pointer drag surface
+ * (clicks still reach the name and the menu thanks to the sensor's distance
+ * constraint), and the grip is the keyboard handle and focus target.
+ */
 function DraggableCard(props: KanbanCardProps) {
   const { card, draggable = true } = props
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: card.id,
-    data: { card },
-    disabled: !draggable,
-  })
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } =
+    useDraggable({ id: card.id, data: { card }, disabled: !draggable })
   return (
     <CardBody
       {...props}
       setNodeRef={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform) }}
       dragging={isDragging}
+      dragListeners={draggable ? listeners : undefined}
       dragHandle={
         draggable ? (
           <button
+            ref={setActivatorNodeRef}
             type="button"
             aria-label={`Drag ${card.candidate.full_name}`}
             className="-ml-1 mt-1 inline-flex size-5 shrink-0 cursor-grab touch-none items-center justify-center rounded-control text-ink-subtle opacity-60 hover:bg-surface-2 hover:text-ink focus-visible:opacity-100 group-hover/card:opacity-100 active:cursor-grabbing"

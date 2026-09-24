@@ -4,6 +4,7 @@ people involved through ``notifications.services.notify_all``."""
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime
 from typing import Any
 
@@ -21,11 +22,11 @@ from common.enums import (
 )
 from notifications.services import notify_all
 from support.exceptions import InvalidTicketMove
-from support.models import Ticket, TicketEvent
+from support.models import Ticket, TicketAttachment, TicketEvent
 from support.permissions import allowed_moves, note_required
 
 # Roles that make up the support team; they hear about every new ticket.
-AGENT_ROLES: tuple[str, ...] = (UserRole.HR_ADMIN,)
+AGENT_ROLES: tuple[str, ...] = (UserRole.ADMIN,)
 NUMBER_SEQUENCE = "support_ticket_number_seq"
 NUMBER_PREFIX = "SUP"
 PREVIEW_CHARS = 140
@@ -112,6 +113,20 @@ def _event(
     return row
 
 
+def _attach(ticket: Ticket, event: TicketEvent | None, files: Iterable[Any], actor: Any) -> None:
+    """Store the uploaded images and videos against the ticket, or the comment they came with."""
+    for upload in files:
+        TicketAttachment.objects.create(
+            ticket=ticket,
+            event=event,
+            uploaded_by=actor if getattr(actor, "pk", None) else None,
+            file=upload,
+            name=upload.name[:255],
+            content_type=upload.content_type or "",
+            size=upload.size,
+        )
+
+
 def _watchers(ticket: Ticket) -> list[Any]:
     """Who hears about a change: the requester, the assignee, and the support
     team while nobody has picked the ticket up."""
@@ -132,11 +147,12 @@ class TicketService:
         category: str = TicketCategory.OTHER,
         priority: str = TicketPriority.MEDIUM,
         job_description: Any = None,
+        attachments: Iterable[Any] = (),
         occurred_at: datetime | None = None,
         notify: bool = True,
     ) -> Ticket:
-        """``POST /support/tickets``: a new ticket with a fresh number, an
-        opening timeline entry, and a heads-up to the support team."""
+        """``POST /support/tickets``: a new ticket with a fresh number, its
+        attachments, an opening timeline entry, and a heads-up to the support team."""
         ticket = Ticket.objects.create(
             number=next_number(),
             subject=subject.strip(),
@@ -156,6 +172,7 @@ class TicketService:
             metadata={"priority": str(priority), "category": str(category)},
             when=occurred_at,
         )
+        _attach(ticket, None, attachments, requester)
         if notify:
             notify_all(
                 agents(),
@@ -296,10 +313,11 @@ class TicketService:
         actor: Any,
         message: str,
         *,
+        attachments: Iterable[Any] = (),
         occurred_at: datetime | None = None,
         notify: bool = True,
     ) -> TicketEvent:
-        """``POST /support/tickets/{id}/comments``."""
+        """``POST /support/tickets/{id}/comments``: the message and any images or videos with it."""
         if str(ticket.status) == TicketStatus.CLOSED:
             raise InvalidTicketMove("The ticket is closed; reopen it to add to the conversation.")
         row = _event(
@@ -310,6 +328,7 @@ class TicketService:
             message=message.strip(),
             when=occurred_at,
         )
+        _attach(ticket, row, attachments, actor)
         if notify:
             notify_all(
                 _watchers(ticket),

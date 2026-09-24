@@ -192,9 +192,12 @@ export type SearchRunStatus = Schemas['SearchRunStatusEnum']
 export type SearchRunPhase =
   'queued' | 'analysing' | 'retrieving' | 'scoring' | 'evaluating' | 'finalising' | 'done'
 
-/** `SearchRun.progress`: the live line the loader shows, with a counter when there is one. */
+/** `SearchRun.progress`: the live line the loader shows, how far along the run is, and a counter when there is one. */
 export interface SearchProgress {
   message?: string
+  /** 0 to 100 across the whole run. */
+  percent?: number
+  /** Items already finished in the current phase. */
   current?: number
   total?: number
 }
@@ -350,6 +353,16 @@ export type InterviewInsights = Schemas['InterviewInsights']
 export type InterviewerLoad = Schemas['InterviewerLoad']
 export type AttentionCounts = Schemas['AttentionCounts']
 export type TeamMember = Schemas['TeamMember']
+export type DashboardInsights = Schemas['DashboardInsights']
+export type InsightStage = Schemas['InsightStage']
+export type MatchInsight = Schemas['MatchInsight']
+export type SkillDemand = Schemas['SkillDemand']
+export type DepartmentInsight = Schemas['DepartmentInsight']
+export type OutreachInsight = Schemas['OutreachInsight']
+export type OffersInsight = Schemas['OffersInsight']
+export type SearchStats = Schemas['SearchStats']
+export type DashboardDetails = Schemas['DashboardDetails']
+export type DetailItem = Schemas['DetailItem']
 
 // ------------------------------------------------------------------ support tickets
 
@@ -367,3 +380,4 @@ export type TicketAssignRequest = Schemas['TicketAssignRequest']
 export type TicketSummary = Schemas['TicketSummary']
 export type TicketCategory = Schemas['TicketCategoryEnum']
 export type TicketEventKind = Schemas['TicketEventKindEnum']
+export type TicketAttachment = Schemas['TicketAttachment']

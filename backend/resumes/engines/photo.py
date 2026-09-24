@@ -1,33 +1,29 @@
-"""The candidate's photo, cut out of the resume PDF (no model call).
+"""The candidate's photo, cut out of the first page of the resume (no model call).
 
-A resume that carries a photo puts it on the first page, near the top, as the
-largest roughly square image; around it sit the contact icons (tiny), logos and
-decorative bars (very wide or very tall) and, on modern templates, a QR code
-(square, but two colours). ``candidate_photo`` picks the largest image that
-passes those shape checks and has the colour depth of a photograph, then
-renders that area of the page rather than decoding the image object, so a
-round-cropped or masked photo comes out exactly as it appears, whatever the
-PDF's image encoding. A scanned resume is one page-sized image and yields
-nothing: there is no face to cut out without detection.
+The upper part of the page is rendered and a face detector (OpenCV's YuNet, the
+small ONNX model beside this file) run over it; the largest face found is cut out
+with some headroom, so the result is the headshot as it appears on the page
+whatever the PDF did with it: an embedded image, a round mask, a vector frame or
+a scan. Logos, badges and QR codes have no face, and most resumes have no photo
+at all and yield nothing.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
+import cv2
+import numpy
 import pymupdf
 from django.conf import settings
 
-# Points: contact icons are 8-20, photos 60-150.
-MIN_SIDE_PT = 56
-# Of the page area: bigger is a background or a scan.
-MAX_AREA_SHARE = 0.35
-# The photo sits in the upper half of the first page.
-TOP_SHARE = 0.5
-ASPECT_RANGE = (0.5, 2.0)
-# Distinct colours in the rendered cut: a QR code has two, a flat logo a few dozen,
-# a photograph thousands (a black-and-white one still a couple of hundred).
-MIN_COLORS = 128
+MODEL = Path(__file__).with_name("yunet.onnx")
+RENDER_DPI = 110
+# The photo sits in the upper part of the first page.
+TOP_SHARE = 0.6
+MIN_SCORE = 0.8
+# The cut is square, this many face widths across, so hair and shoulders come along.
+HEADROOM = 1.9
 PHOTO_PX = 256
 
 
@@ -37,25 +33,29 @@ def candidate_photo(path: str | Path) -> bytes | None:
         if document.page_count == 0:
             return None
         page = document[0]
-        rects = []
-        for info in page.get_image_info():
-            rect = pymupdf.Rect(info["bbox"]) & page.rect
-            if rect.is_empty or min(rect.width, rect.height) < MIN_SIDE_PT:
-                continue
-            if (
-                abs(rect) > MAX_AREA_SHARE * abs(page.rect)
-                or rect.y0 > TOP_SHARE * page.rect.height
-            ):
-                continue
-            if not ASPECT_RANGE[0] <= rect.width / rect.height <= ASPECT_RANGE[1]:
-                continue
-            rects.append(rect)
-        for rect in sorted(rects, key=abs, reverse=True):
-            zoom = PHOTO_PX / max(rect.width, rect.height)
-            pix = page.get_pixmap(clip=rect, matrix=pymupdf.Matrix(zoom, zoom), alpha=False)
-            if pix.color_count() >= MIN_COLORS:
-                return pix.tobytes("jpeg")
-    return None
+        clip = pymupdf.Rect(0, 0, page.rect.width, page.rect.height * TOP_SHARE)
+        pix = page.get_pixmap(dpi=RENDER_DPI, clip=clip, alpha=False, colorspace=pymupdf.csRGB)
+    image = cv2.cvtColor(
+        numpy.frombuffer(pix.samples, dtype=numpy.uint8).reshape(pix.height, pix.width, 3),
+        cv2.COLOR_RGB2BGR,
+    )
+    detector = cv2.FaceDetectorYN.create(
+        str(MODEL), "", (pix.width, pix.height), score_threshold=MIN_SCORE
+    )
+    _, faces = detector.detect(image)
+    if faces is None:
+        return None
+    x, y, w, h = (int(v) for v in max(faces, key=lambda face: face[2] * face[3])[:4])
+    side = int(max(w, h) * HEADROOM)
+    # Centred on the face, lifted a little so the cut takes more hair than chin.
+    x0 = max(0, x + w // 2 - side // 2)
+    y0 = max(0, y + h // 2 - h // 6 - side // 2)
+    cut = image[y0 : y0 + side, x0 : x0 + side]
+    scale = PHOTO_PX / max(cut.shape[:2])
+    if scale < 1:
+        cut = cv2.resize(cut, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+    ok, encoded = cv2.imencode(".jpg", cut, [cv2.IMWRITE_JPEG_QUALITY, 88])
+    return encoded.tobytes() if ok else None
 
 
 def photo_path(name: str) -> Path:

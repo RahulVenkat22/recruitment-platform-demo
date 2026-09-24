@@ -1,6 +1,6 @@
 import { LockIcon } from 'lucide-react'
 import { lazy, Suspense } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
@@ -22,6 +22,12 @@ import type { Crumb } from '@/lib/ui-store'
 import { personFromUser } from '@/types/domain'
 
 const LIST_CRUMB: Crumb = { label: 'Job Descriptions', to: '/jobs' }
+
+/** What the Job Descriptions page's upload panel hands over after reading a file. */
+interface FilledState {
+  prefill?: Partial<JobFormValues>
+  filledFrom?: string
+}
 
 // The form pulls in the schema, pickers and dialogs; keep it out of the list and detail chunks.
 const JobForm = lazy(() => import('@/features/jobs/JobForm'))
@@ -52,6 +58,7 @@ function FormSkeleton() {
 export default function JobFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const user = useAuthStore((state) => state.user)
   const job = useJob(mode === 'edit' ? id : undefined)
   const create = useCreateJob()
@@ -88,6 +95,7 @@ export default function JobFormPage({ mode }: { mode: 'create' | 'edit' }) {
       navigate(`/jobs/${created.id}`, { replace: true })
     }
 
+    const filled = (location.state as FilledState | null) ?? {}
     return (
       <Suspense fallback={<PageSkeleton title={title} crumbs={[LIST_CRUMB, { label: title }]} />}>
         <JobForm
@@ -95,6 +103,8 @@ export default function JobFormPage({ mode }: { mode: 'create' | 'edit' }) {
           title={title}
           breadcrumbs={[LIST_CRUMB, { label: title }]}
           initialValues={emptyJobForm(user)}
+          prefill={filled.prefill}
+          filledFrom={filled.filledFrom}
           creator={user ? personFromUser(user) : null}
           cancelTo="/jobs"
           onSubmit={onCreate}

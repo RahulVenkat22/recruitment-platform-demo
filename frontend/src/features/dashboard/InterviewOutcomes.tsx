@@ -1,5 +1,4 @@
 import { CalendarClockIcon } from 'lucide-react'
-import { Link } from 'react-router'
 import { Avatar } from '@/components/shared/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { StackedBar } from '@/features/dashboard/charts/StackedBar'
@@ -12,13 +11,13 @@ function Stat({
   label,
   value,
   hint,
-  to,
+  onClick,
   tone,
 }: {
   label: string
   value: string
   hint?: string
-  to?: string
+  onClick?: () => void
   tone?: 'warning'
 }) {
   const body = (
@@ -35,21 +34,38 @@ function Stat({
       {hint && <span className="block truncate text-caption text-ink-subtle">{hint}</span>}
     </>
   )
-  const classes = 'min-w-0 rounded-control bg-surface-2 px-3 py-2'
-  return to ? (
-    <Link to={to} className={cn(classes, 'hover:bg-surface-3')}>
+  const classes = 'min-w-0 rounded-control bg-surface-2 px-3 py-2 text-left'
+  return onClick ? (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        classes,
+        'transition-colors duration-150 ease-brand hover:bg-surface-3',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+      )}
+    >
       {body}
-    </Link>
+    </button>
   ) : (
     <div className={classes}>{body}</div>
   )
 }
 
+export type InterviewFigure = 'interviews' | 'feedback_pending'
+
 /**
  * How interviewing went: completed count, average score, feedback still owed,
- * the recommendation split as a diverging bar, and who carried the load.
+ * the recommendation split as a diverging bar, and who carried the load. The
+ * completed and feedback figures open their interviews in place.
  */
-export function InterviewOutcomes({ insights }: { insights: InterviewInsights }) {
+export function InterviewOutcomes({
+  insights,
+  onSelect,
+}: {
+  insights: InterviewInsights
+  onSelect: (figure: InterviewFigure) => void
+}) {
   const feedback = insights.recommendations.reduce((sum, row) => sum + row.value, 0)
   const maxLoad = Math.max(1, ...insights.interviewers.map((row) => row.total))
 
@@ -71,6 +87,7 @@ export function InterviewOutcomes({ insights }: { insights: InterviewInsights })
           label="Completed"
           value={formatCount(insights.completed)}
           hint={`of ${formatCount(insights.total)} held`}
+          onClick={() => onSelect('interviews')}
         />
         <Stat
           label="Avg score"
@@ -81,7 +98,7 @@ export function InterviewOutcomes({ insights }: { insights: InterviewInsights })
           label="Feedback owed"
           value={formatCount(insights.feedback_pending)}
           hint={insights.upcoming ? `${insights.upcoming} upcoming` : undefined}
-          to="/interviews?bucket=pending_feedback"
+          onClick={() => onSelect('feedback_pending')}
           tone={insights.feedback_pending > 0 ? 'warning' : undefined}
         />
       </div>

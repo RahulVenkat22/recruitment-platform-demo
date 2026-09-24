@@ -13,6 +13,7 @@ import {
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
+import { Avatar } from '@/components/shared/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -259,8 +260,13 @@ function BatchProgress({ batch }: { batch: UploadBatch }) {
               {document.candidate && (
                 <Link
                   to={`/candidates/${document.candidate.id}`}
-                  className="text-small font-medium text-primary hover:underline"
+                  className="inline-flex items-center gap-2 text-small font-medium text-primary hover:underline"
                 >
+                  <Avatar
+                    name={document.candidate.full_name}
+                    src={document.candidate.avatar_url}
+                    size="sm"
+                  />
                   {document.candidate.full_name}
                 </Link>
               )}

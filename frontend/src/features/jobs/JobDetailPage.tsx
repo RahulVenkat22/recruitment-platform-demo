@@ -32,6 +32,7 @@ import { CandidatesTab } from '@/features/jobs/CandidatesTab'
 import { KanbanTab } from '@/features/kanban/KanbanTab'
 import { TimelineTab } from '@/features/jobs/TimelineTab'
 import { useJobActions } from '@/features/jobs/useJobActions'
+import { useJobWorkActions } from '@/features/home/useJobWorkActions'
 import { VersionsTab } from '@/features/jobs/VersionsTab'
 import { formatDate, formatDateTime, formatRelative } from '@/lib/format'
 import { param, useUrlState } from '@/lib/hooks'
@@ -103,6 +104,7 @@ export default function JobDetailPage() {
   const job = useJob(id)
   const [{ tab }, setUrl] = useUrlState(TAB_SPEC)
   const actions = useJobActions({ onDeleted: () => navigate('/jobs') })
+  const work = useJobWorkActions()
   const lifecycle = useJobAction()
   const setStatus = useSetJobStatus()
   const [statusTarget, setStatusTarget] = useState<{ key: string; label: string } | null>(null)
@@ -190,14 +192,19 @@ export default function JobDetailPage() {
         },
       }))
     : []
+  // Status moves, then "Add comment" with the everyday actions, then "Force close" on its own at the end.
+  const workItems = work.itemsFor(detail)
   const menuItems: RowAction[] = [
     ...statusItems,
-    ...actions
-      .itemsFor(detail, { includeView: false })
-      .filter((item) => item.key !== 'edit' && item.key !== 'search')
-      .map((item, index) =>
-        index === 0 && statusItems.length > 0 ? { ...item, separatorBefore: true } : item,
-      ),
+    ...[
+      ...workItems.filter((item) => item.key === 'comment'),
+      ...actions
+        .itemsFor(detail, { includeView: false })
+        .filter((item) => item.key !== 'edit' && item.key !== 'search'),
+    ].map((item, index) =>
+      index === 0 && statusItems.length > 0 ? { ...item, separatorBefore: true } : item,
+    ),
+    ...workItems.filter((item) => item.key === 'force-close'),
   ]
 
   const tabLabel = (key: TabKey): ReactNode => {
@@ -211,7 +218,7 @@ export default function JobDetailPage() {
           </>
         )
       case 'timeline':
-        return 'Timeline'
+        return 'Activity'
       case 'candidates':
         return (
           <>
@@ -219,7 +226,7 @@ export default function JobDetailPage() {
           </>
         )
       case 'kanban':
-        return 'Kanban'
+        return 'Discovery'
       case 'versions':
         return (
           <>
@@ -315,6 +322,7 @@ export default function JobDetailPage() {
       </Tabs>
 
       {actions.dialogs}
+      {work.dialogs}
       <StatusNoteDialog
         open={statusTarget !== null}
         onOpenChange={(open) => !open && setStatusTarget(null)}

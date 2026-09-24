@@ -1,24 +1,24 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { SERIES } from '@/features/dashboard/charts/theme'
-import { candidatesHref, formatCount } from '@/features/dashboard/dashboard-utils'
+import { formatCount } from '@/features/dashboard/dashboard-utils'
 import { cn } from '@/lib/utils'
 import type { KeyCount } from '@/types/domain'
 
 /**
  * Candidates by the source that surfaced them: a donut with the total in the
  * middle (the hovered source while pointing), and a legend that doubles as the
- * direct labels. Clicking a slice or a legend row opens those candidates.
+ * direct labels. Clicking a slice or a legend row opens those candidates in place.
  */
 export function SourceDonut({
   sources,
+  onSelect,
   className,
 }: {
   sources: readonly KeyCount[]
+  onSelect: (source: KeyCount) => void
   className?: string
 }) {
-  const navigate = useNavigate()
   const [hovered, setHovered] = useState<string | null>(null)
   const total = sources.reduce((sum, source) => sum + source.value, 0)
   const rows = sources.map((source, index) => ({ ...source, color: SERIES[index % SERIES.length] }))
@@ -51,7 +51,7 @@ export function SourceDonut({
               onMouseLeave={() => setHovered(null)}
               onClick={(_data, index) => {
                 const row = rows.filter((r) => r.value > 0)[index]
-                if (row) void navigate(candidatesHref({ source: row.key }))
+                if (row) onSelect(row)
               }}
             >
               {rows
@@ -84,7 +84,7 @@ export function SourceDonut({
               onMouseLeave={() => setHovered(null)}
               onFocus={() => setHovered(row.key)}
               onBlur={() => setHovered(null)}
-              onClick={() => void navigate(candidatesHref({ source: row.key }))}
+              onClick={() => onSelect(row)}
               className={cn(
                 'flex w-full items-center gap-2.5 rounded-control px-2 py-1.5 text-left text-small transition-colors duration-150 ease-brand hover:bg-surface-2',
                 hovered === row.key && 'bg-surface-2',

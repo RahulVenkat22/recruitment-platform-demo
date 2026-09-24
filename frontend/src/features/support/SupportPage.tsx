@@ -2,6 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { LifeBuoyIcon, PlusIcon, SearchIcon, SearchXIcon } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
+import { ClearFiltersButton } from '@/components/shared/ClearFiltersButton'
 import { DataTable } from '@/components/shared/DataTable'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
@@ -90,7 +91,7 @@ function TicketCard({ ticket }: { ticket: TicketRow }) {
 
 /**
  * Support: raise a ticket, follow its status, and look back over everything open,
- * in progress, resolved or closed. HR admins (the support team) see every ticket;
+ * in progress, resolved or closed. Admins (the support team) see every ticket;
  * everyone else sees the tickets they raised or were assigned.
  */
 export default function SupportPage() {
@@ -292,17 +293,7 @@ export default function SupportPage() {
           onChange={(category) => setState({ category, page: 1 })}
         />
         <div className="ml-auto flex items-center gap-2">
-          {filtered && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-ink-muted"
-              onClick={clearFilters}
-            >
-              Clear filters
-            </Button>
-          )}
+          <ClearFiltersButton active={filtered} onClick={clearFilters} />
           <Select value={state.sort} onValueChange={(sort) => setState({ sort, page: 1 })}>
             <SelectTrigger size="sm" aria-label="Sort" className="bg-surface">
               <span className="text-ink-subtle">Sort:</span>

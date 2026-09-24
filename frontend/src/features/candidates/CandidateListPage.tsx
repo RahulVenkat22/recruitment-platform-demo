@@ -2,6 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { LockIcon, PlusIcon, SearchIcon, SearchXIcon, UploadIcon, UsersIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, Link } from 'react-router'
+import { ClearFiltersButton } from '@/components/shared/ClearFiltersButton'
 import { Avatar } from '@/components/shared/Avatar'
 import { DataTable } from '@/components/shared/DataTable'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -269,20 +270,13 @@ export default function CandidateListPage() {
         </SelectContent>
       </Select>
       <div className="ml-auto flex items-center gap-2">
-        {filtered && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-ink-muted"
-            onClick={() => {
-              setDraft('')
-              setState({ q: '', source: [], status: [], exp: 'any', jd: '', page: 1 })
-            }}
-          >
-            Clear filters
-          </Button>
-        )}
+        <ClearFiltersButton
+          active={filtered}
+          onClick={() => {
+            setDraft('')
+            setState({ q: '', source: [], status: [], exp: 'any', jd: '', page: 1 })
+          }}
+        />
         <Select value={state.sort} onValueChange={(sort) => setState({ sort, page: 1 })}>
           <SelectTrigger size="sm" aria-label="Sort" className="bg-surface">
             <span className="text-ink-subtle">Sort:</span>

@@ -18,9 +18,10 @@ function supportsWebGL(): boolean {
 /**
  * The animated layer behind the login page. The CSS graphite-and-glow frame
  * paints instantly and stays as the fallback; the WebGL scene loads on top and
- * fades in once its context exists.
+ * fades in once its context exists. `paused` freezes the scene on its current
+ * frame, for while the welcome loader covers it.
  */
-export function LoginBackdrop() {
+export function LoginBackdrop({ paused = false }: { paused?: boolean }) {
   const reducedMotion = useReducedMotion()
   const [ready, setReady] = useState(false)
   const webgl = useMemo(() => supportsWebGL(), [])
@@ -45,7 +46,10 @@ export function LoginBackdrop() {
           )}
         >
           <Suspense fallback={null}>
-            <LoginScene reducedMotion={Boolean(reducedMotion)} onReady={() => setReady(true)} />
+            <LoginScene
+              reducedMotion={Boolean(reducedMotion) || paused}
+              onReady={() => setReady(true)}
+            />
           </Suspense>
         </div>
       )}

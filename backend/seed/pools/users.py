@@ -1,4 +1,5 @@
-"""The ten demo users from plan.md section 10 (and section 18 "Demo accounts")."""
+"""The twelve demo users: plan.md section 10 (and section 18 "Demo accounts") plus the two
+admins who run the support desk."""
 
 from __future__ import annotations
 
@@ -19,6 +20,8 @@ SURESH = "suresh@aimious.demo"
 NISHA = "nisha@aimious.demo"
 VIKRAM = "vikram@aimious.demo"
 LAKSHMI = "lakshmi@aimious.demo"
+MEERA = "meera@aimious.demo"
+ARJUN = "arjun@aimious.demo"
 
 
 @dataclass(frozen=True)
@@ -26,7 +29,7 @@ class DemoUser:
     first_name: str
     last_name: str
     email: str
-    role: str  # accounts.User.role key: hr_admin | hr | interviewer | employee
+    role: str  # accounts.User.role key: hr_admin | hr | interviewer | employee | admin
     designation: str
     department: str
     gender: str  # "male" | "female"; picks the portrait folder
@@ -78,6 +81,14 @@ USERS: tuple[DemoUser, ...] = (
     DemoUser(
         "Lakshmi", "Narayanan", LAKSHMI, "employee", "Frontend Lead", "Engineering",
         "female", portrait_url("female", 57), "+91 98400 11010",
+    ),
+    DemoUser(
+        "Meera", "Nair", MEERA, "admin", "IT Support Lead", "IT Support",
+        "female", portrait_url("female", 30), "+91 98400 11011",
+    ),
+    DemoUser(
+        "Arjun", "Pillai", ARJUN, "admin", "Support Engineer", "IT Support",
+        "male", portrait_url("male", 23), "+91 98400 11012",
     ),
 )  # fmt: skip
 

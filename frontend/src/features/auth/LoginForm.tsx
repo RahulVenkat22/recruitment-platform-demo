@@ -26,10 +26,8 @@ import {
 import { login } from '@/lib/auth'
 import { EASE_BRAND } from '@/lib/motion'
 import { cn } from '@/lib/utils'
-import type { SessionUser } from '@/types/domain'
 
 interface LoginFormProps {
-  onSuccess: (user: SessionUser) => void
   className?: string
 }
 
@@ -42,7 +40,7 @@ function rise(index: number, reduced: boolean | null) {
   }
 }
 
-export function LoginForm({ onSuccess, className }: LoginFormProps) {
+export function LoginForm({ className }: LoginFormProps) {
   const ids = { identifier: useId(), password: useId(), remember: useId(), error: useId() }
   const reducedMotion = useReducedMotion()
   const [showPassword, setShowPassword] = useState(false)
@@ -68,12 +66,11 @@ export function LoginForm({ onSuccess, className }: LoginFormProps) {
   async function onSubmit(values: LoginValues) {
     setFailure(null)
     try {
-      const user = await login({
+      await login({
         email: values.identifier,
         password: values.password,
         remember_me: values.remember_me,
       })
-      onSuccess(user)
     } catch (error) {
       const described = describeLoginFailure(error)
       setFailure(described)

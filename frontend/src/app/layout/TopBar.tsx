@@ -5,7 +5,6 @@ import { deriveBreadcrumbs } from '@/app/layout/breadcrumbs'
 import { Avatar } from '@/components/shared/Avatar'
 import { MobileNav } from '@/app/layout/Sidebar'
 import { CommandPalette } from '@/components/shared/CommandPalette'
-import { HealthPill } from '@/components/shared/HealthPill'
 import { NotificationBell } from '@/components/shared/NotificationBell'
 import {
   Breadcrumb,
@@ -142,9 +141,6 @@ export function TopBar() {
           </kbd>
         </Button>
         <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
-        <div className="max-md:hidden">
-          <HealthPill />
-        </div>
         <NotificationBell />
         <AccountMenu />
       </div>

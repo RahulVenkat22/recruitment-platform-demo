@@ -67,7 +67,8 @@ export function FilterPopover({
           <ChevronDownIcon aria-hidden="true" className="opacity-60" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-2">
+      {/* Portaled, so it hides while its button is scrolled out of the page instead of floating over the header. */}
+      <PopoverContent align="start" hideWhenDetached className="w-64 p-2">
         {searchable && (
           <div className="relative mb-2">
             <SearchIcon
@@ -88,7 +89,7 @@ export function FilterPopover({
           id={listId}
           role="group"
           aria-label={label}
-          className="max-h-64 space-y-0.5 overflow-y-auto"
+          className="max-h-64 space-y-0.5 overflow-y-auto overscroll-contain"
         >
           {visible.length === 0 && (
             <li className="px-2 py-3 text-center text-small text-ink-subtle">{emptyLabel}</li>

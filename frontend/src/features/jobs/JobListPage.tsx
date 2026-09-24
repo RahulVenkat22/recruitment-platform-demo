@@ -27,8 +27,11 @@ import {
 import { canCreateJob } from '@/features/jobs/job-permissions'
 import { employmentTypeLabel, previewPeople, workModeLabel } from '@/features/jobs/job-utils'
 import { JobListToolbar } from '@/features/jobs/JobListToolbar'
+import { JobUploadPanel } from '@/features/jobs/JobUploadPanel'
 import { PipelineCounts } from '@/features/jobs/PipelineCounts'
+import type { RowAction } from '@/components/shared/ActionMenu'
 import { useJobActions } from '@/features/jobs/useJobActions'
+import { useJobWorkActions } from '@/features/home/useJobWorkActions'
 import { useAuthStore } from '@/lib/auth-store'
 import { formatDate, formatDateTime, formatRelative } from '@/lib/format'
 import { useIsMobile, useUrlState } from '@/lib/hooks'
@@ -59,6 +62,16 @@ export default function JobListPage() {
   })
   const facets = useJobFacets()
   const actions = useJobActions()
+  const work = useJobWorkActions()
+
+  /** The row menu: everyday actions and "Add comment", then archive/delete, then "Force close" last. */
+  function menuFor(job: JobRow): RowAction[] {
+    const items = actions.itemsFor(job)
+    const extra = work.itemsFor(job)
+    const tail = items.findIndex((item) => item.separatorBefore)
+    const cut = tail < 0 ? items.length : tail
+    return [...items.slice(0, cut), ...extra.slice(0, 1), ...items.slice(cut), ...extra.slice(1)]
+  }
   const filtered = hasActiveFilters(state)
   const canCreate = canCreateJob(user)
 
@@ -150,11 +163,11 @@ export default function JobListPage() {
           </div>
         ),
       },
-      rowActionsColumn<JobRow>((job) => actions.itemsFor(job), {
+      rowActionsColumn<JobRow>(menuFor, {
         getLabel: (job) => `Actions for ${job.title}`,
       }),
     ],
-    // itemsFor closes over mutable hook state; the column cells read it at render time.
+    // menuFor closes over mutable hook state; the column cells read it at render time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   )
@@ -225,6 +238,7 @@ export default function JobListPage() {
       {/* The toolbar keeps one tree position across the three branches, so switching
           views (a click or an arrow key on the view toggle) never remounts it and drops focus. */}
       <div className="space-y-4">
+        {canCreate && <JobUploadPanel />}
         {toolbar}
         {list.isError ? (
           <ErrorState
@@ -276,7 +290,7 @@ export default function JobListPage() {
               >
                 {rows.map((job, index) => (
                   <StaggerItem key={job.id} index={index} className="h-full min-w-0">
-                    <JobCard job={job} actions={actions.itemsFor(job)} />
+                    <JobCard job={job} actions={menuFor(job)} />
                   </StaggerItem>
                 ))}
               </div>
@@ -296,6 +310,7 @@ export default function JobListPage() {
         )}
       </div>
       {actions.dialogs}
+      {work.dialogs}
     </>
   )
 }

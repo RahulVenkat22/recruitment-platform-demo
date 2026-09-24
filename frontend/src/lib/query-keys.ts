@@ -43,6 +43,7 @@ export const qk = {
   searches: {
     all: ['searches'] as const,
     byJob: (jobId: string) => ['searches', 'byJob', jobId] as const,
+    live: () => ['searches', 'live'] as const,
     detail: (id: string) => ['searches', 'detail', id] as const,
   },
   candidates: {
@@ -123,5 +124,8 @@ export const qk = {
     team: (scope: QueryFilters) => ['dashboard', 'team', scope] as const,
     upcomingInterviews: (scope: QueryFilters) =>
       ['dashboard', 'upcoming-interviews', scope] as const,
+    insights: (scope: QueryFilters) => ['dashboard', 'insights', scope] as const,
+    details: (scope: QueryFilters, query: QueryFilters) =>
+      ['dashboard', 'details', scope, query] as const,
   },
 } as const

@@ -176,7 +176,7 @@ export function PeopleTab({ job }: { job: JobDetail }) {
         open={pendingRemove !== null}
         onOpenChange={(open) => !open && setPendingRemove(null)}
         title={pendingRemove ? `Remove ${pendingRemove.user.full_name}?` : 'Remove person?'}
-        description="They will no longer see this job description unless they are an HR admin. Their past activity stays on the timeline."
+        description="They will no longer see this job description unless they are an HR admin. Their past actions stay in the activity feed."
         confirmLabel="Remove"
         destructive
         onConfirm={() => (pendingRemove ? removeParticipant(pendingRemove) : undefined)}

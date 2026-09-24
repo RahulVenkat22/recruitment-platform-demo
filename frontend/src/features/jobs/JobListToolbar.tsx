@@ -1,5 +1,6 @@
-import { SearchIcon, SlidersHorizontalIcon, XIcon } from 'lucide-react'
+import { SearchIcon, SlidersHorizontalIcon } from 'lucide-react'
 import { useEffect, useId, useState, type ReactNode } from 'react'
+import { ClearFiltersButton } from '@/components/shared/ClearFiltersButton'
 import { FilterPopover } from '@/components/shared/FilterPopover'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -163,21 +164,13 @@ export function JobListToolbar({ state, onChange, facets, mobile }: JobListToolb
       )}
 
       <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
-        {active && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-ink-muted"
-            onClick={() => {
-              setDraft('')
-              onChange(CLEARED_FILTERS)
-            }}
-          >
-            <XIcon data-icon="inline-start" aria-hidden="true" />
-            Clear filters
-          </Button>
-        )}
+        <ClearFiltersButton
+          active={active}
+          onClick={() => {
+            setDraft('')
+            onChange(CLEARED_FILTERS)
+          }}
+        />
         <Select value={state.sort} onValueChange={(sort) => onChange({ sort, page: 1 })}>
           <SelectTrigger size="sm" aria-label="Sort" className="bg-surface">
             <span className="text-ink-subtle">Sort:</span>

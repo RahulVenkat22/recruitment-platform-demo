@@ -386,19 +386,13 @@ def attach_photo(candidate_id: str, path: str | Path) -> bool:
 
 
 def photo(state: IngestionState) -> IngestionState:
-    """The candidate's photo, when the model saw one on the page (most resumes have none)."""
-    if not state["validated"].profile.has_photo:
-        return {}
-    warnings = list(state.get("warnings", []))
+    """The candidate's photo, when the first page carries one (most resumes have none)."""
     try:
-        if not attach_photo(state["candidate_id"], state["path"]):
-            warnings.append(
-                "the model saw a photo, but no image on the first page could be cut out"
-            )
+        attach_photo(state["candidate_id"], state["path"])
     except Exception as exc:  # noqa: BLE001 - a rendering failure must not cost the ingestion
         logger.warning("photo extraction failed for %s: %s", state["path"], exc)
-        warnings.append(f"the photo could not be cut out of the PDF: {exc}")
-    return {"warnings": warnings}
+        return {"warnings": [*state.get("warnings", []), f"the photo could not be cut out: {exc}"]}
+    return {}
 
 
 def chunk(state: IngestionState) -> IngestionState:

@@ -8,7 +8,6 @@ import {
   PhoneMissedIcon,
   type LucideIcon,
 } from 'lucide-react'
-import { Link } from 'react-router'
 import { formatCount } from '@/features/dashboard/dashboard-utils'
 import { cn } from '@/lib/utils'
 import type { AttentionCounts } from '@/types/domain'
@@ -53,13 +52,18 @@ const ITEMS: readonly {
   },
 ]
 
-/** What is waiting on someone, each row a link to the list where it gets done. */
+export interface AttentionItem {
+  key: AttentionKey
+  label: string
+}
+
+/** What is waiting on someone, each row a button that opens those records in place. */
 export function AttentionList({
   counts,
-  hrefs,
+  onSelect,
 }: {
   counts: AttentionCounts
-  hrefs: Record<AttentionKey, string>
+  onSelect: (item: AttentionItem) => void
 }) {
   const open = ITEMS.reduce((sum, item) => sum + counts[item.key], 0)
   return (
@@ -70,13 +74,15 @@ export function AttentionList({
           const clear = value === 0
           return (
             <li key={item.key}>
-              <Link
-                to={hrefs[item.key]}
+              <button
+                type="button"
+                onClick={() => onSelect({ key: item.key, label: item.label })}
                 data-slot="attention-row"
                 data-clear={clear || undefined}
                 className={cn(
-                  'group/row flex items-center gap-3 py-2.5 transition-colors duration-150 ease-brand hover:bg-surface-2',
+                  'group/row flex w-[calc(100%+1rem)] items-center gap-3 py-2.5 text-left transition-colors duration-150 ease-brand hover:bg-surface-2',
                   '-mx-2 rounded-control px-2',
+                  'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary',
                 )}
               >
                 <span
@@ -113,7 +119,7 @@ export function AttentionList({
                   aria-hidden="true"
                   className="size-4 shrink-0 text-ink-subtle opacity-0 transition-opacity group-hover/row:opacity-100"
                 />
-              </Link>
+              </button>
             </li>
           )
         })}

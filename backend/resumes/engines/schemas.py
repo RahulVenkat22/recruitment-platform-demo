@@ -63,9 +63,6 @@ class ParsedResume(BaseModel):
     projects: list[ParsedProject] = Field(default_factory=list)
     linkedin_url: str = ""
     github_url: str = ""
-    # True only for a photograph of the candidate's face, never a logo, badge or QR code;
-    # the ingestion then cuts that image out of the first page (resumes.engines.photo).
-    has_photo: bool = False
 
 
 class JobRequirements(BaseModel):

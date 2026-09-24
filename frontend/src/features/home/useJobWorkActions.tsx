@@ -61,7 +61,7 @@ export function useJobWorkActions(): JobWorkActionsHandle {
         open={commenting !== null}
         onOpenChange={(open) => !open && setCommenting(null)}
         title={commenting ? `Add a comment to “${commenting.title}”` : 'Add a comment'}
-        description="The comment is added to the job description's timeline, where everyone involved can read it."
+        description="The comment is added to the job description's activity feed, and everyone involved in the recruitment is notified."
         fieldLabel="Comment"
         placeholder="Waiting on the hiring manager to confirm the interview panel."
         confirmLabel="Add comment"
@@ -81,7 +81,7 @@ export function useJobWorkActions(): JobWorkActionsHandle {
         open={closing !== null}
         onOpenChange={(open) => !open && setClosing(null)}
         title={closing ? `Force close “${closing.title}”?` : 'Force close'}
-        description="This ends the recruitment now: the job description becomes Force Closed, searches stop and candidates keep their current status. An HR admin can reopen it later."
+        description="This ends the recruitment now: the job description becomes Force Closed, searches stop and candidates keep their current status. Everyone involved is notified; an HR admin can reopen it later."
         fieldLabel="Reason"
         placeholder="Role withdrawn by the business."
         confirmLabel="Force close"

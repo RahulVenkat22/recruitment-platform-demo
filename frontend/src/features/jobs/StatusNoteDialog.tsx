@@ -22,9 +22,9 @@ export interface StatusNoteDialogProps {
 }
 
 const HINTS: Record<string, string> = {
-  on_hold: 'Why is hiring paused? The note appears on the timeline.',
-  closed: 'Why is the role closing? The note appears on the timeline.',
-  open: 'Optional note for the timeline.',
+  on_hold: 'Why is hiring paused? The note appears in the activity feed.',
+  closed: 'Why is the role closing? The note appears in the activity feed.',
+  open: 'Optional note for the activity feed.',
 }
 
 /** Status moves that deserve a reason (on hold, closed) collect one here (plan.md 6.10 status). */
@@ -69,7 +69,7 @@ export function StatusNoteDialog({
             {target?.label ?? 'Change status'}: {jobTitle}
           </DialogTitle>
           <DialogDescription>
-            {HINTS[target?.key ?? ''] ?? 'Optional note for the timeline.'}
+            {HINTS[target?.key ?? ''] ?? 'Optional note for the activity feed.'}
           </DialogDescription>
         </DialogHeader>
         <Field>

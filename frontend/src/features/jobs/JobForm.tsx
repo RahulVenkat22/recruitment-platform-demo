@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { EyeIcon, Loader2Icon, RotateCcwIcon, XIcon } from 'lucide-react'
+import { CheckCircle2Icon, EyeIcon, Loader2Icon, RotateCcwIcon, XIcon } from 'lucide-react'
 import { useEffect, useId, useMemo, useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { useNavigate } from 'react-router'
@@ -45,7 +45,7 @@ import {
 } from '@/features/jobs/job-form-schema'
 import { employmentTypeLabel, formatSalaryRange, workModeLabel } from '@/features/jobs/job-utils'
 import { JobPreviewSheet } from '@/features/jobs/JobPreviewSheet'
-import { JobUploadCard } from '@/features/jobs/JobUploadCard'
+import { PointsInput } from '@/features/jobs/PointsInput'
 import { useDraftAutosave } from '@/features/jobs/useDraftAutosave'
 import { fieldErrorMessage, getApiError } from '@/lib/api'
 import { formatRelative } from '@/lib/format'
@@ -69,6 +69,10 @@ export interface JobFormProps {
   /** Where Cancel goes. */
   cancelTo: string
   onSubmit: (values: JobFormValues, intent: SubmitIntent, changeSummary: string) => Promise<void>
+  /** Values read from an uploaded file (create mode), applied as unsaved changes on mount. */
+  prefill?: Partial<JobFormValues>
+  /** The uploaded file those values came from, named in the notice above the form. */
+  filledFrom?: string
 }
 
 const SECTION_CLASS =
@@ -103,6 +107,8 @@ export function JobForm({
   title,
   cancelTo,
   onSubmit,
+  prefill,
+  filledFrom,
 }: JobFormProps) {
   const navigate = useNavigate()
   const ids = {
@@ -177,6 +183,11 @@ export function JobForm({
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
   }, [isDirty])
+
+  // Values read from a file count as unsaved changes: the autosave keeps them and leaving asks first.
+  useEffect(() => {
+    if (prefill) form.reset({ ...form.getValues(), ...prefill }, { keepDefaultValues: true })
+  }, [form, prefill])
 
   function jump(id: FormSectionId) {
     setActive(id)
@@ -337,12 +348,14 @@ export function JobForm({
         />
 
         <div className="space-y-5">
-          {mode === 'create' && (
-            <JobUploadCard
-              onExtracted={(extracted) =>
-                form.reset({ ...form.getValues(), ...extracted }, { keepDefaultValues: true })
-              }
-            />
+          {filledFrom && (
+            <p
+              role="status"
+              className="flex items-center gap-2 rounded-card border border-success/20 bg-success-soft px-4 py-3 text-small text-success"
+            >
+              <CheckCircle2Icon aria-hidden="true" className="size-4 shrink-0" />
+              Filled from {filledFrom}. Review the fields, then create the job description.
+            </p>
           )}
 
           {/* ------------------------------------------------------------ Basics */}
@@ -682,11 +695,18 @@ export function JobForm({
               </Field>
               <Field data-invalid={Boolean(errors.education_requirements)}>
                 <FieldLabel htmlFor={ids.education}>Educational requirements</FieldLabel>
-                <Textarea
-                  id={ids.education}
-                  rows={2}
-                  placeholder="B.Tech / B.E in Computer Science or related"
-                  {...form.register('education_requirements')}
+                <Controller
+                  control={form.control}
+                  name="education_requirements"
+                  render={({ field }) => (
+                    <PointsInput
+                      id={ids.education}
+                      label="Requirement"
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="B.Tech / B.E in Computer Science or related"
+                    />
+                  )}
                 />
                 <FieldError errors={[errors.education_requirements]} />
               </Field>
@@ -705,38 +725,57 @@ export function JobForm({
             </h2>
             <FieldGroup className="mt-4 gap-4">
               <Field data-invalid={Boolean(errors.responsibilities)}>
-                <FieldLabel htmlFor={ids.responsibilities}>
-                  Job responsibilities{' '}
-                  <span className="font-normal text-ink-subtle">(one per line)</span>
-                </FieldLabel>
-                <Textarea
-                  id={ids.responsibilities}
-                  rows={4}
-                  placeholder="One responsibility per line, e.g. Design and ship backend services"
-                  {...form.register('responsibilities')}
+                <FieldLabel htmlFor={ids.responsibilities}>Job responsibilities</FieldLabel>
+                <Controller
+                  control={form.control}
+                  name="responsibilities"
+                  render={({ field }) => (
+                    <PointsInput
+                      id={ids.responsibilities}
+                      label="Responsibility"
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Design and ship backend services"
+                    />
+                  )}
                 />
+                <FieldDescription>
+                  One point per box, short or long. Enter starts the next point, and pasting a list
+                  makes a point of every line.
+                </FieldDescription>
                 <FieldError errors={[errors.responsibilities]} />
               </Field>
               <Field data-invalid={Boolean(errors.qualifications)}>
-                <FieldLabel htmlFor={ids.qualifications}>
-                  Required qualifications{' '}
-                  <span className="font-normal text-ink-subtle">(one per line)</span>
-                </FieldLabel>
-                <Textarea
-                  id={ids.qualifications}
-                  rows={3}
-                  placeholder={'4+ years with Python in production\nHands-on with PostgreSQL'}
-                  {...form.register('qualifications')}
+                <FieldLabel htmlFor={ids.qualifications}>Required qualifications</FieldLabel>
+                <Controller
+                  control={form.control}
+                  name="qualifications"
+                  render={({ field }) => (
+                    <PointsInput
+                      id={ids.qualifications}
+                      label="Qualification"
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="4+ years with Python in production"
+                    />
+                  )}
                 />
                 <FieldError errors={[errors.qualifications]} />
               </Field>
               <Field data-invalid={Boolean(errors.additional_requirements)}>
                 <FieldLabel htmlFor={ids.additional}>Additional requirements</FieldLabel>
-                <Textarea
-                  id={ids.additional}
-                  rows={2}
-                  placeholder="Hybrid, three days a week in Chennai."
-                  {...form.register('additional_requirements')}
+                <Controller
+                  control={form.control}
+                  name="additional_requirements"
+                  render={({ field }) => (
+                    <PointsInput
+                      id={ids.additional}
+                      label="Requirement"
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Hybrid, three days a week in Chennai"
+                    />
+                  )}
                 />
                 <FieldError errors={[errors.additional_requirements]} />
               </Field>

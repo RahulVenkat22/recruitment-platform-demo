@@ -10,17 +10,31 @@ days or a custom date range (the *window*) compared with the same span before it
 
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from django.db.models import Avg, Count, Max, Q, QuerySet, Sum
-from django.db.models.functions import Coalesce, TruncDate
+from django.db.models import (
+    Avg,
+    Count,
+    DurationField,
+    ExpressionWrapper,
+    F,
+    Max,
+    Q,
+    QuerySet,
+    Sum,
+    Value,
+)
+from django.db.models.functions import Coalesce, ExtractHour, ExtractIsoWeekDay, TruncDate
 from django.utils import timezone
 
 from accounts.models import User
 from activity.models import Activity
+from candidates.models import Candidate
 from common import enums
 from common.enums import ActivityCategory, ApplicationStatus, InterviewStatus, OfferStatus
 from common.permissions import visible_job_descriptions_for
@@ -33,8 +47,10 @@ from jobs.services import (
     SELECTED_STATUSES,
     SHORTLISTED_STATUSES,
 )
-from pipeline.models import Application, Communication, Interview, Offer, Onboarding
+from matching.skills import display_name
+from pipeline.models import Application, Communication, Interview, Offer, Onboarding, SearchRun
 from pipeline.services.interviews import OPEN_STATUSES as OPEN_INTERVIEW_STATUSES
+from pipeline.services.offers import format_ctc
 
 
 def build_enum_catalogue() -> dict:
@@ -647,3 +663,633 @@ def upcoming_interviews(scope: Scope, limit: int = UPCOMING_INTERVIEWS_LIMIT) ->
         .prefetch_related("application__job_description__participants")
         .order_by("scheduled_at")[:limit]
     )
+
+
+# ------------------------------------------------------------------ insights
+# The rest of what the database knows, for the dashboard's second screen.
+
+STAGE_BUCKETS: dict[str, tuple[str, ...]] = {"awaiting": AWAITING_STATUSES, **STAGE_PARTITION}
+MATCH_BANDS: tuple[tuple[str, str, int, int], ...] = (
+    ("weak", "Below 40%", 0, 40),
+    ("fair", "40 to 59%", 40, 60),
+    ("good", "60 to 79%", 60, 80),
+    ("strong", "80% and up", 80, 101),
+)
+EXPERIENCE_BANDS: tuple[tuple[str, str, float, float], ...] = (
+    ("junior", "0 to 2 years", 0, 2),
+    ("mid", "2 to 5 years", 2, 5),
+    ("senior", "5 to 10 years", 5, 10),
+    ("lead", "10 years and up", 10, 1000),
+)
+SKILLS_LIMIT = 10
+DEPARTMENTS_LIMIT = 8
+
+
+def _days(delta: timedelta | None) -> float | None:
+    return round(delta.total_seconds() / 86400, 1) if delta is not None else None
+
+
+def _key_counts(qs: QuerySet, field_name: str, choices: Any) -> list[dict[str, Any]]:
+    """One row per member of ``choices``, in declaration order, with its count in ``qs``."""
+    counts = dict(
+        qs.order_by().values_list(field_name).annotate(n=Count("id")).values_list(field_name, "n")
+    )
+    return [
+        {"key": member.value, "label": member.label, "value": counts.get(member.value, 0)}
+        for member in choices
+    ]
+
+
+def insights(scope: Scope) -> dict[str, Any]:
+    """Where the active pipeline stands and for how long, match quality, the
+    skills open roles ask for against the candidates who have them, departments,
+    experience, outreach, offers, when the team works and what the searches
+    brought in."""
+    now = scope.now
+    apps = scope.applications()
+    open_jds = scope.job_descriptions().filter(status=enums.JDStatus.OPEN)
+
+    age = ExpressionWrapper(Value(now) - F("stage_entered_at"), output_field=DurationField())
+    stages = []
+    for key, statuses in STAGE_BUCKETS.items():
+        row = apps.filter(status__in=statuses).aggregate(
+            n=Count("id"),
+            avg_age=Avg(age),
+            stuck=Count("id", filter=Q(stage_entered_at__lt=now - STALE_AFTER)),
+        )
+        stages.append(
+            {
+                "key": key,
+                "label": STAGE_LABELS[key],
+                "statuses": list(statuses),
+                "value": row["n"],
+                "avg_days": _days(row["avg_age"]),
+                "stuck": row["stuck"],
+            }
+        )
+
+    scored = apps.filter(match__isnull=False)
+    bands = scored.aggregate(
+        avg=Avg("match__overall_pct"),
+        **{
+            key: Count("id", filter=Q(match__overall_pct__gte=low, match__overall_pct__lt=high))
+            for key, _label, low, high in MATCH_BANDS
+        },
+    )
+
+    demand: Counter[str] = Counter()
+    for keys in open_jds.values_list("required_skills", flat=True):
+        demand.update(keys)
+    skills = [
+        {
+            "key": key,
+            "label": display_name(key),
+            "roles": roles,
+            "candidates": apps.filter(candidate__skills__skill=key)
+            .values("candidate_id")
+            .distinct()
+            .count(),
+        }
+        for key, roles in demand.most_common(SKILLS_LIMIT)
+    ]
+
+    departments = [
+        {
+            "key": row["department"],
+            "label": row["department"],
+            "roles": row["roles"],
+            "openings": row["openings"],
+            "candidates": apps.filter(job_description__in=open_jds)
+            .filter(job_description__department=row["department"])
+            .values("candidate_id")
+            .distinct()
+            .count(),
+        }
+        for row in open_jds.values("department")
+        .annotate(roles=Count("id"), openings=Coalesce(Sum("openings"), 0))
+        .order_by("-roles", "department")[:DEPARTMENTS_LIMIT]
+    ]
+
+    experience = [
+        {
+            "key": key,
+            "label": label,
+            "value": apps.filter(
+                candidate__total_experience_years__gte=low,
+                candidate__total_experience_years__lt=high,
+            )
+            .values("candidate_id")
+            .distinct()
+            .count(),
+        }
+        for key, label, low, high in EXPERIENCE_BANDS
+    ]
+
+    comms = _between(
+        Communication.objects.filter(application__in=apps), "occurred_at", scope.window
+    )
+    offers = scope.offers()
+    responded = _between(offers.filter(sent_at__isnull=False), "responded_at", scope.window)
+    response = responded.aggregate(
+        avg=Avg(ExpressionWrapper(F("responded_at") - F("sent_at"), output_field=DurationField()))
+    )
+
+    cells = (
+        _between(scope.activities(), "occurred_at", scope.window)
+        .annotate(
+            weekday=ExtractIsoWeekDay("occurred_at", tzinfo=scope.tz),
+            hour=ExtractHour("occurred_at", tzinfo=scope.tz),
+        )
+        .order_by()
+        .values("weekday", "hour")
+        .annotate(n=Count("id"))
+    )
+    heatmap = [[0] * 24 for _ in range(7)]
+    for cell in cells:
+        heatmap[cell["weekday"] - 1][cell["hour"]] = cell["n"]
+
+    searches = _between(
+        SearchRun.objects.filter(job_description_id__in=scope.jd_ids()), "started_at", scope.window
+    ).aggregate(
+        runs=Count("id"),
+        found=Coalesce(Sum("total_found"), 0),
+        shortlisted=Coalesce(Sum("shortlisted"), 0),
+        new=Coalesce(Sum("new_candidates"), 0),
+        avg_duration_ms=Avg("duration_ms"),
+    )
+    if searches["avg_duration_ms"] is not None:
+        searches["avg_duration_ms"] = round(searches["avg_duration_ms"])
+
+    return {
+        "range_days": scope.span,
+        "stages": stages,
+        "match": {
+            "avg_pct": _rounded(bands["avg"]),
+            "scored": scored.count(),
+            "bands": [
+                {"key": key, "label": label, "value": bands[key]}
+                for key, label, _low, _high in MATCH_BANDS
+            ],
+        },
+        "skills": skills,
+        "departments": departments,
+        "experience": experience,
+        "outreach": {
+            "total": comms.count(),
+            "channels": _key_counts(comms, "channel", enums.CommunicationChannel),
+            "outcomes": _key_counts(comms, "outcome", enums.CommunicationOutcome),
+        },
+        "offers": {
+            "statuses": _key_counts(offers, "status", enums.OfferStatus),
+            "responded": responded.count(),
+            "avg_response_days": _days(response["avg"]),
+        },
+        "heatmap": heatmap,
+        "searches": searches,
+    }
+
+
+# ------------------------------------------------------------------ details
+# The rows behind any dashboard figure, in one shape whatever they are, so the
+# dashboard can show them in place instead of sending the reader to a list page.
+
+DETAILS_LIMIT = 200
+
+
+@dataclass(frozen=True)
+class DetailQuery:
+    """Which figure, plus the one narrowing some figures take."""
+
+    metric: str
+    statuses: tuple[str, ...] = ()
+    job_description: str | None = None
+    key: str | None = None
+
+
+def _person(obj: Any) -> dict[str, Any] | None:
+    if obj is None:
+        return None
+    avatar = obj.display_avatar_url if isinstance(obj, Candidate) else obj.avatar_url
+    return {"full_name": obj.full_name, "avatar_url": avatar}
+
+
+def _item(
+    obj: Any,
+    kind: str,
+    *,
+    title: str,
+    subtitle: str,
+    href: str,
+    at: datetime | None,
+    at_label: str,
+    status: str | None = None,
+    status_label: str | None = None,
+    status_kind: str | None = None,
+    person: dict[str, Any] | None = None,
+    value: str | None = None,
+    note: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "id": str(obj.pk),
+        "kind": kind,
+        "title": title,
+        "subtitle": subtitle,
+        "status": status,
+        "status_label": status_label,
+        "status_kind": status_kind,
+        "href": href,
+        "at": at,
+        "at_label": at_label,
+        "person": person,
+        "value": value,
+        "note": note,
+    }
+
+
+def _application_item(
+    app: Application,
+    *,
+    at: datetime | None = None,
+    at_label: str = "In stage since",
+    value: str | None = None,
+    note: str | None = None,
+) -> dict[str, Any]:
+    match = getattr(app, "match", None)
+    candidate = app.candidate
+    return _item(
+        app,
+        "application",
+        title=candidate.full_name,
+        subtitle=" · ".join(
+            part
+            for part in (candidate.current_title or candidate.headline, app.job_description.title)
+            if part
+        ),
+        href=f"/candidates/{app.candidate_id}?jd={app.job_description_id}",
+        at=at or app.stage_entered_at,
+        at_label=at_label,
+        status=app.status,
+        status_label=app.get_status_display(),
+        status_kind="status",
+        person=_person(candidate),
+        value=value or (f"{round(float(match.overall_pct))}% match" if match is not None else None),
+        note=note,
+    )
+
+
+def _job_item(jd: JobDescription, *, value: str | None = None, note: str | None = None) -> dict:
+    return _item(
+        jd,
+        "job",
+        title=jd.title,
+        subtitle=" · ".join(
+            part for part in (jd.department, jd.location, _plural(jd.openings, "opening")) if part
+        ),
+        href=f"/jobs/{jd.pk}",
+        at=jd.published_at or jd.created_at,
+        at_label="Published" if jd.published_at else "Created",
+        status=jd.status,
+        status_label=jd.get_status_display(),
+        status_kind="jd_status",
+        person=_person(jd.created_by),
+        value=value,
+        note=note,
+    )
+
+
+def _interview_item(interview: Interview, *, at_label: str = "Scheduled") -> dict[str, Any]:
+    app = interview.application
+    if interview.score is not None:
+        value = f"Scored {interview.score}"
+    elif interview.recommendation:
+        value = interview.get_recommendation_display()
+    else:
+        value = None
+    return _item(
+        interview,
+        "interview",
+        title=app.candidate.full_name,
+        subtitle=f"{interview.get_round_display()} · {app.job_description.title} · "
+        f"with {interview.interviewer.full_name}",
+        href=f"/candidates/{app.candidate_id}?jd={app.job_description_id}&tab=interviews",
+        at=interview.scheduled_at,
+        at_label=at_label,
+        status=interview.status,
+        status_label=interview.get_status_display(),
+        person=_person(app.candidate),
+        value=value,
+    )
+
+
+def _offer_item(offer: Offer) -> dict[str, Any]:
+    app = offer.application
+    if offer.responded_at:
+        at, at_label = offer.responded_at, "Responded"
+    elif offer.expires_at and offer.status in PENDING_OFFER_STATUSES:
+        at, at_label = offer.expires_at, "Expires"
+    else:
+        at, at_label = offer.sent_at or offer.created_at, "Sent" if offer.sent_at else "Drafted"
+    return _item(
+        offer,
+        "offer",
+        title=app.candidate.full_name,
+        subtitle=f"{offer.designation} · {app.job_description.title}",
+        href=f"/candidates/{app.candidate_id}?jd={app.job_description_id}",
+        at=at,
+        at_label=at_label,
+        status=offer.status,
+        status_label=offer.get_status_display(),
+        person=_person(app.candidate),
+        value=format_ctc(offer.annual_ctc, offer.currency),
+    )
+
+
+def _hire_item(onboarding: Onboarding) -> dict[str, Any]:
+    app = onboarding.application
+    days = (onboarding.completed_at - app.created_at).days
+    return _application_item(
+        app,
+        at=onboarding.completed_at,
+        at_label="Onboarded",
+        value=f"{days} days from found to hired",
+    )
+
+
+def _communication_item(comm: Communication) -> dict[str, Any]:
+    app = comm.application
+    return _item(
+        comm,
+        "communication",
+        title=app.candidate.full_name,
+        subtitle=f"{comm.summary} · {app.job_description.title}",
+        href=f"/candidates/{app.candidate_id}?jd={app.job_description_id}&tab=communications",
+        at=comm.occurred_at,
+        at_label="Logged",
+        status=comm.outcome,
+        status_label=comm.get_outcome_display(),
+        person=_person(comm.performed_by),
+        value=comm.get_channel_display(),
+        note=comm.next_action,
+    )
+
+
+def _search_item(run: SearchRun) -> dict[str, Any]:
+    return _item(
+        run,
+        "search",
+        title=run.job_description.title,
+        subtitle=f"{run.total_found} found · {run.shortlisted} AI shortlisted · "
+        f"{run.new_candidates} new",
+        href=f"/search?jd={run.job_description_id}",
+        at=run.started_at,
+        at_label="Searched",
+        status=run.status,
+        status_label=run.get_status_display(),
+        person=_person(run.requested_by),
+        value=f"{run.duration_ms / 1000:.1f} s" if run.duration_ms else None,
+        note=", ".join(run.sources),
+    )
+
+
+Details = tuple[int, list[dict[str, Any]]]
+
+
+def _apps(qs: QuerySet[Application], scope: Scope, **kwargs: Any) -> Details:
+    rows = qs.select_related("candidate", "job_description", "match")[:DETAILS_LIMIT]
+    return qs.count(), [
+        _application_item(app, note=_stage_note(app, scope.now), **kwargs) for app in rows
+    ]
+
+
+def _stage_note(app: Application, now: datetime) -> str:
+    days = (now - app.stage_entered_at).days
+    return f"{_plural(days, 'day')} in this stage" if days else "Moved today"
+
+
+def _jobs(qs: QuerySet[JobDescription]) -> Details:
+    rows = (
+        qs.annotate(candidates=Count("applications", distinct=True))
+        .select_related("created_by")
+        .order_by("-candidates", "title")[:DETAILS_LIMIT]
+    )
+    return qs.count(), [_job_item(jd, value=_plural(jd.candidates, "candidate")) for jd in rows]
+
+
+def _interviews(qs: QuerySet[Interview], **kwargs: Any) -> Details:
+    rows = qs.select_related(
+        "application__candidate", "application__job_description", "interviewer"
+    )[:DETAILS_LIMIT]
+    return qs.count(), [_interview_item(row, **kwargs) for row in rows]
+
+
+def _offers(qs: QuerySet[Offer]) -> Details:
+    rows = qs.select_related("application__candidate", "application__job_description")[
+        :DETAILS_LIMIT
+    ]
+    return qs.count(), [_offer_item(row) for row in rows]
+
+
+def _communications(qs: QuerySet[Communication]) -> Details:
+    rows = qs.select_related(
+        "application__candidate", "application__job_description", "performed_by"
+    )[:DETAILS_LIMIT]
+    return qs.count(), [_communication_item(comm) for comm in rows]
+
+
+def _hires(scope: Scope, _query: DetailQuery) -> Details:
+    rows = _between(
+        Onboarding.objects.filter(application__job_description_id__in=scope.jd_ids()),
+        "completed_at",
+        scope.window,
+    ).select_related("application__candidate", "application__job_description", "application__match")
+    return rows.count(), [_hire_item(row) for row in rows.order_by("-completed_at")[:DETAILS_LIMIT]]
+
+
+def _overdue_follow_ups(scope: Scope, _query: DetailQuery) -> Details:
+    in_contact = scope.applications().filter(status__in=STAGE_PARTITION["contacted"])
+    comms = (
+        Communication.objects.filter(application__in=in_contact, next_action_at__lt=scope.now)
+        .order_by("application_id", "-next_action_at")
+        .distinct("application_id")
+        .select_related("application__candidate", "application__job_description")
+    )
+    rows = sorted(comms, key=lambda comm: comm.next_action_at)
+    return len(rows), [
+        _application_item(
+            comm.application,
+            at=comm.next_action_at,
+            at_label="Follow-up due",
+            note=comm.next_action or comm.summary,
+        )
+        for comm in rows[:DETAILS_LIMIT]
+    ]
+
+
+def _quiet_roles(scope: Scope, _query: DetailQuery) -> Details:
+    rows = (
+        scope.job_descriptions()
+        .filter(status=enums.JDStatus.OPEN)
+        .exclude(activities__occurred_at__gte=scope.now - STALE_AFTER)
+        .annotate(
+            candidates=Count("applications", distinct=True),
+            last_activity=Max("activities__occurred_at"),
+        )
+        .select_related("created_by")
+        .order_by("last_activity", "title")
+    )
+    return rows.count(), [
+        _job_item(
+            jd,
+            value=_plural(jd.candidates, "candidate"),
+            note=(
+                f"Last activity {_plural((scope.now - jd.last_activity).days, 'day')} ago"
+                if jd.last_activity
+                else "No activity yet"
+            ),
+        )
+        for jd in rows[:DETAILS_LIMIT]
+    ]
+
+
+def _band(bands: tuple, key: str | None) -> tuple[float, float]:
+    for band_key, _label, low, high in bands:
+        if band_key == key:
+            return low, high
+    raise ValueError(f"Unknown band {key!r}.")
+
+
+def _match_band(scope: Scope, query: DetailQuery) -> Details:
+    low, high = _band(MATCH_BANDS, query.key)
+    return _apps(
+        scope.applications()
+        .filter(match__overall_pct__gte=low, match__overall_pct__lt=high)
+        .order_by("-match__overall_pct"),
+        scope,
+    )
+
+
+def _experience(scope: Scope, query: DetailQuery) -> Details:
+    low, high = _band(EXPERIENCE_BANDS, query.key)
+    return _apps(
+        scope.applications()
+        .filter(
+            candidate__total_experience_years__gte=low,
+            candidate__total_experience_years__lt=high,
+        )
+        .order_by("-candidate__total_experience_years"),
+        scope,
+    )
+
+
+def _stage(scope: Scope, query: DetailQuery) -> Details:
+    """Candidates at some statuses (all of them when none is given), on one role or every role."""
+    apps = scope.applications()
+    if query.statuses:
+        apps = apps.filter(status__in=query.statuses)
+    if query.job_description:
+        apps = apps.filter(job_description_id=query.job_description)
+    return _apps(apps, scope)
+
+
+def _searches(scope: Scope, _query: DetailQuery) -> Details:
+    rows = (
+        _between(
+            SearchRun.objects.filter(job_description_id__in=scope.jd_ids()),
+            "started_at",
+            scope.window,
+        )
+        .select_related("job_description", "requested_by")
+        .order_by("-started_at")
+    )
+    return rows.count(), [_search_item(run) for run in rows[:DETAILS_LIMIT]]
+
+
+DETAIL_BUILDERS: dict[str, Callable[[Scope, DetailQuery], Details]] = {
+    "open_roles": lambda scope, _q: _jobs(
+        scope.job_descriptions().filter(status=enums.JDStatus.OPEN)
+    ),
+    "in_pipeline": lambda scope, _q: _apps(
+        scope.applications()
+        .filter(status__in=ApplicationStatus.ACTIVE)
+        .exclude(status=ApplicationStatus.ONBOARDED),
+        scope,
+    ),
+    "new_candidates": lambda scope, _q: _apps(
+        _between(scope.applications(), "created_at", scope.window).order_by("-created_at"),
+        scope,
+        at_label="Found",
+    ),
+    "interviews": lambda scope, _q: _interviews(
+        _between(
+            scope.interviews().exclude(status=InterviewStatus.CANCELLED),
+            "scheduled_at",
+            scope.window,
+        ).order_by("-scheduled_at")
+    ),
+    "offers_pending": lambda scope, _q: _offers(
+        scope.offers().filter(status__in=PENDING_OFFER_STATUSES).order_by("expires_at")
+    ),
+    "hires": _hires,
+    "time_to_hire": _hires,
+    "offer_acceptance": lambda scope, _q: _offers(
+        _between(
+            scope.offers().filter(status__in=(OfferStatus.ACCEPTED, OfferStatus.DECLINED)),
+            "responded_at",
+            scope.window,
+        ).order_by("-responded_at")
+    ),
+    "overdue_follow_ups": _overdue_follow_ups,
+    "feedback_pending": lambda scope, _q: _interviews(
+        scope.interviews()
+        .filter(status__in=OPEN_INTERVIEW_STATUSES, scheduled_at__lt=scope.now)
+        .order_by("scheduled_at"),
+        at_label="Held",
+    ),
+    "offers_expiring": lambda scope, _q: _offers(
+        scope.offers()
+        .filter(
+            status__in=(OfferStatus.SENT, OfferStatus.NEGOTIATING),
+            expires_at__lt=scope.now + OFFER_EXPIRY_SOON,
+        )
+        .order_by("expires_at")
+    ),
+    "stale_candidates": lambda scope, _q: _apps(
+        scope.applications()
+        .filter(status__in=IN_PROCESS_STATUSES, stage_entered_at__lt=scope.now - STALE_AFTER)
+        .order_by("stage_entered_at"),
+        scope,
+    ),
+    "quiet_roles": _quiet_roles,
+    "stage": _stage,
+    "source": lambda scope, q: _apps(scope.applications().filter(entry_source=q.key), scope),
+    "role": lambda scope, q: _apps(
+        scope.applications().filter(job_description_id=q.job_description), scope
+    ),
+    "skill": lambda scope, q: _apps(
+        scope.applications().filter(candidate__skills__skill=q.key).distinct(), scope
+    ),
+    "match_band": _match_band,
+    "department": lambda scope, q: _jobs(
+        scope.job_descriptions().filter(status=enums.JDStatus.OPEN, department=q.key)
+    ),
+    "experience": _experience,
+    "channel": lambda scope, q: _communications(
+        _between(
+            Communication.objects.filter(application__in=scope.applications(), channel=q.key),
+            "occurred_at",
+            scope.window,
+        )
+    ),
+    "offer_status": lambda scope, q: _offers(scope.offers().filter(status=q.key)),
+    "searches": _searches,
+}
+# The figures that take a ``key``: which source, skill, band, department, channel or status.
+KEYED_METRICS: frozenset[str] = frozenset(
+    {"source", "skill", "match_band", "department", "experience", "channel", "offer_status"}
+)
+
+
+def details(scope: Scope, query: DetailQuery) -> dict[str, Any]:
+    """The rows behind one dashboard figure (the total, and at most ``DETAILS_LIMIT`` of them)."""
+    count, items = DETAIL_BUILDERS[query.metric](scope, query)
+    return {"metric": query.metric, "count": count, "items": items}

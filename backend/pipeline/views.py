@@ -173,6 +173,7 @@ class SearchRunViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     mixins.CreateModelMixin,
+    mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
     permission_classes = [IsAuthenticated]
@@ -203,6 +204,24 @@ class SearchRunViewSet(
             SearchResponseSerializer(payload, context=self.get_serializer_context()).data,
             status=status.HTTP_202_ACCEPTED if in_flight else status.HTTP_201_CREATED,
         )
+
+    @extend_schema(
+        operation_id="searches_destroy",
+        summary="Cancel a running search and remove it",
+        description=(
+            "Stops the background run at its next step and deletes the run together with "
+            "the untouched applications it created. Only a run that is still pending or "
+            "running can be cancelled."
+        ),
+        responses={204: None, 403: ERROR_ENVELOPE, 404: ERROR_ENVELOPE, 409: ERROR_ENVELOPE},
+        tags=["searches"],
+    )
+    def destroy(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        run = self.get_object()
+        if not can_run_search(request.user, run.job_description):
+            raise PermissionDenied("You cannot cancel searches for this job description.")
+        SearchService.cancel(run)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @extend_schema_view(

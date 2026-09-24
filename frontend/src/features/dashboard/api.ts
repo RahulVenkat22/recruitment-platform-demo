@@ -3,6 +3,8 @@ import { api, endpoints } from '@/lib/api'
 import { qk } from '@/lib/query-keys'
 import type {
   AttentionCounts,
+  DashboardDetails,
+  DashboardInsights,
   DashboardPipeline,
   DashboardSummary,
   DashboardTrends,
@@ -107,5 +109,56 @@ export function useUpcomingInterviews(scope: DashboardScope) {
     queryKey: qk.dashboard.upcomingInterviews(params(scope)),
     queryFn: () => get<Interview[]>('upcoming-interviews', params(scope)),
     placeholderData: keepPreviousData,
+  })
+}
+
+export function useInsights(scope: DashboardScope) {
+  return useQuery({
+    queryKey: qk.dashboard.insights(params(scope)),
+    queryFn: () => get<DashboardInsights>('insights', params(scope)),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export type ExportKind = 'csv' | 'xlsx' | 'pdf'
+
+/** Every figure and table for the scope as one file, named by the server after the window it covers. */
+export async function exportDashboard(scope: DashboardScope, kind: ExportKind, jobId?: string) {
+  const response = await api.get<Blob>(endpoints.dashboard(`export/${kind}`), {
+    params: params(scope, jobId ? { job_description: jobId } : {}),
+    responseType: 'blob',
+  })
+  const disposition = String(response.headers['content-disposition'] ?? '')
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `dashboard.${kind}`
+  return { blob: response.data, filename }
+}
+
+/** Which figure to open in place, plus the narrowing some figures take. */
+export interface DetailQuery {
+  metric: string
+  /** Application statuses, for a pipeline stage. */
+  statuses?: readonly string[]
+  /** One job description, for a role or a stage of it. */
+  jobId?: string
+  /** The source, skill, band, department, channel or offer status. */
+  key?: string
+}
+
+function detailParams(query: DetailQuery): Record<string, string> {
+  return {
+    metric: query.metric,
+    ...(query.statuses?.length ? { statuses: query.statuses.join(',') } : {}),
+    ...(query.jobId ? { job_description: query.jobId } : {}),
+    ...(query.key ? { key: query.key } : {}),
+  }
+}
+
+/** The rows behind one figure; nothing is fetched until a figure is chosen. */
+export function useDetails(scope: DashboardScope, query: DetailQuery | null) {
+  const extra = query ? detailParams(query) : { metric: '' }
+  return useQuery({
+    queryKey: qk.dashboard.details(params(scope), extra),
+    queryFn: () => get<DashboardDetails>('details', params(scope, extra)),
+    enabled: query !== null,
   })
 }

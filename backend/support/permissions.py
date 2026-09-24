@@ -1,6 +1,6 @@
 """Who may do what with a support ticket, as pure predicates.
 
-Capability                    hr_admin (support team)   requester         assignee
+Capability                    admin (support team)      requester         assignee
 See a ticket                  all                       own               assigned
 Raise a ticket                yes                       everyone          -
 Edit subject / description    yes (until closed)        yes (until closed) no
@@ -16,14 +16,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from common.enums import TicketStatus
-from common.permissions import is_hr_admin, role_of
+from common.enums import TicketStatus, UserRole
+from common.permissions import has_role, role_of
 from support.models import Ticket
 
 
 def is_agent(user: Any) -> bool:
-    """The support team: HR admins."""
-    return is_hr_admin(user)
+    """The support team: admins. HR staff raise tickets like everyone else."""
+    return has_role(user, UserRole.ADMIN)
 
 
 def is_requester(user: Any, ticket: Ticket) -> bool:

@@ -40,12 +40,6 @@ describe('app shell routing', () => {
     )
   })
 
-  it('shows the API health pill as offline when the health call fails', async () => {
-    renderApp('/dashboard')
-    expect(await screen.findByText('API offline')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('API offline')
-  })
-
   it('renders the homepage at the root path', async () => {
     renderApp('/')
     expect(

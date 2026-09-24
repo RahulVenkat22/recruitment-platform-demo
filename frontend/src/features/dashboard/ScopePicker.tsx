@@ -27,7 +27,7 @@ export interface ScopePickerProps {
 }
 
 /** The roles in the order a manager scans them. */
-const ROLE_ORDER = ['hr_admin', 'hr', 'interviewer', 'employee']
+const ROLE_ORDER = ['hr_admin', 'hr', 'interviewer', 'employee', 'admin']
 
 /**
  * "Whose dashboard": everyone the viewer may see, or the job descriptions of any

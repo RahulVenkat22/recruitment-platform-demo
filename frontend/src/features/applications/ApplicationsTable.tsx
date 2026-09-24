@@ -50,16 +50,11 @@ function CandidateCell({ row }: { row: ApplicationRow }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
       <Avatar name={row.candidate.full_name} src={row.candidate.avatar_url} size="md" />
-      <div className="min-w-0">
-        <Link
-          to={candidateHref(row)}
-          className="block truncate font-medium text-ink hover:underline"
-        >
+      <div className="min-w-0 whitespace-normal">
+        <Link to={candidateHref(row)} className="block font-medium text-ink hover:underline">
           {row.candidate.full_name}
         </Link>
-        <span className="block truncate text-caption text-ink-subtle">
-          {row.candidate.headline}
-        </span>
+        <span className="block text-caption text-ink-subtle">{row.candidate.headline}</span>
       </div>
     </div>
   )
@@ -76,19 +71,19 @@ function ApplicationCard({ row, actions }: { row: ApplicationRow; actions?: RowA
       <div className="flex items-start gap-3">
         <Avatar name={row.candidate.full_name} src={row.candidate.avatar_url} size="lg" />
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-h3 text-ink">
+          <h3 className="text-h3 break-words text-ink">
             <Link to={candidateHref(row)} className="rounded-control hover:underline">
               {row.candidate.full_name}
             </Link>
           </h3>
-          <p className="truncate text-small text-ink-muted">{row.candidate.headline}</p>
+          <p className="text-small text-ink-muted">{row.candidate.headline}</p>
         </div>
         {row.match && <MatchRing value={row.match.overall_pct} size="md" />}
       </div>
       <dl className="space-y-1 text-small text-ink-muted">
-        <div className="truncate">
+        <div>
           <dt className="sr-only">Skills</dt>
-          <dd className="truncate text-ink">{skills.join(' • ') || 'No skills listed'}</dd>
+          <dd className="text-ink">{skills.join(' • ') || 'No skills listed'}</dd>
         </div>
         <div>
           <dt className="sr-only">Experience</dt>

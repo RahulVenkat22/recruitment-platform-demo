@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes, type InitialEntry } from 'react-router'
 import LoginPage from '@/features/auth/LoginPage'
@@ -37,6 +37,7 @@ describe('LoginPage', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
   it('renders the two-panel layout copy', () => {
@@ -120,7 +121,8 @@ describe('LoginPage', () => {
   })
 
   it('signs in with remember me and returns to the page the visitor wanted', async () => {
-    const ui = userEvent.setup()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const ui = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     const post = vi
       .spyOn(api, 'post')
       .mockResolvedValue({ data: { access: 'tok', user }, status: 200 })
@@ -128,6 +130,11 @@ describe('LoginPage', () => {
 
     await ui.click(screen.getByLabelText('Remember me'))
     await fillAndSubmit(ui, 'rahul@aimious.demo', 'Demo@1234')
+
+    // The welcome loader holds for five seconds before the app opens.
+    expect(await screen.findByRole('status', { name: 'Signing you in' })).toBeInTheDocument()
+    expect(screen.queryByText('Job detail page')).not.toBeInTheDocument()
+    await act(() => vi.advanceTimersByTimeAsync(5000))
 
     expect(await screen.findByText('Job detail page')).toBeInTheDocument()
     expect(post).toHaveBeenCalledWith(endpoints.authLogin, {
@@ -139,11 +146,15 @@ describe('LoginPage', () => {
   })
 
   it('goes to the homepage by default after signing in', async () => {
-    const ui = userEvent.setup()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const ui = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     vi.spyOn(api, 'post').mockResolvedValue({ data: { access: 'tok', user }, status: 200 })
     renderLogin()
 
     await fillAndSubmit(ui, 'rahul@aimious.demo', 'Demo@1234')
+
+    expect(await screen.findByRole('status', { name: 'Signing you in' })).toBeInTheDocument()
+    await act(() => vi.advanceTimersByTimeAsync(5000))
 
     expect(await screen.findByText('Home page')).toBeInTheDocument()
   })
@@ -161,7 +172,7 @@ describe('LoginPage', () => {
 
     await ui.click(screen.getByRole('button', { name: 'Demo accounts' }))
     const list = await screen.findByRole('list', { name: 'Demo accounts' })
-    expect(within(list).getAllByRole('listitem')).toHaveLength(10)
+    expect(within(list).getAllByRole('listitem')).toHaveLength(12)
     await ui.click(within(list).getByRole('button', { name: /Priya Sharma/ }))
 
     expect(screen.getByLabelText('Email or username')).toHaveValue('priya@aimious.demo')

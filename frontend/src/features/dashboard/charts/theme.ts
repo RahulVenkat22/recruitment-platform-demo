@@ -40,6 +40,11 @@ export const STAGE_COLORS: Record<string, string> = {
   onboarded: ORDINAL_RAMP[5],
 }
 
+/** The stage partition on the funnel's colours; candidates awaiting review take the first step. */
+export function stageColor(key: string): string {
+  return STAGE_COLORS[key] ?? STAGE_COLORS.found
+}
+
 /** Interview recommendations are a diverging scale: two greens, a neutral, one red. */
 export const OUTCOME_COLORS: Record<string, string> = {
   strong_proceed: '#1f7a4d',
@@ -50,3 +55,22 @@ export const OUTCOME_COLORS: Record<string, string> = {
 
 /** The sparkline accent on the stat tiles. */
 export const SPARK = SERIES[0]
+
+/**
+ * Sequential lime ramp for the activity heatmap, quiet to busy; empty cells take
+ * the surface. Lightness falls monotonically through the steps, and every cell
+ * carries its value in a hover readout and the table twin, as the pale steps
+ * sit under 3:1 against the card.
+ */
+export const HEAT_RAMP = ['#f3f7d2', '#dde48a', '#c4d600', '#8fa000', '#6b7500'] as const
+
+/** Offer statuses are states: blue in flight, amber negotiating, green won, red lost, grey closed. */
+export const OFFER_COLORS: Record<string, string> = {
+  draft: '#b7b7ae',
+  sent: '#1d4ed8',
+  negotiating: '#b7791f',
+  accepted: '#1f7a4d',
+  declined: '#d50032',
+  withdrawn: '#5d615c',
+  expired: '#5d615c',
+}

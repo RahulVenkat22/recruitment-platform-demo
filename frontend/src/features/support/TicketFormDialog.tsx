@@ -23,6 +23,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { useJobList } from '@/features/jobs/api'
 import { useCreateTicket, useUpdateTicket } from '@/features/support/api'
+import { AttachmentPicker } from '@/features/support/AttachmentPicker'
 import { PRIORITY_ORDER } from '@/features/support/support-utils'
 import { useEnumOptions } from '@/lib/enums'
 import { describeError } from '@/lib/errors'
@@ -40,9 +41,18 @@ const NO_JOB = '__none__'
 const SUBJECT_MAX = 200
 const DESCRIPTION_MAX = 5000
 
-/** Raise a ticket, or edit one: subject, category, priority, the related role and the details. */
+/**
+ * Raise a ticket, or edit one: subject, category, priority, the related role and
+ * the details. A new ticket can carry screenshots and recordings.
+ */
 export function TicketFormDialog({ open, onOpenChange, ticket, onSaved }: TicketFormDialogProps) {
-  const ids = { subject: useId(), category: useId(), job: useId(), description: useId() }
+  const ids = {
+    subject: useId(),
+    category: useId(),
+    job: useId(),
+    description: useId(),
+    files: useId(),
+  }
   const editing = Boolean(ticket)
   const create = useCreateTicket()
   const update = useUpdateTicket()
@@ -56,6 +66,7 @@ export function TicketFormDialog({ open, onOpenChange, ticket, onSaved }: Ticket
   const [priority, setPriority] = useState<TicketPriority>('medium')
   const [job, setJob] = useState(NO_JOB)
   const [description, setDescription] = useState('')
+  const [files, setFiles] = useState<File[]>([])
   const [tried, setTried] = useState(false)
 
   useEffect(() => {
@@ -66,6 +77,7 @@ export function TicketFormDialog({ open, onOpenChange, ticket, onSaved }: Ticket
       setPriority(ticket?.priority ?? 'medium')
       setJob(ticket?.job?.id ?? NO_JOB)
       setDescription(ticket?.description ?? '')
+      setFiles([])
       setTried(false)
     }, 0)
     return () => window.clearTimeout(handle)
@@ -91,7 +103,7 @@ export function TicketFormDialog({ open, onOpenChange, ticket, onSaved }: Ticket
     try {
       const saved = ticket
         ? await update.mutateAsync({ id: ticket.id, body })
-        : await create.mutateAsync(body)
+        : await create.mutateAsync({ body, attachments: files })
       toast.success(ticket ? `${saved.number} updated` : `${saved.number} raised`)
       onOpenChange(false)
       onSaved?.(saved)
@@ -192,6 +204,17 @@ export function TicketFormDialog({ open, onOpenChange, ticket, onSaved }: Ticket
             />
             {tried && descriptionError && <FieldError>{descriptionError}</FieldError>}
           </Field>
+          {!editing && (
+            <Field>
+              <FieldLabel htmlFor={ids.files}>Screenshots or recordings</FieldLabel>
+              <AttachmentPicker
+                id={ids.files}
+                files={files}
+                onChange={setFiles}
+                disabled={pending}
+              />
+            </Field>
+          )}
           <DialogFooter>
             <Button
               type="button"

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { PeoplePickerValue } from '@/components/shared/PeoplePicker'
+import { splitLines } from '@/features/jobs/job-utils'
 import type {
   JobCreateRequest,
   JobDetail,
@@ -49,6 +50,8 @@ export const SALARY_MAX = 2_000_000_000
 /**
  * Number inputs are kept as strings in the form so an empty box is "unset"
  * rather than 0; `superRefine` parses and cross-checks them (plan.md 9.5).
+ * Responsibilities, qualifications, education and additional requirements are
+ * lists of points here and newline-separated text in the API.
  */
 export const jobFormSchema = z
   .object({
@@ -71,10 +74,10 @@ export const jobFormSchema = z
     salary_currency: z.string().trim().toUpperCase().length(3, 'Use a 3-letter currency code.'),
     required_skills: z.array(z.string()).min(1, 'Add at least one required skill.'),
     preferred_skills: z.array(z.string()),
-    education_requirements: z.string(),
-    responsibilities: z.string(),
-    qualifications: z.string(),
-    additional_requirements: z.string(),
+    education_requirements: z.array(z.string()),
+    responsibilities: z.array(z.string()),
+    qualifications: z.array(z.string()),
+    additional_requirements: z.array(z.string()),
     description: z.string(),
     participants: z.array(
       z.object({ user_id: z.string(), role_in_recruitment: z.enum(PARTICIPANT_ROLES) }),
@@ -167,8 +170,8 @@ export function completionOf(values: JobFormValues, creatorId: string | undefine
     skills: [values.required_skills.length > 0, values.preferred_skills.length > 0],
     details: [
       filled(values.description),
-      filled(values.responsibilities),
-      filled(values.qualifications),
+      values.responsibilities.some(filled),
+      values.qualifications.some(filled),
     ],
     people: [values.participants.some((entry) => entry.user_id !== creatorId)],
   }
@@ -197,10 +200,10 @@ export function emptyJobForm(user: SessionUser | null): JobFormValues {
     salary_currency: 'INR',
     required_skills: [],
     preferred_skills: [],
-    education_requirements: '',
-    responsibilities: '',
-    qualifications: '',
-    additional_requirements: '',
+    education_requirements: [],
+    responsibilities: [],
+    qualifications: [],
+    additional_requirements: [],
     description: '',
     participants: user ? [{ user_id: user.id, role_in_recruitment: 'owner' }] : [],
   }
@@ -226,10 +229,10 @@ export function jobToForm(job: JobDetail): JobFormValues {
     preferred_skills: job.preferred_skill_names.length
       ? [...job.preferred_skill_names]
       : [...job.preferred_skills],
-    education_requirements: job.education_requirements,
-    responsibilities: job.responsibilities,
-    qualifications: job.qualifications,
-    additional_requirements: job.additional_requirements,
+    education_requirements: splitLines(job.education_requirements),
+    responsibilities: splitLines(job.responsibilities),
+    qualifications: splitLines(job.qualifications),
+    additional_requirements: splitLines(job.additional_requirements),
     description: job.description,
     participants: job.participants.map((participant) => ({
       user_id: participant.user.id,
@@ -241,6 +244,8 @@ export function jobToForm(job: JobDetail): JobFormValues {
 /** The fields the AI read from an uploaded file as form values: numbers become the form's strings. */
 export function extractionToForm(fields: JobExtractedFields): Partial<JobFormValues> {
   const text = (value: number | undefined) => (value === undefined ? undefined : String(value))
+  const points = (value: string | undefined) =>
+    value === undefined ? undefined : splitLines(value)
   const values: Partial<JobFormValues> = {
     title: fields.title,
     department: fields.department,
@@ -256,15 +261,23 @@ export function extractionToForm(fields: JobExtractedFields): Partial<JobFormVal
     salary_currency: fields.salary_currency,
     required_skills: fields.required_skills,
     preferred_skills: fields.preferred_skills,
-    education_requirements: fields.education_requirements,
-    responsibilities: fields.responsibilities,
-    qualifications: fields.qualifications,
-    additional_requirements: fields.additional_requirements,
+    education_requirements: points(fields.education_requirements),
+    responsibilities: points(fields.responsibilities),
+    qualifications: points(fields.qualifications),
+    additional_requirements: points(fields.additional_requirements),
     description: fields.description,
   }
   return Object.fromEntries(
     Object.entries(values).filter(([, value]) => value !== undefined),
   ) as Partial<JobFormValues>
+}
+
+/** The form's points as the API's newline-separated text, blank points dropped. */
+function joinPoints(points: readonly string[]): string {
+  return points
+    .map((point) => point.trim())
+    .filter(Boolean)
+    .join('\n')
 }
 
 function contentPayload(values: JobFormValues) {
@@ -288,10 +301,10 @@ function contentPayload(values: JobFormValues) {
     salary_currency: values.salary_currency.trim().toUpperCase(),
     required_skills: values.required_skills,
     preferred_skills: values.preferred_skills,
-    education_requirements: values.education_requirements,
-    responsibilities: values.responsibilities,
-    qualifications: values.qualifications,
-    additional_requirements: values.additional_requirements,
+    education_requirements: joinPoints(values.education_requirements),
+    responsibilities: joinPoints(values.responsibilities),
+    qualifications: joinPoints(values.qualifications),
+    additional_requirements: joinPoints(values.additional_requirements),
     description: values.description,
     participants: values.participants.map((entry) => ({
       user_id: entry.user_id,
@@ -334,10 +347,10 @@ export function formToSnapshot(values: JobFormValues): JobSnapshot {
     salary_currency: (values.salary_currency || 'INR').toUpperCase(),
     required_skills: values.required_skills,
     preferred_skills: values.preferred_skills,
-    education_requirements: values.education_requirements,
-    responsibilities: values.responsibilities,
-    qualifications: values.qualifications,
-    additional_requirements: values.additional_requirements,
+    education_requirements: joinPoints(values.education_requirements),
+    responsibilities: joinPoints(values.responsibilities),
+    qualifications: joinPoints(values.qualifications),
+    additional_requirements: joinPoints(values.additional_requirements),
     description: values.description,
     domain: values.domain || null,
     openings: whole(values.openings) || 1,

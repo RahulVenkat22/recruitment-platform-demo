@@ -2,6 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { ClipboardListIcon, PlusIcon, SearchIcon, SearchXIcon, UserSearchIcon } from 'lucide-react'
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { ClearFiltersButton } from '@/components/shared/ClearFiltersButton'
 import { ActionMenu } from '@/components/shared/ActionMenu'
 import { rowActionsColumn } from '@/components/shared/data-table-columns'
 import { DataTable } from '@/components/shared/DataTable'
@@ -382,17 +383,7 @@ export default function HomePage() {
           />
         )}
         <div className="ml-auto flex items-center gap-2">
-          {filtered && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-ink-muted"
-              onClick={clearFilters}
-            >
-              Clear filters
-            </Button>
-          )}
+          <ClearFiltersButton active={filtered} onClick={clearFilters} />
           <Select value={state.sort} onValueChange={(sort) => setState({ sort, page: 1 })}>
             <SelectTrigger size="sm" aria-label="Sort" className="bg-surface">
               <span className="text-ink-subtle">Sort:</span>

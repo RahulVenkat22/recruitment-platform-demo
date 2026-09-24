@@ -3,15 +3,19 @@
     analysing   the JD is turned into a query plan (LLM, cached per version;
                 falls back to the structured fields)
     retrieving  providers are queried in order and de-duplicated by email or
-                phone; candidates are upserted through ``CandidateRepository``,
-                applications created (or kept) and scored by the rule engine
+                phone; candidates are upserted through ``CandidateRepository``
+                and scored by the rule engine, in memory
     evaluating  the top of the pool is evaluated by the LLM against the
-                resume evidence; scores are blended (resumes.engines.scoring)
+                resume evidence; scores are blended (resumes.engines.scoring).
+                A verdict already given on this version of the JD is reused,
+                so a repeat search costs no calls and moves no numbers
     summarising every other candidate gets two sentences on why they received
                 their percentage, written by the LLM from the scoring facts in
-                batches (the candidate page shows them in the JD's context)
-    finalising  new applications at or above the threshold become
-                AI Shortlisted, counts and activities are written
+                batches; a summary written for this JD version is kept
+    finalising  everything lands in one transaction: applications for new
+                candidates, every match, the AI shortlist, counts and the
+                timeline. Until then nothing in the pipeline changes, so a
+                cancelled run leaves no trace
 
 ``start`` creates the run and, when ``SEARCH_RUN_ASYNC`` is on, executes it in
 a background thread; the run's ``phase`` / ``progress`` columns are updated
@@ -36,7 +40,8 @@ from activity.services import record_activity
 from candidates.repositories import CandidateRepository, phone_digits
 from common.enums import ActivityCategory, ApplicationStatus, JDStatus, SearchRunStatus
 from common.permissions import is_hr_staff
-from matching.adapters import candidate_profile
+from matching.adapters import candidate_profile, jd_profile
+from matching.engine import MatchResult
 from matching.registry import get_engine
 from matching.services import apply_semantic_result, compute_match
 from matching.skills import display_name
@@ -48,7 +53,13 @@ from resumes.engines.planner import QueryPlan, plan_for, structured_plan
 from resumes.engines.retrieval import Evidence, evidence_for, has_resume_chunks, library_size
 from resumes.engines.scoring import SemanticResult, blend, preliminary
 from sourcing.dtos import SearchCriteria
-from sourcing.exceptions import JobNotSearchable, NoSourcesSelected, UnknownSource
+from sourcing.exceptions import (
+    JobNotSearchable,
+    NoSourcesSelected,
+    SearchCancelled,
+    SearchNotRunning,
+    UnknownSource,
+)
 from sourcing.registry import ALL_SOURCES, get_provider, provider_keys
 
 logger = logging.getLogger(__name__)
@@ -67,13 +78,45 @@ TERMINAL_STATUSES: frozenset[str] = frozenset(
 
 
 @dataclass
+class Found:
+    """One candidate a source returned, scored in memory until the run completes."""
+
+    candidate: Any
+    source: str
+    # The application already on this job description, when there is one.
+    existing: Application | None
+    result: MatchResult
+    # The provider's retrieval info (resumes.engines.retrieval), when it did a semantic pass.
+    semantic: dict[str, Any] = field(default_factory=dict)
+    verdict: SemanticResult | None = None
+    summary: str = ""
+
+    @property
+    def rule_pct(self) -> float:
+        return float(self.result.overall_pct)
+
+    @property
+    def retrieval(self) -> float | None:
+        score = self.semantic.get("retrieval_score")
+        return float(score) if score is not None else None
+
+    @property
+    def score(self) -> float:
+        return self.verdict.overall_pct if self.verdict else self.rule_pct
+
+    @property
+    def previous(self) -> Any:
+        """The match the candidate already has on this job description, if any."""
+        return getattr(self.existing, "match", None) if self.existing else None
+
+
+@dataclass
 class SearchOutcome:
     run: SearchRun
+    found: list[Found] = field(default_factory=list)
     applications: list[Application] = field(default_factory=list)
     new_application_ids: set[Any] = field(default_factory=set)
     errors: dict[str, str] = field(default_factory=dict)
-    # Per application: the provider's retrieval info (resumes.engines.retrieval).
-    semantic: dict[Any, dict[str, Any]] = field(default_factory=dict)
 
 
 def resolve_sources(sources: Sequence[str] | str | None) -> list[str]:
@@ -118,16 +161,41 @@ def _actor_name(actor: Any) -> str:
     return getattr(actor, "full_name", None) or "System"
 
 
+# Where each phase sits on the 0-100 scale the loader shows; a counter moves within the span.
+PHASE_SPAN: dict[str, tuple[int, int]] = {
+    "queued": (0, 2),
+    "analysing": (2, 10),
+    "retrieving": (10, 35),
+    "scoring": (35, 40),
+    "evaluating": (40, 80),
+    "summarising": (80, 95),
+    "finalising": (95, 100),
+    "done": (100, 100),
+}
+
+
 class RunProgress:
-    """Writes phase/progress straight to the row (autocommit) so pollers see it."""
+    """Writes phase/progress straight to the row (autocommit) so pollers see it, and
+    stops the worker as soon as the row is gone, which is how a cancel arrives."""
 
     def __init__(self, run: SearchRun) -> None:
         self.run = run
 
+    def check(self) -> None:
+        if not SearchRun.objects.filter(pk=self.run.pk).exists():
+            raise SearchCancelled(str(self.run.pk))
+
     def update(
         self, phase: str, message: str, *, current: int | None = None, total: int | None = None
     ) -> None:
-        payload: dict[str, Any] = {"message": message}
+        """``current`` counts the items already finished in this phase, of ``total``."""
+        self.check()
+        low, high = PHASE_SPAN.get(phase, (0, 100))
+        fraction = min(current, total) / total if current is not None and total else 0
+        payload: dict[str, Any] = {
+            "message": message,
+            "percent": round(low + (high - low) * fraction),
+        }
         if current is not None:
             payload["current"] = current
         if total is not None:
@@ -172,6 +240,15 @@ class SearchService:
         run = SearchService.create_run(jd, sources, actor)
         return SearchService.execute(run.pk)
 
+    @staticmethod
+    def cancel(run: SearchRun) -> None:
+        """Stop an in-flight run and remove it. A run writes to the pipeline only when
+        it completes, so deleting the row is the whole undo; the worker notices at its
+        next step and stops."""
+        if str(run.status) in TERMINAL_STATUSES:
+            raise SearchNotRunning
+        run.delete()
+
     # ------------------------------------------------------------- execution
 
     @staticmethod
@@ -188,10 +265,13 @@ class SearchService:
         outcome = SearchOutcome(run=run)
         try:
             plan = SearchService._analyse(run, jd, keys, progress)
-            SearchService._retrieve(run, jd, actor, keys, plan, progress, outcome, started)
+            SearchService._retrieve(jd, keys, plan, progress, outcome, started)
             SearchService._evaluate(run, jd, plan, progress, outcome)
-            SearchService._summarise(run, jd, plan, progress, outcome)
+            SearchService._summarise(jd, plan, progress, outcome)
             SearchService._finalise(run, jd, actor, keys, progress, outcome, started)
+        except SearchCancelled:
+            logger.info("search run %s was cancelled and removed", run.pk)
+            return outcome
         except Exception as exc:  # noqa: BLE001 - the run row must always reach a final state
             logger.exception("search run %s failed", run.pk)
             finished = timezone.now()
@@ -226,31 +306,32 @@ class SearchService:
 
     @staticmethod
     def _retrieve(
-        run: SearchRun,
         jd: Any,
-        actor: Any,
         keys: list[str],
         plan: QueryPlan,
         progress: RunProgress,
         outcome: SearchOutcome,
         started,
     ) -> None:
+        """Query every source, keep each candidate once, and score them by the rules
+        in memory; only the candidate records themselves are written."""
         criteria = criteria_for(jd, plan)
         engine = get_engine()
-        owner = actor if is_hr_staff(actor) else None
+        job = jd_profile(jd)
         seen_emails: set[str] = set()
         seen_phones: set[str] = set()
-        existing = 0
+        seen_candidates: set[Any] = set()
         for index, key in enumerate(keys, start=1):
             progress.update(
                 "retrieving",
                 f"Searching {SOURCE_LABELS.get(key, key)}…",
-                current=index,
+                current=index - 1,
                 total=len(keys),
             )
             try:
                 provider = get_provider(key)
                 for dto in provider.search(criteria):
+                    progress.check()
                     email = (dto.email or "").strip().lower()
                     digits = phone_digits(dto.phone)
                     if (email and email in seen_emails) or (digits and digits in seen_phones):
@@ -263,53 +344,44 @@ class SearchService:
                         candidate, _created = CandidateRepository.upsert_from_dto(
                             dto, discovered_at=started
                         )
-                        application, app_created = Application.objects.get_or_create(
+                    if candidate.pk in seen_candidates:
+                        continue
+                    seen_candidates.add(candidate.pk)
+                    existing = (
+                        Application.objects.filter(candidate=candidate, job_description=jd)
+                        .select_related("match")
+                        .first()
+                    )
+                    outcome.found.append(
+                        Found(
                             candidate=candidate,
-                            job_description=jd,
-                            defaults={
-                                "status": ApplicationStatus.NEW,
-                                "entry_source": dto.source,
-                                "search_run": run,
-                                "owner": owner,
-                                "stage_entered_at": started,
-                                "last_activity_at": started,
-                            },
+                            source=dto.source,
+                            existing=existing,
+                            result=engine.score(job, candidate_profile(candidate)),
+                            semantic=dict((dto.raw or {}).get("semantic") or {}),
                         )
-                        compute_match(application, engine=engine, computed_at=started)
-                    if app_created:
-                        outcome.new_application_ids.add(application.pk)
-                    else:
-                        existing += 1
-                    semantic = (dto.raw or {}).get("semantic")
-                    if semantic:
-                        outcome.semantic[application.pk] = semantic
-                    outcome.applications.append(application)
+                    )
             except Exception as exc:  # noqa: BLE001 - a broken provider must not sink the run
                 logger.exception("candidate source %s failed", key)
                 outcome.errors[key] = str(exc) or exc.__class__.__name__
-        run.existing_candidates = existing
 
     @staticmethod
     def _evaluate(
         run: SearchRun, jd: Any, plan: QueryPlan, progress: RunProgress, outcome: SearchOutcome
     ) -> None:
-        """LLM evaluation of the top of the pool; retrieval-only blending for the rest."""
-        if not outcome.applications:
+        """LLM evaluation of the top of the pool. A candidate the AI already reviewed for
+        this version of the job description keeps that verdict; everyone else gets the
+        rules-plus-retrieval blend."""
+        if not outcome.found:
             return
-        applications = list(outcome.applications)
-        for application in applications:
-            application.match.refresh_from_db()
-
-        # Preliminary order: rules blended with retrieval, best first.
-        def prelim(application: Application) -> float:
-            info = outcome.semantic.get(application.pk)
-            retrieval = float(info["retrieval_score"]) if info else None
-            return preliminary(float(application.match.overall_pct), retrieval)
-
-        applications.sort(key=prelim, reverse=True)
+        ranked = sorted(
+            outcome.found,
+            key=lambda item: preliminary(item.rule_pct, item.retrieval),
+            reverse=True,
+        )
         limit = int(getattr(settings, "SEMANTIC_RERANK_LIMIT", 0))
         enabled = bool(getattr(settings, "SEMANTIC_RERANK_ENABLED", False)) and limit > 0
-        top = applications[:limit] if enabled else []
+        top = ranked[:limit] if enabled else []
         model = settings.LLM_SEARCH_MODEL
         job_vector: list[float] | None = None
         if top:
@@ -320,23 +392,24 @@ class SearchService:
             except EmbeddingError as exc:
                 logger.warning("no job vector for evidence lookup: %s", exc)
 
-        evaluated = 0
-        for index, application in enumerate(top, start=1):
-            candidate = application.candidate
+        for index, item in enumerate(top, start=1):
+            candidate = item.candidate
+            item.verdict = _carried_verdict(item, jd)
+            if item.verdict is not None:
+                continue
             progress.update(
                 "evaluating",
                 f"AI is reviewing {candidate.full_name} ({index} of {len(top)})…",
-                current=index,
+                current=index - 1,
                 total=len(top),
             )
-            info = outcome.semantic.get(application.pk) or {}
             evidence = [
                 Evidence(
-                    section=item["section"],
-                    excerpt=item["excerpt"],
-                    similarity=item.get("similarity", 0.0),
+                    section=entry["section"],
+                    excerpt=entry["excerpt"],
+                    similarity=entry.get("similarity", 0.0),
                 )
-                for item in info.get("evidence", [])
+                for entry in item.semantic.get("evidence", [])
             ]
             if not evidence and job_vector is not None and has_resume_chunks(candidate.pk):
                 evidence = evidence_for(candidate.pk, job_vector)
@@ -348,14 +421,11 @@ class SearchService:
                         similarity=0.0,
                     )
                 ]
-            profile = candidate_profile(candidate)
-            retrieval = float(info["retrieval_score"]) if info else None
-            rule_pct = float(application.match.overall_pct)
             try:
                 started_at = time.monotonic()
                 verdict = evaluator.evaluate(
                     plan,
-                    profile,
+                    candidate_profile(candidate),
                     evidence,
                     model=model,
                     location=candidate.location,
@@ -365,11 +435,11 @@ class SearchService:
             except LLMError as exc:
                 logger.warning("evaluation skipped for %s: %s", candidate.full_name, exc)
                 outcome.errors.setdefault("evaluation", str(exc))
-                SearchService._blend_only(application, rule_pct, retrieval, info)
+                item.verdict = _blend_only(item, jd)
                 continue
-            result = SemanticResult(
-                overall_pct=blend(rule_pct, retrieval, verdict.score),
-                retrieval_score=retrieval,
+            item.verdict = SemanticResult(
+                overall_pct=blend(item.rule_pct, item.retrieval, verdict.score),
+                retrieval_score=item.retrieval,
                 rerank_score=verdict.score,
                 explanation=verdict.explanation,
                 matched_skills=verdict.matched_skills,
@@ -377,8 +447,8 @@ class SearchService:
                 strengths=verdict.matching_experience,
                 concerns=verdict.concerns,
                 details={
-                    "rule_pct": rule_pct,
-                    "retrieval_score": retrieval,
+                    "rule_pct": item.rule_pct,
+                    "retrieval_score": item.retrieval,
                     "llm_score": verdict.score,
                     "matched_skills": verdict.matched_skills,
                     "missing_skills": verdict.missing_skills,
@@ -386,72 +456,74 @@ class SearchService:
                     "concerns": verdict.concerns,
                     "meets_experience_requirement": verdict.meets_experience_requirement,
                     "dropped_claims": verdict.dropped_claims,
-                    "evidence": [item.as_dict() for item in evidence[:3]],
+                    "evidence": [entry.as_dict() for entry in evidence[:3]],
                     "model": model,
                     "seconds": seconds,
                     "search_run_id": str(run.pk),
+                    "jd_version": jd.current_version,
                 },
             )
-            apply_semantic_result(application.match, result)
-            evaluated += 1
-        for application in applications[len(top) :]:
-            info = outcome.semantic.get(application.pk)
-            if info:
-                SearchService._blend_only(
-                    application,
-                    float(application.match.overall_pct),
-                    float(info["retrieval_score"]),
-                    info,
-                )
+        for item in ranked[len(top) :]:
+            item.verdict = _carried_verdict(item, jd) or _blend_only(item, jd)
         if top:
             progress.update(
-                "finalising",
-                f"AI reviewed {evaluated} of {len(top)} top candidates; ranking results…",
+                "evaluating",
+                f"AI reviewed the top {len(top)} candidates.",
+                current=len(top),
+                total=len(top),
             )
 
     @staticmethod
-    def _summarise(
-        run: SearchRun, jd: Any, plan: QueryPlan, progress: RunProgress, outcome: SearchOutcome
-    ) -> None:
-        """Two sentences on the percentage for every candidate the LLM did not evaluate."""
+    def _summarise(jd: Any, plan: QueryPlan, progress: RunProgress, outcome: SearchOutcome) -> None:
+        """Two sentences on the percentage for every candidate without an explanation;
+        one written for this version of the job description is kept, not rewritten."""
         if not bool(getattr(settings, "SEMANTIC_RERANK_ENABLED", False)):
             return
-        pending = sorted(
-            (app for app in outcome.applications if not app.match.explanation),
-            key=lambda app: float(app.match.overall_pct),
-            reverse=True,
-        )
+        pending: list[Found] = []
+        for item in outcome.found:
+            if item.verdict is not None and item.verdict.explanation:
+                continue
+            previous = item.previous
+            details = (previous.semantic_details or {}) if previous else {}
+            if (
+                previous is not None
+                and previous.explanation
+                and details.get("summary_model")
+                and details.get("jd_version") == jd.current_version
+            ):
+                item.summary = previous.explanation
+                continue
+            pending.append(item)
+        pending.sort(key=lambda item: item.score, reverse=True)
         model = settings.LLM_SEARCH_MODEL
         for start in range(0, len(pending), evaluator.SUMMARY_BATCH):
             batch = pending[start : start + evaluator.SUMMARY_BATCH]
             progress.update(
                 "summarising",
                 f"Writing match summaries ({start + len(batch)} of {len(pending)})…",
-                current=start + len(batch),
+                current=start,
                 total=len(pending),
             )
             facts = [
                 evaluator.MatchFacts(
-                    id=str(app.pk),
-                    name=app.candidate.full_name,
-                    overall_pct=float(app.match.overall_pct),
-                    years=float(app.candidate.total_experience_years),
+                    id=str(item.candidate.pk),
+                    name=item.candidate.full_name,
+                    overall_pct=item.score,
+                    years=float(item.candidate.total_experience_years),
                     years_min=jd.experience_min_years,
                     years_max=jd.experience_max_years,
-                    matched_required=[display_name(k) for k in app.match.matched_required_skills],
-                    missing_required=[display_name(k) for k in app.match.missing_required_skills],
-                    matched_preferred=[display_name(k) for k in app.match.matched_preferred_skills],
-                    experience_score=float(app.match.experience_score),
-                    domain_score=float(app.match.domain_score),
-                    education_score=float(app.match.education_score),
-                    responsibility_score=float(app.match.responsibility_score),
-                    retrieval_score=(
-                        float(app.match.retrieval_score)
-                        if app.match.retrieval_score is not None
-                        else None
-                    ),
+                    matched_required=[display_name(k) for k in item.result.matched_required_skills],
+                    missing_required=[display_name(k) for k in item.result.missing_required_skills],
+                    matched_preferred=[
+                        display_name(k) for k in item.result.matched_preferred_skills
+                    ],
+                    experience_score=float(item.result.experience_score),
+                    domain_score=float(item.result.domain_score),
+                    education_score=float(item.result.education_score),
+                    responsibility_score=float(item.result.responsibility_score),
+                    retrieval_score=item.retrieval,
                 )
-                for app in batch
+                for item in batch
             ]
             try:
                 summaries = evaluator.summarise(plan, facts, model=model)
@@ -459,36 +531,8 @@ class SearchService:
                 logger.warning("match summaries stopped at %d of %d: %s", start, len(pending), exc)
                 outcome.errors.setdefault("summary", str(exc))
                 return
-            for app in batch:
-                why = summaries.get(str(app.pk))
-                if not why:
-                    continue
-                app.match.explanation = why
-                app.match.semantic_details = {
-                    **(app.match.semantic_details or {}),
-                    "summary_model": model,
-                }
-                app.match.save(update_fields=["explanation", "semantic_details", "updated_at"])
-
-    @staticmethod
-    def _blend_only(
-        application: Application, rule_pct: float, retrieval: float | None, info: dict
-    ) -> None:
-        if retrieval is None:
-            return
-        result = SemanticResult(
-            overall_pct=blend(rule_pct, retrieval, None),
-            retrieval_score=retrieval,
-            rerank_score=None,
-            explanation="",
-            details={
-                "rule_pct": rule_pct,
-                "retrieval_score": retrieval,
-                "llm_score": None,
-                "evidence": list(info.get("evidence", []))[:3],
-            },
-        )
-        apply_semantic_result(application.match, result)
+            for item in batch:
+                item.summary = summaries.get(str(item.candidate.pk), "")
 
     @staticmethod
     def _finalise(
@@ -500,20 +544,55 @@ class SearchService:
         outcome: SearchOutcome,
         started,
     ) -> None:
+        """Everything the run found lands in one transaction: applications for the new
+        candidates, every match (rules, the AI's verdict, the summary), the AI
+        shortlist, the counts and the timeline."""
+        progress.update("finalising", "Ranking the results…")
         threshold = int(getattr(settings, "AI_SHORTLIST_THRESHOLD", 80))
+        engine = get_engine()
+        owner = actor if is_hr_staff(actor) else None
+        model = settings.LLM_SEARCH_MODEL
         shortlisted: list[Application] = []
+        scores: dict[Any, float] = {}
         with transaction.atomic():
-            for application in outcome.applications:
-                if application.pk not in outcome.new_application_ids:
-                    continue
-                application.match.refresh_from_db()
-                if float(application.match.overall_pct) >= threshold:
-                    application.status = ApplicationStatus.AI_SHORTLISTED
-                    application.save(update_fields=["status", "updated_at"])
-                    shortlisted.append(application)
             finished = timezone.now()
+            for item in outcome.found:
+                application, created = Application.objects.get_or_create(
+                    candidate=item.candidate,
+                    job_description=jd,
+                    defaults={
+                        "status": ApplicationStatus.NEW,
+                        "entry_source": item.source,
+                        "search_run": run,
+                        "owner": owner,
+                        "stage_entered_at": finished,
+                        "last_activity_at": finished,
+                    },
+                )
+                match = compute_match(
+                    application, engine=engine, computed_at=finished, result=item.result
+                )
+                if item.verdict is not None:
+                    match = apply_semantic_result(match, item.verdict, computed_at=finished)
+                if item.summary and not match.explanation:
+                    match.explanation = item.summary
+                    match.semantic_details = {
+                        **(match.semantic_details or {}),
+                        "summary_model": model,
+                        "jd_version": jd.current_version,
+                    }
+                    match.save(update_fields=["explanation", "semantic_details", "updated_at"])
+                scores[application.pk] = float(match.overall_pct)
+                if created:
+                    outcome.new_application_ids.add(application.pk)
+                    if scores[application.pk] >= threshold:
+                        application.status = ApplicationStatus.AI_SHORTLISTED
+                        application.save(update_fields=["status", "updated_at"])
+                        shortlisted.append(application)
+                outcome.applications.append(application)
             run.total_found = len(outcome.applications)
             run.new_candidates = len(outcome.new_application_ids)
+            run.existing_candidates = run.total_found - run.new_candidates
             run.shortlisted = len(shortlisted)
             run.finished_at = finished
             run.duration_ms = int((finished - started).total_seconds() * 1000)
@@ -526,14 +605,14 @@ class SearchService:
             run.error = "; ".join(f"{k}: {v}" for k, v in outcome.errors.items()) or None
             run.phase = "done"
             run.progress = {
-                "message": f"{run.total_found} candidates found, {run.shortlisted} AI shortlisted"
+                "message": f"{run.total_found} candidates found, {run.shortlisted} AI shortlisted",
+                "percent": 100,
             }
+            # A cancel that landed during the ranking rolls all of this back.
+            progress.check()
             run.save()
             SearchService._record(jd, run, actor, keys, shortlisted, finished)
-        outcome.applications.sort(
-            key=lambda app: float(getattr(getattr(app, "match", None), "overall_pct", 0) or 0),
-            reverse=True,
-        )
+        outcome.applications.sort(key=lambda app: scores[app.pk], reverse=True)
 
     # -------------------------------------------------------------- timeline
 
@@ -591,6 +670,51 @@ class SearchService:
                 },
                 occurred_at=when,
             )
+
+
+# ------------------------------------------------------------- verdicts
+
+
+def _carried_verdict(item: Found, jd: Any) -> SemanticResult | None:
+    """The AI's earlier verdict on this version of the job description, re-blended with
+    today's rule score: a repeat search neither asks the model again nor moves the number."""
+    previous = item.previous
+    details = dict(previous.semantic_details or {}) if previous is not None else {}
+    llm = details.get("llm_score")
+    if llm is None or details.get("jd_version") != jd.current_version:
+        return None
+    retrieval = item.retrieval if item.retrieval is not None else details.get("retrieval_score")
+    details.update(rule_pct=item.rule_pct, retrieval_score=retrieval)
+    return SemanticResult(
+        overall_pct=blend(item.rule_pct, retrieval, float(llm)),
+        retrieval_score=retrieval,
+        rerank_score=float(llm),
+        explanation=previous.explanation,
+        matched_skills=list(details.get("matched_skills", [])),
+        missing_skills=list(details.get("missing_skills", [])),
+        strengths=list(details.get("matching_experience", [])),
+        concerns=list(details.get("concerns", [])),
+        details=details,
+    )
+
+
+def _blend_only(item: Found, jd: Any) -> SemanticResult | None:
+    """Rules plus resume similarity, for a candidate the AI did not review."""
+    if item.retrieval is None:
+        return None
+    return SemanticResult(
+        overall_pct=blend(item.rule_pct, item.retrieval, None),
+        retrieval_score=item.retrieval,
+        rerank_score=None,
+        explanation="",
+        details={
+            "rule_pct": item.rule_pct,
+            "retrieval_score": item.retrieval,
+            "llm_score": None,
+            "evidence": list(item.semantic.get("evidence", []))[:3],
+            "jd_version": jd.current_version,
+        },
+    )
 
 
 # ------------------------------------------------------------ background

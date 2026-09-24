@@ -71,6 +71,8 @@ EXPECTED_USERS = {
     "nisha@aimious.demo": ("Nisha", "Patel", "interviewer", "DevOps Lead", "Platform"),
     "vikram@aimious.demo": ("Vikram", "Shah", "employee", "Product Manager", "Product"),
     "lakshmi@aimious.demo": ("Lakshmi", "Narayanan", "employee", "Frontend Lead", "Engineering"),
+    "meera@aimious.demo": ("Meera", "Nair", "admin", "IT Support Lead", "IT Support"),
+    "arjun@aimious.demo": ("Arjun", "Pillai", "admin", "Support Engineer", "IT Support"),
 }
 
 # plan.md section 10 "Job descriptions" table: title -> {email: participant role}.
@@ -549,7 +551,7 @@ def test_run_prints_a_summary_table_and_finishes_quickly(seeded):
     assert seeded.elapsed_seconds < 45, seeded.elapsed_seconds
     for label in ("Users", "Job descriptions", "Versions", "Participants", "Candidates"):
         assert label in seeded.output, label
-    assert "10" in seeded.output and "6" in seeded.output
+    assert "12" in seeded.output and "6" in seeded.output
 
 
 # ---------------------------------------------------------------- determinism

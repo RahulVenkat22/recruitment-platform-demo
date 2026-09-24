@@ -19,6 +19,8 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
+import { ClearFiltersButton } from '@/components/shared/ClearFiltersButton'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { FilterPopover } from '@/components/shared/FilterPopover'
@@ -40,7 +42,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   isRunFinished,
   useApplications,
+  useCancelSearch,
   useInvalidatePipeline,
+  useLiveSearchRun,
   useRunSearch,
   useSearchRun,
   useSearchRuns,
@@ -110,7 +114,7 @@ const VIEW_OPTIONS = [
 
 /** Source tiles sit four across on desktop and two across on phones. */
 const SOURCE_TILE = 'min-w-44 max-sm:min-w-0 max-sm:basis-[calc(50%-0.375rem)]'
-const SOURCE_TILE_HEIGHT = 'h-[58px]'
+const SOURCE_TILE_HEIGHT = 'h-[54px]'
 
 function StepLabel({ step, children }: { step: number; children: React.ReactNode }) {
   return (
@@ -212,8 +216,13 @@ export default function SearchCandidatesPage() {
   const jobs = useJobList({ page_size: 100, ordering: 'title' })
   const job = useJob(state.jd || undefined)
   const runs = useSearchRuns(state.jd || undefined)
+  // Opened without a job description (the sidebar link, a reload): a search
+  // still going anywhere brings its job description back so it can be followed.
+  const live = useLiveSearchRun(!state.jd)
   const sources = useSources()
   const runSearch = useRunSearch()
+  const cancelSearch = useCancelSearch()
+  const [confirmCancel, setConfirmCancel] = useState(false)
   const invalidatePipeline = useInvalidatePipeline()
   const sourceOptions = useEnumOptions('candidate_source')
   const [selected, setSelected] = useState<string[] | null>(null)
@@ -254,10 +263,6 @@ export default function SearchCandidatesPage() {
   // Polling itself failed (network, sign-out): the run is not awaited any further.
   const pollError = activeRunId && activeRun.isError ? activeRun.error : null
   const inFlight = Boolean(activeRunId) && !pollError && !isRunFinished(liveRun)
-  // Retrieval writes the applications before the AI evaluation starts, so the
-  // table can fill in live while the last phases run.
-  const partialResults =
-    inFlight && (liveRun?.phase === 'evaluating' || liveRun?.phase === 'finalising')
   const list = useApplications(
     {
       job_description: state.jd,
@@ -270,11 +275,26 @@ export default function SearchCandidatesPage() {
       ordering: state.sort,
     },
     Boolean(state.jd),
-    { refetchInterval: partialResults ? 2500 : false },
   )
   const rows = list.data?.results ?? []
   const total = list.data?.count ?? 0
   const lastRun = lastResponse?.run ?? runs.data?.[0] ?? null
+  const latestRun = runs.data?.[0]
+
+  useEffect(() => {
+    if (!state.jd && live.data) setState({ jd: live.data.job_description, page: 1 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.jd, live.data])
+
+  // Coming back to the page, or reloading it, while a run is still going: pick
+  // it up again so the loader and the polling carry on until it finishes.
+  useEffect(() => {
+    if (!latestRun || activeRunId || isRunFinished(latestRun)) return
+    if (finishedRunRef.current === latestRun.id) return
+    setSearchError(null)
+    setStartedAt(new Date(latestRun.started_at).getTime())
+    setActiveRunId(latestRun.id)
+  }, [latestRun, activeRunId])
   const canSearch =
     Boolean(job.data?.permissions.can_work_pipeline) && isWorkable(job.data?.status ?? '')
   const searching = runSearch.isPending || inFlight
@@ -300,6 +320,24 @@ export default function SearchCandidatesPage() {
       `${run.total_found} candidates found, ${run.shortlisted} AI shortlisted` +
         (unavailable.length ? ` (${unavailable.join(', ')} unavailable)` : ''),
     )
+  }
+
+  async function cancel() {
+    if (!activeRunId || !state.jd) return
+    const id = activeRunId
+    // Stop polling first so the run's disappearance never reads as a failure.
+    finishedRunRef.current = id
+    setActiveRunId(null)
+    setLastResponse(null)
+    setSearchError(null)
+    try {
+      await cancelSearch.mutateAsync({ id, jobId: state.jd })
+      toast.success('Search cancelled and removed')
+    } catch (error) {
+      finishedRunRef.current = null
+      toast.error(describeError(error))
+      void invalidatePipeline(state.jd)
+    }
   }
 
   async function search() {
@@ -333,6 +371,11 @@ export default function SearchCandidatesPage() {
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRunId, liveRun])
+
+  function clearFilters() {
+    setDraft('')
+    setState({ q: '', group: 'all', source: [], min: 0, page: 1 })
+  }
 
   function pickJob(jd: string) {
     setLastResponse(null)
@@ -393,6 +436,7 @@ export default function SearchCandidatesPage() {
           ))}
         </SelectContent>
       </Select>
+      <ClearFiltersButton active={filtered} onClick={clearFilters} />
       <div className="ml-auto flex items-center gap-2">
         {canSearch && contact.controls}
         <Select value={state.sort} onValueChange={(sort) => setState({ sort, page: 1 })}>
@@ -469,7 +513,7 @@ export default function SearchCandidatesPage() {
         </div>
       </motion.section>
     )
-  } else if (searching && !partialResults) {
+  } else if (searching) {
     results = (
       <motion.section key="loading" {...fade} aria-label="Results">
         <AISearchLoader
@@ -478,6 +522,8 @@ export default function SearchCandidatesPage() {
           startedAt={startedAt}
           phase={liveRun?.phase || (activeRunId ? 'queued' : null)}
           progress={(liveRun?.progress as SearchProgress | null) ?? null}
+          onCancel={canSearch ? () => setConfirmCancel(true) : undefined}
+          cancelling={cancelSearch.isPending}
         />
       </motion.section>
     )
@@ -506,27 +552,6 @@ export default function SearchCandidatesPage() {
         aria-label="Results"
         className="space-y-3"
       >
-        {partialResults && (
-          <div
-            role="status"
-            aria-live="polite"
-            data-slot="search-live-banner"
-            className="flex flex-wrap items-center gap-3 rounded-card border border-accent/60 bg-accent-soft px-4 py-3 text-small text-ink"
-          >
-            <SparklesIcon
-              aria-hidden="true"
-              className="size-4 shrink-0 animate-pulse text-accent-ink"
-            />
-            <span className="font-medium">
-              {(liveRun?.progress as SearchProgress | null)?.message ??
-                'AI evaluation in progress…'}
-            </span>
-            <span className="text-ink-muted">
-              Candidates are listed by the rules and resume similarity; the AI explanations and
-              final scores update as each review lands.
-            </span>
-          </div>
-        )}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h2 className="text-h3 text-ink">Results</h2>
           {lastResponse ? (
@@ -603,14 +628,7 @@ export default function SearchCandidatesPage() {
                   title="No candidates match these filters"
                   description="Try a different filter, or clear them to see everyone on this job description."
                   action={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setDraft('')
-                        setState({ q: '', group: 'all', source: [], min: 0, page: 1 })
-                      }}
-                    >
+                    <Button type="button" variant="outline" onClick={clearFilters}>
                       Clear filters
                     </Button>
                   }
@@ -821,16 +839,11 @@ export default function SearchCandidatesPage() {
                             <span className="block text-[13px] font-medium">
                               {source.display_name}
                             </span>
-                            <span
-                              className={cn(
-                                'block text-caption tabular-nums',
-                                on ? 'text-white/70' : 'text-ink-subtle',
-                              )}
-                            >
-                              {source.available
-                                ? `${source.profile_count} profiles`
-                                : 'Unavailable'}
-                            </span>
+                            {!source.available && (
+                              <span className="block text-caption text-ink-subtle">
+                                Unavailable
+                              </span>
+                            )}
                           </span>
                         </button>
                       )
@@ -900,6 +913,16 @@ export default function SearchCandidatesPage() {
         </AnimatePresence>
       </div>
       {actions.dialogs}
+      <ConfirmDialog
+        open={confirmCancel}
+        onOpenChange={setConfirmCancel}
+        title="Cancel this search?"
+        description="The search stops and is removed from the history. Nothing already in the pipeline changes: a search only writes its scores once it completes."
+        confirmLabel="Cancel search"
+        cancelLabel="Keep searching"
+        destructive
+        onConfirm={cancel}
+      />
     </>
   )
 }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from django.core.files.uploadedfile import UploadedFile
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
@@ -10,7 +11,14 @@ from accounts.serializers import UserSummarySerializer
 from common.enums import TicketCategory, TicketPriority, TicketStatus
 from jobs.models import JobDescription
 from pipeline.serializers import JobRefSerializer
-from support.models import Ticket, TicketEvent
+from support.models import (
+    ATTACHMENT_MAX_MB,
+    ATTACHMENT_TYPES,
+    ATTACHMENTS_MAX,
+    Ticket,
+    TicketAttachment,
+    TicketEvent,
+)
 from support.permissions import (
     allowed_moves,
     can_assign_ticket,
@@ -22,9 +30,39 @@ SUBJECT_MAX = 200
 TEXT_MAX = 5000
 
 
+class TicketAttachmentSerializer(serializers.ModelSerializer):
+    kind = serializers.ChoiceField(choices=[("image", "Image"), ("video", "Video")], read_only=True)
+    url = serializers.CharField(read_only=True, help_text="Signed; loads without a login")
+
+    class Meta:
+        model = TicketAttachment
+        fields = ["id", "name", "content_type", "size", "kind", "url", "created_at"]
+        read_only_fields = fields
+
+
+def validate_attachment(upload: UploadedFile) -> None:
+    if upload.content_type not in ATTACHMENT_TYPES:
+        raise serializers.ValidationError(
+            f"{upload.name}: upload an image (JPEG, PNG, GIF, WebP) or a video (MP4, WebM, MOV)."
+        )
+    if upload.size > ATTACHMENT_MAX_MB * 1024 * 1024:
+        raise serializers.ValidationError(f"{upload.name} is larger than {ATTACHMENT_MAX_MB} MB.")
+
+
+def attachments_field() -> serializers.ListField:
+    """``attachments`` in a multipart body: the images and videos that come with the text."""
+    return serializers.ListField(
+        child=serializers.FileField(validators=[validate_attachment]),
+        default=list,
+        max_length=ATTACHMENTS_MAX,
+        help_text=f"Up to {ATTACHMENTS_MAX} images or videos, {ATTACHMENT_MAX_MB} MB each",
+    )
+
+
 class TicketEventSerializer(serializers.ModelSerializer):
     actor = UserSummarySerializer(read_only=True, allow_null=True)
     kind_label = serializers.CharField(source="get_kind_display", read_only=True)
+    attachments = TicketAttachmentSerializer(many=True, read_only=True)
 
     class Meta:
         model = TicketEvent
@@ -36,6 +74,7 @@ class TicketEventSerializer(serializers.ModelSerializer):
             "title",
             "message",
             "metadata",
+            "attachments",
             "occurred_at",
         ]
         read_only_fields = fields
@@ -92,6 +131,7 @@ class TicketDetailSerializer(TicketRowSerializer):
     what the current user may do."""
 
     events = TicketEventSerializer(many=True, read_only=True)
+    attachments = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
 
     class Meta(TicketRowSerializer.Meta):
@@ -99,10 +139,17 @@ class TicketDetailSerializer(TicketRowSerializer):
             *TicketRowSerializer.Meta.fields,
             "description",
             "resolution",
+            "attachments",
             "events",
             "permissions",
         ]
         read_only_fields = fields
+
+    @extend_schema_field(TicketAttachmentSerializer(many=True))
+    def get_attachments(self, ticket: Ticket) -> list[dict]:
+        """The files handed in with the ticket itself; a comment's files sit on its event."""
+        rows = [row for row in ticket.attachments.all() if row.event_id is None]
+        return TicketAttachmentSerializer(rows, many=True).data
 
     @extend_schema_field(TicketPermissionsSerializer)
     def get_permissions(self, ticket: Ticket) -> dict:
@@ -130,6 +177,7 @@ class TicketCreateSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
     )
+    attachments = attachments_field()
 
     def validate_subject(self, value: str) -> str:
         if not value.strip():
@@ -149,10 +197,13 @@ class TicketUpdateSerializer(TicketCreateSerializer):
     description = serializers.CharField(max_length=TEXT_MAX, required=False)
     category = serializers.ChoiceField(choices=TicketCategory.choices, required=False)
     priority = serializers.ChoiceField(choices=TicketPriority.choices, required=False)
+    # Files come with the ticket or a comment, not with an edit.
+    attachments = None
 
 
 class TicketCommentSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=TEXT_MAX)
+    attachments = attachments_field()
 
     def validate_message(self, value: str) -> str:
         if not value.strip():

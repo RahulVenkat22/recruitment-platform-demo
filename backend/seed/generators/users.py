@@ -1,4 +1,4 @@
-"""The ten demo users (plan.md sections 10 and 18)."""
+"""The twelve demo users (plan.md sections 10 and 18, plus the two support admins)."""
 
 from __future__ import annotations
 

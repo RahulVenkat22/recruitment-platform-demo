@@ -7,9 +7,10 @@ import {
   WaypointsIcon,
 } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
-import { Fragment } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 import { BrandLogo } from '@/components/shared/BrandLogo'
+import { TalentOSLoader } from '@/components/shared/TalentOSLoader'
 import { TalentOSLogo, TalentOSMark } from '@/components/shared/TalentOSLogo'
 import { GlassCard } from '@/features/auth/GlassCard'
 import { LoginBackdrop } from '@/features/auth/LoginBackdrop'
@@ -20,6 +21,9 @@ import { EASE_BRAND } from '@/lib/motion'
 interface FromState {
   from?: { pathname?: string; search?: string }
 }
+
+/** How long the welcome loader stays up after a successful sign-in before the app opens. */
+const SIGN_IN_HOLD_MS = 5000
 
 /** Where to go after signing in: the page RequireAuth bounced from, or the homepage (Enhancement.md 2). */
 function redirectTarget(state: unknown): string {
@@ -82,22 +86,36 @@ function FlowLegend({ reduced }: { reduced: boolean | null }) {
  * TalentOS matching engine, with the Buro Happold and TalentOS logos up top,
  * the pitch on the left and a frosted sign-in card on the right. Phones stack
  * the same pieces. Motion eases in on load and stops under reduced motion.
+ * A successful sign-in holds on the TalentOS loader for five seconds before
+ * the app opens; visitors who arrive already signed in are sent straight on.
  */
 export default function LoginPage() {
   const status = useAuthStore((state) => state.status)
+  const user = useAuthStore((state) => state.user)
   const location = useLocation()
   const navigate = useNavigate()
   const reducedMotion = useReducedMotion()
   const target = redirectTarget(location.state)
+  // Captured on mount: `authed` now but not then means the form on this page signed the visitor in.
+  const [arrivedSignedIn] = useState(status === 'authed')
+  const signingIn = status === 'authed' && !arrivedSignedIn
 
-  if (status === 'authed') return <Navigate to={target} replace />
+  useEffect(() => {
+    if (!signingIn) return
+    // Fetch the homepage chunk during the hold so the app opens the moment it ends.
+    void import('@/features/home/HomePage')
+    const timer = window.setTimeout(() => navigate(target, { replace: true }), SIGN_IN_HOLD_MS)
+    return () => window.clearTimeout(timer)
+  }, [signingIn, navigate, target])
+
+  if (status === 'authed' && arrivedSignedIn) return <Navigate to={target} replace />
 
   return (
     <main
       data-surface="dark"
       className="relative min-h-dvh overflow-hidden bg-graphite text-ink selection:bg-accent selection:text-graphite"
     >
-      <LoginBackdrop />
+      <LoginBackdrop paused={signingIn} />
 
       <div className="relative z-10 flex min-h-dvh flex-col">
         <motion.header
@@ -171,10 +189,7 @@ export default function LoginPage() {
                 Welcome back
               </h1>
               <p className="mt-1.5 text-ink-muted">Sign in to continue</p>
-              <LoginForm
-                className="mt-8"
-                onSuccess={() => navigate(target, { replace: true })}
-              />
+              <LoginForm className="mt-8" />
               <p className="mt-8 text-caption text-ink-subtle">
                 © 2026 Buro Happold · For authorised staff only.
               </p>
@@ -193,6 +208,13 @@ export default function LoginPage() {
           <span className="hidden sm:block">Move your cursor to explore the matching engine</span>
         </motion.footer>
       </div>
+
+      {signingIn && (
+        <TalentOSLoader
+          durationMs={SIGN_IN_HOLD_MS}
+          name={user?.first_name || user?.full_name || undefined}
+        />
+      )}
     </main>
   )
 }

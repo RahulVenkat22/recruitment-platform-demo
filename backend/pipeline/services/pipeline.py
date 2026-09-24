@@ -90,7 +90,7 @@ def allowed_moves(application: Application, actor: Any) -> list[Move]:
         return moves
     if current in (ApplicationStatus.REJECTED, ApplicationStatus.WITHDRAWN):
         if is_hr_admin(actor):
-            moves.append(Move(ApplicationStatus.HR_REVIEW, "Reopen (HR Review)", "reopen", None))
+            moves.append(Move(ApplicationStatus.HR_REVIEW, "Reopen (TA Review)", "reopen", None))
         return moves
     active = list(ApplicationStatus.ACTIVE)
     index = active.index(current)
@@ -99,7 +99,7 @@ def allowed_moves(application: Application, actor: Any) -> list[Move]:
     if index > 0:
         moves.append(Move(str(active[index - 1]), _label(active[index - 1]), "back", "note"))
     if current != ApplicationStatus.HR_REVIEW and index > active.index(ApplicationStatus.HR_REVIEW):
-        moves.append(Move(ApplicationStatus.HR_REVIEW, "Reset to HR Review", "reset", "note"))
+        moves.append(Move(ApplicationStatus.HR_REVIEW, "Reset to TA Review", "reset", "note"))
     for status in (
         ApplicationStatus.REJECTED,
         ApplicationStatus.WITHDRAWN,
@@ -147,7 +147,7 @@ def _title_for(actor: Any, candidate_name: str, move: Move, previous: str) -> st
     if move.kind == "resume":
         return f"{who} resumed {candidate_name} (back to {_label(target)})"
     if move.kind == "reopen":
-        return f"{who} reopened {candidate_name} into HR Review"
+        return f"{who} reopened {candidate_name} into TA Review"
     if target == ApplicationStatus.REJECTED:
         return f"{who} rejected {candidate_name}"
     if target == ApplicationStatus.WITHDRAWN:

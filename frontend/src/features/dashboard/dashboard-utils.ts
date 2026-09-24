@@ -132,3 +132,26 @@ export function cumulative(values: readonly number[]): number[] {
   let total = 0
   return values.map((value) => (total += value))
 }
+
+// ------------------------------------------------------------------ heatmap
+
+export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
+
+export function hourLabel(hour: number): string {
+  return `${String(hour).padStart(2, '0')}:00`
+}
+
+/** The busiest hour of the week, for the caption. */
+export function peakCell(heatmap: readonly (readonly number[])[]): {
+  day: number
+  hour: number
+  value: number
+} | null {
+  let best: { day: number; hour: number; value: number } | null = null
+  heatmap.forEach((row, day) =>
+    row.forEach((value, hour) => {
+      if (value > (best?.value ?? 0)) best = { day, hour, value }
+    }),
+  )
+  return best
+}

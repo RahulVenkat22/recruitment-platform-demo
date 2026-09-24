@@ -14,6 +14,7 @@ export function StageStepper({ status, previousStatus, className }: StageStepper
   const parked = TRAY_STATUSES.has(status)
   const current = stageIndex(parked ? (previousStatus ?? '') : status)
   const meta = useEnumMeta('status', status)
+  const previous = useEnumMeta('status', previousStatus ?? '')
 
   return (
     <div className={cn('space-y-3', className)}>
@@ -24,11 +25,7 @@ export function StageStepper({ status, previousStatus, className }: StageStepper
         >
           <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
           {meta.label}
-          {previousStatus && (
-            <span className="opacity-80">
-              · parked after {STAGES[stageIndex(previousStatus)]?.label ?? previousStatus}
-            </span>
-          )}
+          {previousStatus && <span className="opacity-80">· parked after {previous.label}</span>}
         </p>
       )}
       <ol

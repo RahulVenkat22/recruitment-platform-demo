@@ -71,6 +71,7 @@ class IntakeResultSerializer(serializers.Serializer):
 class UploadedCandidateRefSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     full_name = serializers.CharField()
+    avatar_url = serializers.CharField(allow_null=True)
 
 
 class UploadedDocumentSerializer(serializers.ModelSerializer):
@@ -105,7 +106,11 @@ class UploadedDocumentSerializer(serializers.ModelSerializer):
         candidate = obj.candidate
         if candidate is None:
             return None
-        return {"id": str(candidate.pk), "full_name": candidate.full_name}
+        return {
+            "id": str(candidate.pk),
+            "full_name": candidate.full_name,
+            "avatar_url": candidate.display_avatar_url,
+        }
 
 
 class UploadBatchCountsSerializer(serializers.Serializer):

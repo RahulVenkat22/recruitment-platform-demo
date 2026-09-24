@@ -106,7 +106,7 @@ export function useJobActions(callbacks: { onDeleted?: (job: ActionableJob) => v
     }
     items.push({
       key: 'timeline',
-      label: 'Open timeline',
+      label: 'Open activity',
       icon: HistoryIcon,
       href: `/jobs/${job.id}?tab=timeline`,
     })
@@ -163,7 +163,7 @@ export function useJobActions(callbacks: { onDeleted?: (job: ActionableJob) => v
         open={pendingDelete !== null}
         onOpenChange={(open) => !open && setPendingDelete(null)}
         title={pendingDelete ? `Delete “${pendingDelete.title}”?` : 'Delete job description?'}
-        description="This permanently removes the job description, its versions, every application on it and the whole timeline. This cannot be undone."
+        description="This permanently removes the job description, its versions, every application on it and the whole activity feed. This cannot be undone."
         confirmLabel="Delete job description"
         destructive
         requireTyping={pendingDelete?.title}

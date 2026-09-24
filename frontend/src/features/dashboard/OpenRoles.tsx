@@ -1,4 +1,4 @@
-import { BriefcaseIcon } from 'lucide-react'
+import { BriefcaseIcon, ChevronRightIcon } from 'lucide-react'
 import { Link } from 'react-router'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -14,14 +14,24 @@ import {
   roleSegments,
 } from '@/features/dashboard/open-roles-utils'
 import { formatRelative } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import type { JobPipelineRow } from '@/types/domain'
 
 /**
  * One row per open role: title, status, what is waiting, and a stacked bar of the
  * candidates being worked, on the same stage colours as the funnel. Hovering the
- * bar lists every stage; the title opens the role.
+ * bar lists every stage; the title opens the role and the count opens its
+ * candidates in place.
  */
-export function OpenRoles({ jobs }: { jobs: readonly JobPipelineRow[] }) {
+export function OpenRoles({
+  jobs,
+  onSelect,
+  onSelectAll,
+}: {
+  jobs: readonly JobPipelineRow[]
+  onSelect: (job: JobPipelineRow) => void
+  onSelectAll: () => void
+}) {
   const roles = activeRoles(jobs)
   const max = Math.max(1, ...roles.map(inProcess))
 
@@ -58,10 +68,21 @@ export function OpenRoles({ jobs }: { jobs: readonly JobPipelineRow[] }) {
                   </Link>
                   <StatusBadge status={job.status} kind="jd_status" size="sm" dot />
                 </div>
-                <span className="shrink-0 text-small text-ink tabular-nums">
+                <button
+                  type="button"
+                  onClick={() => onSelect(job)}
+                  className={cn(
+                    'group/count -my-1 -mr-2 inline-flex h-7 shrink-0 items-center gap-1 rounded-control px-2 text-small text-ink tabular-nums transition-colors duration-150 ease-brand hover:bg-surface-2',
+                    'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary',
+                  )}
+                >
                   <span className="font-medium">{formatCount(working)}</span>
                   <span className="text-ink-subtle"> in play</span>
-                </span>
+                  <ChevronRightIcon
+                    aria-hidden="true"
+                    className="size-3.5 text-ink-subtle opacity-0 transition-opacity group-hover/count:opacity-100"
+                  />
+                </button>
               </div>
               <p className="mt-0.5 truncate text-caption text-ink-subtle">
                 {job.department} · {job.openings} {job.openings === 1 ? 'opening' : 'openings'} ·{' '}
@@ -95,12 +116,13 @@ export function OpenRoles({ jobs }: { jobs: readonly JobPipelineRow[] }) {
           </span>
         ))}
         {roles.length > ROLE_LIMIT && (
-          <Link
-            to="/jobs?status=open"
+          <button
+            type="button"
+            onClick={onSelectAll}
             className="ml-auto text-caption font-medium text-primary hover:underline"
           >
             All {roles.length} roles
-          </Link>
+          </button>
         )}
       </div>
     </div>

@@ -226,3 +226,108 @@ class TeamMemberSerializer(serializers.Serializer):
     interviews = serializers.IntegerField()
     closing = serializers.IntegerField()
     total = serializers.IntegerField()
+
+
+# ------------------------------------------------------------------ insights
+
+
+class InsightStageSerializer(StageCountSerializer):
+    avg_days = serializers.FloatField(
+        allow_null=True, help_text="Average days the candidates have sat in this stage"
+    )
+    stuck = serializers.IntegerField(help_text="Of them, in the stage for over a week")
+
+
+class MatchInsightSerializer(serializers.Serializer):
+    avg_pct = serializers.FloatField(allow_null=True)
+    scored = serializers.IntegerField(help_text="Applications with a match score")
+    bands = KeyCountSerializer(many=True)
+
+
+class SkillDemandSerializer(serializers.Serializer):
+    key = serializers.CharField()
+    label = serializers.CharField()
+    roles = serializers.IntegerField(help_text="Open roles that require the skill")
+    candidates = serializers.IntegerField(help_text="Candidates in the pipeline who have it")
+
+
+class DepartmentInsightSerializer(serializers.Serializer):
+    key = serializers.CharField()
+    label = serializers.CharField()
+    roles = serializers.IntegerField(help_text="Open roles")
+    openings = serializers.IntegerField()
+    candidates = serializers.IntegerField(help_text="Candidates on those roles")
+
+
+class OutreachInsightSerializer(serializers.Serializer):
+    total = serializers.IntegerField(help_text="Communications logged in the window")
+    channels = KeyCountSerializer(many=True)
+    outcomes = KeyCountSerializer(many=True)
+
+
+class OffersInsightSerializer(serializers.Serializer):
+    statuses = KeyCountSerializer(many=True, help_text="Every offer by status, right now")
+    responded = serializers.IntegerField(help_text="Responses that landed in the window")
+    avg_response_days = serializers.FloatField(allow_null=True)
+
+
+class SearchStatsSerializer(serializers.Serializer):
+    runs = serializers.IntegerField()
+    found = serializers.IntegerField()
+    shortlisted = serializers.IntegerField()
+    new = serializers.IntegerField()
+    avg_duration_ms = serializers.IntegerField(allow_null=True)
+
+
+class DashboardInsightsSerializer(serializers.Serializer):
+    range_days = serializers.IntegerField()
+    stages = InsightStageSerializer(many=True)
+    match = MatchInsightSerializer()
+    skills = SkillDemandSerializer(many=True)
+    departments = DepartmentInsightSerializer(many=True)
+    experience = KeyCountSerializer(many=True)
+    outreach = OutreachInsightSerializer()
+    offers = OffersInsightSerializer()
+    heatmap = serializers.ListField(
+        child=serializers.ListField(child=serializers.IntegerField()),
+        help_text="Activities per hour of the viewer's day, one row per weekday from Monday",
+    )
+    searches = SearchStatsSerializer()
+
+
+# ------------------------------------------------------------------ details
+
+
+class DetailPersonSerializer(serializers.Serializer):
+    full_name = serializers.CharField()
+    avatar_url = serializers.CharField(allow_null=True)
+
+
+class DetailItemSerializer(serializers.Serializer):
+    """One row behind a dashboard figure, whatever kind of record it is."""
+
+    id = serializers.CharField()
+    kind = serializers.ChoiceField(
+        choices=["job", "application", "interview", "offer", "communication", "search"]
+    )
+    title = serializers.CharField()
+    subtitle = serializers.CharField(allow_blank=True)
+    status = serializers.CharField(allow_null=True)
+    status_label = serializers.CharField(allow_null=True)
+    status_kind = serializers.ChoiceField(
+        choices=["status", "jd_status"],
+        allow_null=True,
+        help_text="Which colour catalogue the status belongs to; null shows it as plain text",
+    )
+    href = serializers.CharField(help_text="Where the full record lives in the app")
+    at = serializers.DateTimeField(allow_null=True)
+    at_label = serializers.CharField(help_text="What the timestamp is: Found, Scheduled, Expires…")
+    person = DetailPersonSerializer(allow_null=True)
+    value = serializers.CharField(allow_null=True, help_text="The figure that matters for the row")
+    note = serializers.CharField(allow_null=True)
+
+
+class DashboardDetailsSerializer(serializers.Serializer):
+    metric = serializers.CharField()
+    count = serializers.IntegerField()
+    items = DetailItemSerializer(many=True)

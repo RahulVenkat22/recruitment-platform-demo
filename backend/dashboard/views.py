@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from django.http import HttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers
@@ -11,11 +12,13 @@ from rest_framework.views import APIView
 
 from common import locations
 from common.permissions import IsHrStaff
-from dashboard import services
+from dashboard import exports, services
 from dashboard.serializers import (
     AttentionCountsSerializer,
     CountryCitiesSerializer,
     CountrySerializer,
+    DashboardDetailsSerializer,
+    DashboardInsightsSerializer,
     DashboardPipelineSerializer,
     DashboardSummarySerializer,
     DashboardTrendsSerializer,
@@ -268,3 +271,109 @@ class DashboardUpcomingInterviewsView(_DashboardView):
     def get(self, request: Request) -> Response:
         rows = services.upcoming_interviews(self.scope(request))
         return Response(InterviewSerializer(rows, many=True, context={"request": request}).data)
+
+
+class DashboardInsightsView(_DashboardView):
+    @extend_schema(
+        operation_id="dashboard_insights",
+        summary="Stage ages, match quality, skills demand, departments, experience, outreach, "
+        "offers, the activity heatmap and search totals",
+        parameters=SCOPE_PARAMETERS,
+        responses={200: DashboardInsightsSerializer},
+        tags=["dashboard"],
+    )
+    def get(self, request: Request) -> Response:
+        return Response(DashboardInsightsSerializer(services.insights(self.scope(request))).data)
+
+
+class DashboardExportView(_DashboardView):
+    @extend_schema(
+        operation_id="dashboard_export",
+        summary="Every dashboard figure and table as a CSV, an Excel workbook or a PDF",
+        parameters=[
+            OpenApiParameter(
+                "kind",
+                str,
+                OpenApiParameter.PATH,
+                enum=list(exports.WRITERS),
+                description="The file to build: csv, xlsx or pdf",
+            ),
+            *SCOPE_PARAMETERS,
+            OpenApiParameter(
+                "job_description",
+                OpenApiTypes.UUID,
+                description="Narrow the funnel to one role, as on the page",
+            ),
+        ],
+        responses={
+            (200, content_type): OpenApiTypes.BINARY for content_type, _ in exports.WRITERS.values()
+        },
+        tags=["dashboard"],
+    )
+    def get(self, request: Request, kind: str) -> HttpResponse:
+        scope = self.scope(request)
+        content_type, write = exports.WRITERS[kind]
+        report = exports.report(scope, request.query_params.get("job_description") or None)
+        response = HttpResponse(write(report), content_type=content_type)
+        response["Content-Disposition"] = f'attachment; filename="{exports.filename(scope, kind)}"'
+        return response
+
+
+class DetailParamsSerializer(serializers.Serializer):
+    """Which figure to open, plus the narrowing some figures take."""
+
+    metric = serializers.ChoiceField(choices=list(services.DETAIL_BUILDERS))
+    statuses = serializers.CharField(required=False, allow_blank=True)
+    job_description = serializers.UUIDField(required=False)
+    key = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs: dict) -> dict:
+        metric = attrs["metric"]
+        if metric == "role" and not attrs.get("job_description"):
+            raise serializers.ValidationError("The role metric needs job_description.")
+        if metric in services.KEYED_METRICS and not attrs.get("key"):
+            raise serializers.ValidationError(f"The {metric} metric needs key.")
+        return attrs
+
+
+class DashboardDetailsView(_DashboardView):
+    @extend_schema(
+        operation_id="dashboard_details",
+        summary="The rows behind one dashboard figure",
+        parameters=[
+            *SCOPE_PARAMETERS,
+            OpenApiParameter(
+                "metric",
+                str,
+                required=True,
+                enum=list(services.DETAIL_BUILDERS),
+                description="The figure to open",
+            ),
+            OpenApiParameter(
+                "statuses", str, description="Comma-separated application statuses (stage)"
+            ),
+            OpenApiParameter(
+                "job_description", OpenApiTypes.UUID, description="One role (role, stage)"
+            ),
+            OpenApiParameter(
+                "key",
+                str,
+                description="The source, skill, band, department, channel or offer status",
+            ),
+        ],
+        responses={200: DashboardDetailsSerializer},
+        tags=["dashboard"],
+    )
+    def get(self, request: Request) -> Response:
+        params = DetailParamsSerializer(data=request.query_params)
+        params.is_valid(raise_exception=True)
+        data = params.validated_data
+        query = services.DetailQuery(
+            metric=data["metric"],
+            statuses=tuple(s for s in data.get("statuses", "").split(",") if s),
+            job_description=str(data["job_description"]) if data.get("job_description") else None,
+            key=data.get("key") or None,
+        )
+        return Response(
+            DashboardDetailsSerializer(services.details(self.scope(request), query)).data
+        )

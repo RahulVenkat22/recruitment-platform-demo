@@ -12,6 +12,7 @@ import {
 import { Avatar } from '@/components/shared/Avatar'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { AttachmentGallery } from '@/features/support/AttachmentGallery'
 import { useEnumMeta } from '@/lib/enums'
 import { formatDateTime, formatWhen } from '@/lib/format'
 import { humaniseField, type Metadata } from '@/lib/timeline'
@@ -162,6 +163,7 @@ function Entry({ event, last }: { event: TicketEvent; last: boolean }) {
             {event.message}
           </div>
         )}
+        <AttachmentGallery attachments={event.attachments} className="mt-2" />
       </div>
     </li>
   )

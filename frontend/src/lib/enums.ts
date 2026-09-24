@@ -31,13 +31,13 @@ export type EnumMetaKind =
 export const FALLBACK_STATUS: Record<ApplicationStatus, EnumMeta> = {
   new: { label: 'New', bg: '#EEF1F5', fg: '#3B4452' },
   ai_shortlisted: { label: 'AI Shortlisted', bg: '#E8EAFB', fg: '#3F3FB5' },
-  hr_review: { label: 'HR Review', bg: '#F0E8FB', fg: '#6B34A8' },
+  hr_review: { label: 'TA Review', bg: '#F0E8FB', fg: '#6B34A8' },
   contact_pending: { label: 'Contact Pending', bg: '#FBF1DC', fg: '#8A5A0B' },
   contacted: { label: 'Contacted', bg: '#E0F0FB', fg: '#0B5C94' },
   phone_screening: { label: 'Phone Screening', bg: '#DDF4F6', fg: '#0B6B72' },
   interview_scheduled: { label: 'Interview Scheduled', bg: '#E4ECFB', fg: '#1D4ED8' },
   technical_interview: { label: 'Technical Interview', bg: '#DCE6FA', fg: '#1E40AF' },
-  hr_interview: { label: 'HR Interview', bg: '#E4ECFB', fg: '#2B4FCF' },
+  hr_interview: { label: 'TA Interview', bg: '#E4ECFB', fg: '#2B4FCF' },
   final_interview: { label: 'Final Interview', bg: '#E3E6F9', fg: '#312E81' },
   selected: { label: 'Selected', bg: '#E3F3EA', fg: '#1F7A4D' },
   offer_sent: { label: 'Offer Sent', bg: '#FBF1DC', fg: '#8F5D12' },
@@ -126,6 +126,7 @@ const FALLBACK_OPTIONS: Record<string, KeyLabel[]> = {
     { key: 'hr', label: 'HR' },
     { key: 'interviewer', label: 'Interviewer' },
     { key: 'employee', label: 'Employee' },
+    { key: 'admin', label: 'Admin' },
   ],
   participant_role: [
     { key: 'owner', label: 'Owner' },

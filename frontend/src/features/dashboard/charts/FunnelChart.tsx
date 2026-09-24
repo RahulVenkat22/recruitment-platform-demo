@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
 import {
   Bar,
   BarChart,
@@ -16,8 +15,8 @@ import type { FunnelStage } from '@/types/domain'
 
 export interface FunnelChartProps {
   stages: readonly FunnelStage[]
-  /** Where a click on a stage goes (the candidates list narrowed to that stage). */
-  hrefFor?: (stage: FunnelStage) => string | null
+  /** Called with the stage a bar was clicked on; the dashboard opens those candidates in place. */
+  onSelect?: (stage: FunnelStage) => void
   className?: string
 }
 
@@ -71,15 +70,14 @@ function ValueLabel(props: {
  * stage, direct value and conversion labels, a hover readout, and a click that
  * opens the candidates behind a stage.
  */
-export function FunnelChart({ stages, hrefFor, className }: FunnelChartProps) {
-  const navigate = useNavigate()
+export function FunnelChart({ stages, onSelect, className }: FunnelChartProps) {
   const [hovered, setHovered] = useState<number | null>(null)
   const rows: Row[] = stages.map((stage) => ({
     ...stage,
     fill: STAGE_COLORS[stage.key] ?? STAGE_COLORS.onboarded,
   }))
   const max = Math.max(1, ...rows.map((row) => row.value))
-  const clickable = Boolean(hrefFor)
+  const clickable = Boolean(onSelect)
 
   return (
     <div className={className} data-slot="funnel-chart" role="img" aria-label="Recruitment funnel">
@@ -112,10 +110,7 @@ export function FunnelChart({ stages, hrefFor, className }: FunnelChartProps) {
             isAnimationActive={false}
             cursor={clickable ? 'pointer' : undefined}
             onMouseEnter={(_data, index) => setHovered(index)}
-            onClick={(_data, index) => {
-              const href = hrefFor?.(rows[index])
-              if (href) void navigate(href)
-            }}
+            onClick={(_data, index) => onSelect?.(rows[index])}
           >
             {rows.map((row, index) => (
               <Cell

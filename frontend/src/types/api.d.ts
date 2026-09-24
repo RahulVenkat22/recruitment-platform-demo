@@ -666,7 +666,11 @@ export interface paths {
         get: operations["searches_retrieve"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Cancel a running search and remove it
+         * @description Stops the background run at its next step and deletes the run together with the untouched applications it created. Only a run that is still pending or running can be cancelled.
+         */
+        delete: operations["searches_destroy"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1682,6 +1686,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/insights/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stage ages, match quality, skills demand, departments, experience, outreach, offers, the activity heatmap and search totals
+         * @description HR admins and HR only: the dashboard is the recruiting team's view (plan.md 6.9).
+         */
+        get: operations["dashboard_insights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/details/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The rows behind one dashboard figure
+         * @description HR admins and HR only: the dashboard is the recruiting team's view (plan.md 6.9).
+         */
+        get: operations["dashboard_details"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/export/{kind}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every dashboard figure and table as a CSV, an Excel workbook or a PDF
+         * @description HR admins and HR only: the dashboard is the recruiting team's view (plan.md 6.9).
+         */
+        get: operations["dashboard_export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/upcoming-interviews/": {
         parameters: {
             query?: never;
@@ -1702,6 +1766,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/support/attachments/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An attachment's file; its signed URL is the attachment's url
+         * @description ``GET /support/attachments/{id}/?t=<signature>``: the image or video itself.
+         *
+         *     No login: an <img> or <video> cannot send the access token, so the URL
+         *     carries an HMAC instead, the way candidate photos do.
+         */
+        get: operations["support_attachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/support/tickets/": {
         parameters: {
             query?: never;
@@ -1711,11 +1798,11 @@ export interface paths {
         };
         /**
          * Support tickets the current user may see
-         * @description HR admins see every ticket; everyone else sees the tickets they raised or were assigned. `search` matches the number, subject and description.
+         * @description Admins (the support team) see every ticket; everyone else sees the tickets they raised or were assigned. `search` matches the number, subject and description.
          */
         get: operations["support_tickets_list"];
         put?: never;
-        /** Raise a ticket (everyone); the support team is notified */
+        /** Raise a ticket (everyone), with images or videos; the support team is notified */
         post: operations["support_tickets_create"];
         delete?: never;
         options?: never;
@@ -1784,7 +1871,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add a comment to the ticket's timeline */
+        /** Add a comment, with images or videos, to the ticket's timeline */
         post: operations["support_tickets_comment"];
         delete?: never;
         options?: never;
@@ -1944,13 +2031,13 @@ export interface components {
         /**
          * @description * `new` - New
          *     * `ai_shortlisted` - AI Shortlisted
-         *     * `hr_review` - HR Review
+         *     * `hr_review` - TA Review
          *     * `contact_pending` - Contact Pending
          *     * `contacted` - Contacted
          *     * `phone_screening` - Phone Screening
          *     * `interview_scheduled` - Interview Scheduled
          *     * `technical_interview` - Technical Interview
-         *     * `hr_interview` - HR Interview
+         *     * `hr_interview` - TA Interview
          *     * `final_interview` - Final Interview
          *     * `selected` - Selected
          *     * `offer_sent` - Offer Sent
@@ -2376,6 +2463,24 @@ export interface components {
             country: components["schemas"]["Country"];
             cities: string[];
         };
+        DashboardDetails: {
+            metric: string;
+            count: number;
+            items: components["schemas"]["DetailItem"][];
+        };
+        DashboardInsights: {
+            range_days: number;
+            stages: components["schemas"]["InsightStage"][];
+            match: components["schemas"]["MatchInsight"];
+            skills: components["schemas"]["SkillDemand"][];
+            departments: components["schemas"]["DepartmentInsight"][];
+            experience: components["schemas"]["KeyCount"][];
+            outreach: components["schemas"]["OutreachInsight"];
+            offers: components["schemas"]["OffersInsight"];
+            /** @description Activities per hour of the viewer's day, one row per weekday from Monday */
+            heatmap: number[][];
+            searches: components["schemas"]["SearchStats"];
+        };
         /**
          * @description One headline figure: the value now (or across the window for flows), its
          *     change against the previous window, and a daily series for the sparkline.
@@ -2417,8 +2522,57 @@ export interface components {
             range_days: number;
             points: components["schemas"]["TrendPoint"][];
         };
+        DepartmentInsight: {
+            key: string;
+            label: string;
+            /** @description Open roles */
+            roles: number;
+            openings: number;
+            /** @description Candidates on those roles */
+            candidates: number;
+        };
         Detail: {
             detail: string;
+        };
+        /** @description One row behind a dashboard figure, whatever kind of record it is. */
+        DetailItem: {
+            id: string;
+            kind: components["schemas"]["DetailItemKindEnum"];
+            title: string;
+            subtitle: string;
+            status: string | null;
+            status_label: string | null;
+            /**
+             * @description Which colour catalogue the status belongs to; null shows it as plain text
+             *
+             *     * `status` - status
+             *     * `jd_status` - jd_status
+             */
+            status_kind: (components["schemas"]["StatusKindEnum"] | components["schemas"]["NullEnum"]) | null;
+            /** @description Where the full record lives in the app */
+            href: string;
+            /** Format: date-time */
+            at: string | null;
+            /** @description What the timestamp is: Found, Scheduled, Expires… */
+            at_label: string;
+            person: components["schemas"]["DetailPerson"] | null;
+            /** @description The figure that matters for the row */
+            value: string | null;
+            note: string | null;
+        };
+        /**
+         * @description * `job` - job
+         *     * `application` - application
+         *     * `interview` - interview
+         *     * `offer` - offer
+         *     * `communication` - communication
+         *     * `search` - search
+         * @enum {string}
+         */
+        DetailItemKindEnum: "job" | "application" | "interview" | "offer" | "communication" | "search";
+        DetailPerson: {
+            full_name: string;
+            avatar_url: string | null;
         };
         /** @description ``GET /email/``: is outgoing mail configured, who it comes from, the templates. */
         EmailConfig: {
@@ -2521,6 +2675,20 @@ export interface components {
         Health: {
             status: string;
             database: string;
+        };
+        InsightStage: {
+            key: string;
+            label: string;
+            value: number;
+            /** @description Application statuses this stage covers */
+            statuses: string[];
+            /**
+             * Format: double
+             * @description Average days the candidates have sat in this stage
+             */
+            avg_days: number | null;
+            /** @description Of them, in the stage for over a week */
+            stuck: number;
         };
         IntakeFile: {
             file_name: string;
@@ -2639,7 +2807,7 @@ export interface components {
          *     * `technical` - Technical
          *     * `system_design` - System Design
          *     * `managerial` - Managerial
-         *     * `hr` - HR
+         *     * `hr` - TA
          *     * `final` - Final
          * @enum {string}
          */
@@ -2981,6 +3149,13 @@ export interface components {
             /** Format: uuid */
             job_description_id: string;
         };
+        MatchInsight: {
+            /** Format: double */
+            avg_pct: number | null;
+            /** @description Applications with a match score */
+            scored: number;
+            bands: components["schemas"]["KeyCount"][];
+        };
         MessageTemplate: {
             /** Format: uuid */
             readonly id: string;
@@ -3143,6 +3318,14 @@ export interface components {
          * @enum {string}
          */
         OfferUpdateStatusEnum: "sent" | "negotiating";
+        OffersInsight: {
+            /** @description Every offer by status, right now */
+            statuses: components["schemas"]["KeyCount"][];
+            /** @description Responses that landed in the window */
+            responded: number;
+            /** Format: double */
+            avg_response_days: number | null;
+        };
         Onboarding: {
             /** Format: uuid */
             readonly id: string;
@@ -3194,6 +3377,12 @@ export interface components {
          * @enum {string}
          */
         OnboardingUpdateStatusEnum: "dropped";
+        OutreachInsight: {
+            /** @description Communications logged in the window */
+            total: number;
+            channels: components["schemas"]["KeyCount"][];
+            outcomes: components["schemas"]["KeyCount"][];
+        };
         PaginatedApplicationRowList: {
             /** @example 123 */
             count: number;
@@ -3733,6 +3922,21 @@ export interface components {
          * @enum {string}
          */
         SearchRunStatusEnum: "pending" | "running" | "completed" | "partial" | "failed";
+        SearchStats: {
+            runs: number;
+            found: number;
+            shortlisted: number;
+            new: number;
+            avg_duration_ms: number | null;
+        };
+        SkillDemand: {
+            key: string;
+            label: string;
+            /** @description Open roles that require the skill */
+            roles: number;
+            /** @description Candidates in the pipeline who have it */
+            candidates: number;
+        };
         SkillSuggestion: {
             key: string;
             display_name: string;
@@ -3766,6 +3970,12 @@ export interface components {
             terminal: string[];
         };
         /**
+         * @description * `status` - status
+         *     * `jd_status` - jd_status
+         * @enum {string}
+         */
+        StatusKindEnum: "status" | "jd_status";
+        /**
          * @description * `pending_upload` - Pending upload
          *     * `uploaded` - Uploaded
          *     * `failed` - Upload failed
@@ -3789,6 +3999,24 @@ export interface components {
              */
             assignee_id: string | null;
         };
+        TicketAttachment: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly content_type: string;
+            readonly size: number;
+            readonly kind: components["schemas"]["TicketAttachmentKindEnum"];
+            /** @description Signed; loads without a login */
+            readonly url: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `image` - Image
+         *     * `video` - Video
+         * @enum {string}
+         */
+        TicketAttachmentKindEnum: "image" | "video";
         /**
          * @description * `access` - Access & permissions
          *     * `job_description` - Job description
@@ -3803,6 +4031,8 @@ export interface components {
         TicketCategoryEnum: "access" | "job_description" | "candidate_data" | "interviews" | "offers" | "technical" | "feature_request" | "other";
         TicketCommentRequest: {
             message: string;
+            /** @description Up to 5 images or videos, 25 MB each */
+            attachments?: string[];
         };
         /** @description ``POST /support/tickets/``. */
         TicketCreateRequest: {
@@ -3814,6 +4044,8 @@ export interface components {
             priority: components["schemas"]["TicketPriorityEnum"];
             /** Format: uuid */
             job_description_id?: string | null;
+            /** @description Up to 5 images or videos, 25 MB each */
+            attachments?: string[];
         };
         /**
          * @description ``GET /support/tickets/{id}/``: the row plus the text, the timeline and
@@ -3846,6 +4078,7 @@ export interface components {
             readonly updated_at: string;
             readonly description: string;
             readonly resolution: string;
+            readonly attachments: components["schemas"]["TicketAttachment"][];
             readonly events: components["schemas"]["TicketEvent"][];
             readonly permissions: components["schemas"]["TicketPermissions"];
         };
@@ -3858,6 +4091,7 @@ export interface components {
             readonly title: string;
             readonly message: string;
             readonly metadata: unknown;
+            readonly attachments: components["schemas"]["TicketAttachment"][];
             /** Format: date-time */
             readonly occurred_at: string;
         };
@@ -4017,6 +4251,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             full_name: string;
+            avatar_url: string | null;
         };
         /** @description One file of an upload batch, as the upload page shows it while polling. */
         UploadedDocument: {
@@ -4062,9 +4297,10 @@ export interface components {
          *     * `hr` - HR
          *     * `interviewer` - Interviewer
          *     * `employee` - Employee
+         *     * `admin` - Admin
          * @enum {string}
          */
-        UserRoleEnum: "hr_admin" | "hr" | "interviewer" | "employee";
+        UserRoleEnum: "hr_admin" | "hr" | "interviewer" | "employee" | "admin";
         /** @description Compact row for the people picker (``GET /users/``). */
         UserSummary: {
             /** Format: uuid */
@@ -4422,8 +4658,9 @@ export interface operations {
                  *     * `hr` - HR
                  *     * `interviewer` - Interviewer
                  *     * `employee` - Employee
+                 *     * `admin` - Admin
                  */
-                role?: "employee" | "hr" | "hr_admin" | "interviewer";
+                role?: "admin" | "employee" | "hr" | "hr_admin" | "interviewer";
                 /** @description Free text over name, email, designation */
                 search?: string;
             };
@@ -5533,6 +5770,48 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SearchRun"];
                 };
+            };
+        };
+    };
+    searches_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this search run. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -8058,6 +8337,105 @@ export interface operations {
             };
         };
     };
+    dashboard_insights: {
+        parameters: {
+            query?: {
+                /** @description Last day of a custom window (inclusive; later than today reads as today), at most 366 days after start */
+                end?: string;
+                /** @description Window in days: 7, 30 (default) or 90; ignored when start and end are given */
+                range?: 30 | 7 | 90;
+                /** @description First day of a custom window (inclusive, the viewer's local date); needs end */
+                start?: string;
+                /** @description Comma-separated user ids: narrow to the job descriptions any of these people created or are listed on */
+                user?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardInsights"];
+                };
+            };
+        };
+    };
+    dashboard_details: {
+        parameters: {
+            query: {
+                /** @description Last day of a custom window (inclusive; later than today reads as today), at most 366 days after start */
+                end?: string;
+                /** @description One role (role, stage) */
+                job_description?: string;
+                /** @description The source, skill, band, department, channel or offer status */
+                key?: string;
+                /** @description The figure to open */
+                metric: "channel" | "department" | "experience" | "feedback_pending" | "hires" | "in_pipeline" | "interviews" | "match_band" | "new_candidates" | "offer_acceptance" | "offer_status" | "offers_expiring" | "offers_pending" | "open_roles" | "overdue_follow_ups" | "quiet_roles" | "role" | "searches" | "skill" | "source" | "stage" | "stale_candidates" | "time_to_hire";
+                /** @description Window in days: 7, 30 (default) or 90; ignored when start and end are given */
+                range?: 30 | 7 | 90;
+                /** @description First day of a custom window (inclusive, the viewer's local date); needs end */
+                start?: string;
+                /** @description Comma-separated application statuses (stage) */
+                statuses?: string;
+                /** @description Comma-separated user ids: narrow to the job descriptions any of these people created or are listed on */
+                user?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardDetails"];
+                };
+            };
+        };
+    };
+    dashboard_export: {
+        parameters: {
+            query?: {
+                /** @description Last day of a custom window (inclusive; later than today reads as today), at most 366 days after start */
+                end?: string;
+                /** @description Narrow the funnel to one role, as on the page */
+                job_description?: string;
+                /** @description Window in days: 7, 30 (default) or 90; ignored when start and end are given */
+                range?: 30 | 7 | 90;
+                /** @description First day of a custom window (inclusive, the viewer's local date); needs end */
+                start?: string;
+                /** @description Comma-separated user ids: narrow to the job descriptions any of these people created or are listed on */
+                user?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The file to build: csv, xlsx or pdf */
+                kind: "csv" | "pdf" | "xlsx";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv; charset=utf-8": string;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
     dashboard_upcoming_interviews: {
         parameters: {
             query?: {
@@ -8083,6 +8461,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Interview"][];
                 };
+            };
+        };
+    };
+    support_attachment: {
+        parameters: {
+            query: {
+                /** @description The signature in url */
+                t: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

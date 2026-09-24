@@ -10,6 +10,7 @@ import {
 import { useId, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { addDays, parseISO } from 'date-fns'
+import { ClearFiltersButton } from '@/components/shared/ClearFiltersButton'
 import { ActionMenu } from '@/components/shared/ActionMenu'
 import { Avatar } from '@/components/shared/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -84,7 +85,7 @@ const VIEWS = [
 ] as const
 
 const SPEC = {
-  bucket: param.enum<InterviewBucket>('upcoming', BUCKET_KEYS),
+  bucket: param.enum<InterviewBucket>('all', BUCKET_KEYS),
   jd: param.string(''),
   who: param.string(''),
   round: param.list<string>([]),
@@ -180,6 +181,11 @@ export default function InterviewsPage() {
   const filtered = Boolean(state.jd || state.who || state.round.length || state.mine || debounced)
   const canSchedule = me?.role === 'hr_admin' || me?.role === 'hr'
 
+  function clearFilters() {
+    setDraft('')
+    setState({ jd: '', who: '', round: [], mine: false, q: '', page: 1 })
+  }
+
   const toolbar = (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
@@ -188,8 +194,7 @@ export default function InterviewsPage() {
           options={BUCKETS}
           selected={[state.bucket]}
           onChange={(next) => {
-            const chosen = (next.find((key) => key !== state.bucket) ??
-              'upcoming') as InterviewBucket
+            const chosen = (next.find((key) => key !== state.bucket) ?? 'all') as InterviewBucket
             setState({ bucket: chosen, page: 1 })
             setExpanded(null)
           }}
@@ -298,6 +303,7 @@ export default function InterviewsPage() {
             Mine
           </label>
         </div>
+        <ClearFiltersButton active={filtered} onClick={clearFilters} />
       </div>
     </div>
   )
@@ -367,26 +373,13 @@ export default function InterviewsPage() {
                             filtered ? 'No interviews match these filters' : 'No interviews here'
                           }
                           description={
-                            state.bucket === 'upcoming'
+                            state.bucket === 'upcoming' || state.bucket === 'all'
                               ? 'Schedule one from a candidate page or with the button above.'
                               : 'Try another tab or clear the filters.'
                           }
                           action={
                             filtered ? (
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setDraft('')
-                                  setState({
-                                    jd: '',
-                                    who: '',
-                                    round: [],
-                                    mine: false,
-                                    q: '',
-                                    page: 1,
-                                  })
-                                }}
-                              >
+                              <Button variant="outline" onClick={clearFilters}>
                                 Clear filters
                               </Button>
                             ) : undefined

@@ -57,7 +57,7 @@ def test_status_order_index_matches_plan_section_6_5():
 
 def test_status_labels_are_human_readable():
     assert ApplicationStatus.AI_SHORTLISTED.label == "AI Shortlisted"
-    assert ApplicationStatus.HR_REVIEW.label == "HR Review"
+    assert ApplicationStatus.HR_REVIEW.label == "TA Review"
     assert ApplicationStatus.ON_HOLD.label == "On Hold"
 
 
@@ -139,7 +139,7 @@ def test_colours_exist_for_every_status_source_and_category():
 
 
 def test_other_enums_have_the_plan_values():
-    assert list(enums.UserRole.values) == ["hr_admin", "hr", "interviewer", "employee"]
+    assert list(enums.UserRole.values) == ["hr_admin", "hr", "interviewer", "employee", "admin"]
     assert list(enums.ParticipantRole.values) == [
         "owner",
         "recruiter",

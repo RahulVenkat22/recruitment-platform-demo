@@ -1,6 +1,6 @@
 """A handful of support tickets so the Support page has a history to show:
 open, in progress, resolved and closed, raised by different people and worked
-by the HR admin, replayed through ``TicketService`` with backdated moments so
+by the admins (the support desk), replayed through ``TicketService`` with backdated moments so
 the timelines and notifications read like a real few weeks.
 
 Idempotent: when any seeded ticket already exists nothing is written, so the
@@ -56,6 +56,8 @@ SURESH = "suresh@aimious.demo"
 NISHA = "nisha@aimious.demo"
 VIKRAM = "vikram@aimious.demo"
 LAKSHMI = "lakshmi@aimious.demo"
+MEERA = "meera@aimious.demo"
+ARJUN = "arjun@aimious.demo"
 
 TICKETS: tuple[TicketSpec, ...] = (
     TicketSpec(
@@ -70,12 +72,12 @@ TICKETS: tuple[TicketSpec, ...] = (
         category=TicketCategory.ACCESS,
         priority=TicketPriority.HIGH,
         steps=(
-            Step(1.5, RAHUL, assign_to=RAHUL),
-            Step(1.6, RAHUL, status=TicketStatus.IN_PROGRESS),
-            Step(3, RAHUL, comment="Checking the participant list on the JD, one moment."),
+            Step(1.5, MEERA, assign_to=MEERA),
+            Step(1.6, MEERA, status=TicketStatus.IN_PROGRESS),
+            Step(3, MEERA, comment="Checking the participant list on the JD, one moment."),
             Step(
                 5,
-                RAHUL,
+                MEERA,
                 status=TicketStatus.RESOLVED,
                 note=(
                     "You were listed on the role as an Observer, not an Interviewer. "
@@ -98,11 +100,11 @@ TICKETS: tuple[TicketSpec, ...] = (
         category=TicketCategory.CANDIDATE_DATA,
         priority=TicketPriority.MEDIUM,
         steps=(
-            Step(2, RAHUL, assign_to=RAHUL),
-            Step(2.1, RAHUL, status=TicketStatus.IN_PROGRESS),
+            Step(2, ARJUN, assign_to=ARJUN),
+            Step(2.1, ARJUN, status=TicketStatus.IN_PROGRESS),
             Step(
                 20,
-                RAHUL,
+                ARJUN,
                 status=TicketStatus.RESOLVED,
                 note=(
                     "Merged both pairs into the original profiles and kept the newer resumes. "
@@ -124,7 +126,7 @@ TICKETS: tuple[TicketSpec, ...] = (
         category=TicketCategory.INTERVIEWS,
         priority=TicketPriority.MEDIUM,
         steps=(
-            Step(4, RAHUL, assign_to=PRIYA),
+            Step(4, MEERA, assign_to=PRIYA),
             Step(6, PRIYA, status=TicketStatus.IN_PROGRESS),
             Step(
                 7,
@@ -154,16 +156,16 @@ TICKETS: tuple[TicketSpec, ...] = (
         category=TicketCategory.ACCESS,
         priority=TicketPriority.LOW,
         steps=(
-            Step(3, RAHUL, assign_to=RAHUL),
-            Step(3.2, RAHUL, status=TicketStatus.IN_PROGRESS),
+            Step(3, MEERA, assign_to=MEERA),
+            Step(3.2, MEERA, status=TicketStatus.IN_PROGRESS),
             Step(
                 5,
-                RAHUL,
+                MEERA,
                 comment="Added you as an Observer on the role. Comments need HR access, though.",
             ),
             Step(
                 5.1,
-                RAHUL,
+                MEERA,
                 status=TicketStatus.RESOLVED,
                 note="Added as Observer on AI Engineer; comments stay with HR staff.",
             ),
@@ -181,11 +183,11 @@ TICKETS: tuple[TicketSpec, ...] = (
         category=TicketCategory.OFFERS,
         priority=TicketPriority.URGENT,
         steps=(
-            Step(0.5, RAHUL, assign_to=RAHUL),
-            Step(0.6, RAHUL, status=TicketStatus.IN_PROGRESS),
+            Step(0.5, ARJUN, assign_to=ARJUN),
+            Step(0.6, ARJUN, status=TicketStatus.IN_PROGRESS),
             Step(
                 2,
-                RAHUL,
+                ARJUN,
                 comment=(
                     "Corrected the joining date on the offer. Please re-send it from the "
                     "candidate's page so the timeline records the new version."
@@ -206,11 +208,11 @@ TICKETS: tuple[TicketSpec, ...] = (
         category=TicketCategory.TECHNICAL,
         priority=TicketPriority.HIGH,
         steps=(
-            Step(2, RAHUL, assign_to=RAHUL),
-            Step(2.1, RAHUL, status=TicketStatus.IN_PROGRESS),
+            Step(2, MEERA, assign_to=MEERA),
+            Step(2.1, MEERA, status=TicketStatus.IN_PROGRESS),
             Step(
                 4,
-                RAHUL,
+                MEERA,
                 comment=(
                     "The role lists 14 required skills, so the AI evaluation runs on a much "
                     "larger pool. Trimming to the eight that matter should bring it back down; "

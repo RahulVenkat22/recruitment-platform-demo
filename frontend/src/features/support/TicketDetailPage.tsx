@@ -22,6 +22,8 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useCommentTicket, useTicket, useTransitionTicket } from '@/features/support/api'
 import { AssignDialog } from '@/features/support/AssignDialog'
+import { AttachmentGallery } from '@/features/support/AttachmentGallery'
+import { AttachmentPicker } from '@/features/support/AttachmentPicker'
 import { moveDialogCopy, moveLabel, noteRequired } from '@/features/support/support-utils'
 import { TicketFormDialog } from '@/features/support/TicketFormDialog'
 import { TicketTimeline } from '@/features/support/TicketTimeline'
@@ -83,14 +85,16 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 function Composer({ ticket }: { ticket: TicketDetail }) {
   const id = useId()
   const [draft, setDraft] = useState('')
+  const [files, setFiles] = useState<File[]>([])
   const comment = useCommentTicket()
   const ready = draft.trim().length > 0 && !comment.isPending
 
   async function post() {
     if (!ready) return
     try {
-      await comment.mutateAsync({ id: ticket.id, message: draft.trim() })
+      await comment.mutateAsync({ id: ticket.id, message: draft.trim(), attachments: files })
       setDraft('')
+      setFiles([])
       toast.success('Comment posted')
     } catch (error) {
       toast.error(describeError(error))
@@ -118,6 +122,12 @@ function Composer({ ticket }: { ticket: TicketDetail }) {
         onKeyDown={(event) => {
           if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') void post()
         }}
+      />
+      <AttachmentPicker
+        files={files}
+        onChange={setFiles}
+        disabled={comment.isPending}
+        className="mt-2"
       />
       <div className="mt-2 flex items-center justify-between gap-3">
         <span className="text-caption text-ink-subtle">
@@ -263,6 +273,7 @@ export default function TicketDetailPage() {
         <div className="min-w-0 space-y-6">
           <Card title="What was asked">
             <p className="text-body whitespace-pre-line text-ink">{ticket.description}</p>
+            <AttachmentGallery attachments={ticket.attachments} className="mt-4" />
           </Card>
           {ticket.resolution && (
             <Card title="Resolution" className="border-success/30 bg-success-soft/40">

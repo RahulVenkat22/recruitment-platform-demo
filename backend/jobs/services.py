@@ -42,6 +42,7 @@ from common.enums import (
     ActivityCategory,
     ApplicationStatus,
     JDStatus,
+    NotificationType,
     OfferStatus,
     ParticipantRole,
 )
@@ -54,6 +55,7 @@ from jobs.exceptions import (
 )
 from jobs.models import JobDescription, JobDescriptionVersion, RecruitmentParticipant
 from matching.skills import display_name, normalize_skill, normalize_skills
+from notifications.services import notify_all
 from pipeline.models import Application
 
 # JobDescription columns captured in a version snapshot (plan.md 6.3 "all content
@@ -247,6 +249,15 @@ def _unchanged(jd: JobDescription, name: str, value: Any) -> bool:
     if name in SKILL_FIELDS:
         return set(current or []) == set(value or [])
     return current == value
+
+
+def _involved(jd: JobDescription) -> list[Any]:
+    """The creator and everyone under "People Involved", whatever their role."""
+    return [jd.created_by, *(p.user for p in jd.participants.select_related("user"))]
+
+
+def _timeline_link(jd: JobDescription) -> str:
+    return f"/jobs/{jd.pk}?tab=timeline"
 
 
 def _record_jd(jd: JobDescription, event_type: str, title: str, actor: Any, **kwargs: Any):
@@ -591,7 +602,8 @@ class JobService:
     @transaction.atomic
     def force_close(jd: JobDescription, actor: Any, reason: str = "") -> JobDescription:
         """End the recruitment early (Enhancement.md 3 "Force Close"): draft, open or
-        on-hold JDs become ``force_closed``; the reason goes on the timeline."""
+        on-hold JDs become ``force_closed``; the reason goes on the timeline and
+        everyone involved is notified."""
         if str(jd.status) not in FORCE_CLOSABLE:
             raise InvalidStatusTransition(
                 f"A {_status_label(jd.status).lower()} job description cannot be force closed."
@@ -609,15 +621,24 @@ class JobService:
             description=reason,
             metadata={"from": previous, "to": str(JDStatus.FORCE_CLOSED), "reason": reason},
         )
+        notify_all(
+            _involved(jd),
+            NotificationType.STATUS_CHANGE,
+            f'{_actor_name(actor)} force closed "{jd.title}"',
+            reason,
+            _timeline_link(jd),
+            actor,
+        )
         return jd
 
     @staticmethod
     @transaction.atomic
     def add_comment(jd: JobDescription, text: str, actor: Any):
         """A free-text remark on the JD timeline (Enhancement.md 3 "Add Comment");
-        returns the activity row so the caller can render it straight away."""
+        everyone involved is notified. Returns the activity row so the caller can
+        render it straight away."""
         text = (text or "").strip()
-        return _record_jd(
+        activity = _record_jd(
             jd,
             "jd.comment_added",
             f'{_actor_name(actor)} commented on "{jd.title}"',
@@ -625,6 +646,15 @@ class JobService:
             description=text,
             metadata={"comment": text},
         )
+        notify_all(
+            _involved(jd),
+            NotificationType.MENTION,
+            f'{_actor_name(actor)} commented on "{jd.title}"',
+            text,
+            _timeline_link(jd),
+            actor,
+        )
+        return activity
 
     @staticmethod
     @transaction.atomic

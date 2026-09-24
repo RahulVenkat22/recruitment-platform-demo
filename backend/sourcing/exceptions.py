@@ -22,3 +22,13 @@ class JobNotSearchable(APIException):
     status_code = status.HTTP_409_CONFLICT
     default_detail = "Candidates can only be searched for open or on-hold job descriptions."
     default_code = "job_not_searchable"
+
+
+class SearchNotRunning(APIException):
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = "Only a search that is still running can be cancelled."
+    default_code = "search_not_running"
+
+
+class SearchCancelled(Exception):
+    """Raised inside the worker when the run's row is gone: someone cancelled it."""

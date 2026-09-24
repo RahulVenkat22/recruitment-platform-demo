@@ -77,6 +77,7 @@ describe('enums', () => {
       'hr',
       'interviewer',
       'employee',
+      'admin',
     ])
     expect(enumLabel('user_role', 'interviewer')).toBe('Interviewer')
     useEnumsStore.getState().setCatalogue(catalogue)

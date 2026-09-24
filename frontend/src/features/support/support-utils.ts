@@ -42,6 +42,31 @@ export function ticketHref(id: string): string {
   return `/support/${id}`
 }
 
+/** What may travel with a ticket or a comment; mirrors backend/support/models.py. */
+export const ATTACHMENT_MAX_MB = 25
+export const ATTACHMENTS_MAX = 5
+export const ATTACHMENT_ACCEPT =
+  'image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime'
+const ATTACHMENT_TYPES = new Set(ATTACHMENT_ACCEPT.split(','))
+
+/** Why a file cannot be attached, or null when it can. */
+export function attachmentProblem(file: File): string | null {
+  if (!ATTACHMENT_TYPES.has(file.type)) {
+    return `${file.name}: only images (JPEG, PNG, GIF, WebP) and videos (MP4, WebM, MOV).`
+  }
+  if (file.size > ATTACHMENT_MAX_MB * 1024 * 1024) {
+    return `${file.name} is larger than ${ATTACHMENT_MAX_MB} MB.`
+  }
+  return null
+}
+
+export function formatBytes(size: number): string {
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`
+  const mb = size / (1024 * 1024)
+  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`
+}
+
 /** What the button for a move says, given where the ticket is now. */
 export function moveLabel(from: TicketStatus, to: TicketStatus): string {
   if (to === 'in_progress') return 'Start work'

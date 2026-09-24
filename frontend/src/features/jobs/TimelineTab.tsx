@@ -1,5 +1,6 @@
 import { HistoryIcon, SearchIcon, SearchXIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { ClearFiltersButton } from '@/components/shared/ClearFiltersButton'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { SkeletonTimeline } from '@/components/shared/Skeletons'
@@ -66,12 +67,12 @@ export function TimelineTab({ job }: { job: JobDetail }) {
   return (
     <div className="space-y-4">
       <section
-        aria-label="Timeline filters"
+        aria-label="Activity filters"
         className="rounded-card border border-line bg-surface p-4 shadow-card"
       >
         <div className="flex flex-wrap items-start gap-3">
           <span className="pt-1 text-caption font-medium tracking-[0.08em] text-ink-subtle uppercase">
-            Timeline filters
+            Activity filters
           </span>
           <TimelineFilterChips
             selected={cat}
@@ -111,6 +112,7 @@ export function TimelineTab({ job }: { job: JobDetail }) {
               ))}
             </SelectContent>
           </Select>
+          <ClearFiltersButton active={filtered} onClick={clearFilters} />
           <span role="status" className="ml-auto text-small text-ink-muted tabular-nums">
             {feed.isPending ? 'Loading events…' : `Showing ${visible.length} of ${total} events`}
           </span>
@@ -121,7 +123,7 @@ export function TimelineTab({ job }: { job: JobDetail }) {
         <SkeletonTimeline items={6} className="pt-2" />
       ) : feed.isError ? (
         <ErrorState
-          title="Couldn't load the timeline"
+          title="Couldn't load the activity"
           error={feed.error}
           onRetry={() => void feed.refetch()}
         />

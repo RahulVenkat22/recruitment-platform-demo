@@ -10,7 +10,7 @@ export interface DemoAccount {
 /** Every seeded login shares this password (plan.md section 18). */
 export const DEMO_PASSWORD = 'Demo@1234'
 
-/** The ten seeded users, in plan.md section 18 order; names match backend/seed/pools/users.py. */
+/** The seeded users, in backend/seed/pools/users.py order: the plan.md section 18 ten plus the two support admins. */
 export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
   {
     name: 'Rahul Venkat',
@@ -66,6 +66,18 @@ export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
     email: 'lakshmi@aimious.demo',
     designation: 'Frontend Lead',
     role: 'employee',
+  },
+  {
+    name: 'Meera Nair',
+    email: 'meera@aimious.demo',
+    designation: 'IT Support Lead',
+    role: 'admin',
+  },
+  {
+    name: 'Arjun Pillai',
+    email: 'arjun@aimious.demo',
+    designation: 'Support Engineer',
+    role: 'admin',
   },
 ]
 

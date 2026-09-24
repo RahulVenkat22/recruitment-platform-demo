@@ -94,18 +94,14 @@ export function JobOverview({
         </Section>
         {content.additional_requirements.trim() && (
           <Section title="Additional requirements">
-            <RichText text={content.additional_requirements} />
+            <Lines text={content.additional_requirements} emptyLabel="" />
           </Section>
         )}
         <Section title="Education">
-          <p
-            className={cn(
-              'text-body',
-              content.education_requirements ? 'text-ink' : 'text-small text-ink-subtle',
-            )}
-          >
-            {content.education_requirements || 'No educational requirement specified.'}
-          </p>
+          <Lines
+            text={content.education_requirements}
+            emptyLabel="No educational requirement specified."
+          />
         </Section>
         <div className="grid gap-4 border-t border-line pt-5 sm:grid-cols-2">
           <Section title="Required skills">

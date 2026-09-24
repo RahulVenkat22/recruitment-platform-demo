@@ -3,7 +3,8 @@ import type { UseFormReturn } from 'react-hook-form'
 import type { JobFormValues } from '@/features/jobs/job-form-schema'
 
 export const AUTOSAVE_INTERVAL_MS = 10_000
-const DRAFT_PREFIX = 'aimious.jobdraft.'
+// v2: the list fields became arrays of points, so older drafts no longer fit the form.
+const DRAFT_PREFIX = 'aimious.jobdraft.v2.'
 
 export interface SavedDraft {
   values: JobFormValues
@@ -32,7 +33,7 @@ function write(key: string, draft: SavedDraft) {
 
 /**
  * plan.md 9.5 safety net: every 10 seconds, a dirty form is written to
- * localStorage under `aimious.jobdraft.<id|new>`. On mount an existing draft is
+ * localStorage under `aimious.jobdraft.v2.<id|new>`. On mount an existing draft is
  * offered back; `clear()` removes it once the JD is saved for real.
  */
 export function useDraftAutosave(draftId: string, form: UseFormReturn<JobFormValues>) {

@@ -94,7 +94,7 @@ export function AssignDialog({
             placeholder={directory.isPending ? 'Loading people…' : 'Choose a person'}
           />
           <FieldDescription>
-            Anyone can be assigned; HR admins see every ticket regardless.
+            Anyone can be assigned; admins see every ticket regardless.
           </FieldDescription>
         </Field>
         <DialogFooter>

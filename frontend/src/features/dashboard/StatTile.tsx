@@ -1,5 +1,4 @@
 import { ArrowDownRightIcon, ArrowUpRightIcon, MinusIcon, type LucideIcon } from 'lucide-react'
-import { Link } from 'react-router'
 import { Area, AreaChart } from 'recharts'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SPARK } from '@/features/dashboard/charts/theme'
@@ -16,8 +15,10 @@ export interface StatTileProps {
   label: string
   metric?: DashboardMetric
   icon: LucideIcon
-  /** The list behind the number. */
-  to: string
+  /** Opens the records behind the number, in place. */
+  onClick: () => void
+  /** True while this tile's records are open. */
+  active?: boolean
   /** Whether a rise is welcome: more hires yes, more days to hire no. */
   goodDirection?: 'up' | 'down'
   rangeDays: number
@@ -59,13 +60,15 @@ function Sparkline({ series }: { series: readonly number[] }) {
 /**
  * A headline figure (plan.md 9.3 metric card, redrawn): icon and label, the
  * value in proportional figures, a delta chip when the figure is a flow, a
- * sparkline of its daily series, and one short qualifier.
+ * sparkline of its daily series, and one short qualifier. The tile is a button
+ * that opens the records behind the number in the dashboard's drawer.
  */
 export function StatTile({
   label,
   metric,
   icon: Icon,
-  to,
+  onClick,
+  active = false,
   goodDirection = 'up',
   rangeDays,
   loading = false,
@@ -76,14 +79,17 @@ export function StatTile({
     delta === null || delta === 0 ? MinusIcon : delta > 0 ? ArrowUpRightIcon : ArrowDownRightIcon
 
   return (
-    <Link
-      to={to}
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
       data-testid="stat-tile"
       aria-busy={loading || undefined}
       className={cn(
-        'group/tile flex min-w-0 flex-col rounded-card border border-line bg-surface p-4 text-left shadow-card',
-        'transition-[box-shadow,transform] duration-150 ease-brand hover:-translate-y-px hover:shadow-card-hover',
+        'group/tile flex min-w-0 flex-col rounded-card border bg-surface p-4 text-left shadow-card',
+        'transition-[box-shadow,transform,border-color] duration-150 ease-brand hover:-translate-y-px hover:shadow-card-hover',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+        active ? 'border-ink' : 'border-line',
       )}
     >
       <span className="flex items-center gap-2 text-caption tracking-[0.04em] text-ink-muted uppercase">
@@ -122,6 +128,6 @@ export function StatTile({
           <span className={cn(delta !== null && 'basis-full')}>{metric.detail}</span>
         )}
       </span>
-    </Link>
+    </button>
   )
 }

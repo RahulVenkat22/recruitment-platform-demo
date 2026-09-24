@@ -7,6 +7,7 @@ import { TalentOSLogo, TalentOSMark } from '@/components/shared/TalentOSLogo'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useUnreadCount } from '@/features/notifications/api'
 import { useAuthStore } from '@/lib/auth-store'
 import { useUiStore } from '@/lib/ui-store'
 import { cn } from '@/lib/utils'
@@ -15,14 +16,18 @@ import type { SessionUser } from '@/types/domain'
 function SidebarNavItem({
   item,
   collapsed,
+  count = 0,
   onNavigate,
 }: {
   item: NavItem
   collapsed: boolean
+  /** A number to show after the label (unread notifications); zero hides it. */
+  count?: number
   onNavigate?: () => void
 }) {
   const isActive = Boolean(useMatch({ path: item.to, end: item.end ?? false }))
   const Icon = item.icon
+  const tooltip = count > 0 ? `${item.label} (${count} unread)` : item.label
 
   const link = (
     <Link
@@ -45,6 +50,20 @@ function SidebarNavItem({
       )}
       <Icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
       <span className={cn('truncate', collapsed && 'sr-only')}>{item.label}</span>
+      {count > 0 && (
+        <span
+          data-slot="nav-count"
+          aria-label={`${count} unread`}
+          className={cn(
+            'inline-flex items-center justify-center rounded-pill bg-primary font-medium text-white tabular-nums',
+            collapsed
+              ? 'absolute top-1 right-1 h-4 min-w-4 px-1 text-[10px] leading-none ring-2 ring-surface'
+              : 'ml-auto h-5 min-w-5 px-1.5 text-[11px] leading-none',
+          )}
+        >
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
     </Link>
   )
 
@@ -53,7 +72,7 @@ function SidebarNavItem({
     <Tooltip>
       <TooltipTrigger asChild>{link}</TooltipTrigger>
       <TooltipContent side="right" sideOffset={10}>
-        {item.label}
+        {tooltip}
       </TooltipContent>
     </Tooltip>
   )
@@ -70,6 +89,7 @@ function SidebarNav({
   onNavigate?: () => void
 }) {
   const items = navItemsFor(user)
+  const unread = useUnreadCount(user !== null).data?.unread ?? 0
   const sections = NAV_SECTIONS.map((section) => ({
     ...section,
     items: items.filter((item) => item.section === section.key),
@@ -97,7 +117,12 @@ function SidebarNav({
           <ul className="space-y-0.5">
             {section.items.map((item) => (
               <li key={item.to}>
-                <SidebarNavItem item={item} collapsed={collapsed} onNavigate={onNavigate} />
+                <SidebarNavItem
+                  item={item}
+                  collapsed={collapsed}
+                  count={item.to === '/notifications' ? unread : 0}
+                  onNavigate={onNavigate}
+                />
               </li>
             ))}
           </ul>

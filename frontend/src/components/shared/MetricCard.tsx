@@ -89,14 +89,7 @@ export function MetricCard({
           <Icon strokeWidth={1.75} />
         </span>
       )}
-      <span
-        className={cn(
-          'block text-caption tracking-[0.04em] text-ink-muted uppercase',
-          compact ? 'truncate' : '',
-        )}
-      >
-        {label}
-      </span>
+      <span className="block text-caption tracking-[0.04em] text-ink-muted uppercase">{label}</span>
       {loading ? (
         <Skeleton className={cn('mt-1.5 bg-surface-3', compact ? 'h-6 w-12' : 'h-8 w-20')} />
       ) : (

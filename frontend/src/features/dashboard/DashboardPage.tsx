@@ -12,7 +12,7 @@ import {
   UsersIcon,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
@@ -28,12 +28,23 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { AttentionList, type AttentionKey } from '@/features/dashboard/AttentionList'
+import { ActivityHeatmap } from '@/features/dashboard/ActivityHeatmap'
+import { AttentionList } from '@/features/dashboard/AttentionList'
 import { ChartCard, DataList } from '@/features/dashboard/ChartCard'
 import { DateRangePicker } from '@/features/dashboard/DateRangePicker'
+import { Departments } from '@/features/dashboard/Departments'
+import { DetailSheet, type DetailRequest } from '@/features/dashboard/DetailSheet'
+import { ExperienceMix } from '@/features/dashboard/ExperienceMix'
+import { ExportMenu } from '@/features/dashboard/ExportMenu'
 import { InterviewOutcomes } from '@/features/dashboard/InterviewOutcomes'
+import { MatchBands } from '@/features/dashboard/MatchBands'
+import { OffersMix } from '@/features/dashboard/OffersMix'
 import { OpenRoles } from '@/features/dashboard/OpenRoles'
+import { Outreach } from '@/features/dashboard/Outreach'
+import { PipelineHealth } from '@/features/dashboard/PipelineHealth'
 import { ScopePicker } from '@/features/dashboard/ScopePicker'
+import { SearchStats } from '@/features/dashboard/SearchStats'
+import { SkillsDemand } from '@/features/dashboard/SkillsDemand'
 import { StatTile } from '@/features/dashboard/StatTile'
 import { TeamActivity } from '@/features/dashboard/TeamActivity'
 import { UpcomingInterviews } from '@/features/dashboard/UpcomingInterviews'
@@ -41,6 +52,7 @@ import {
   useAttention,
   useDashboardSummary,
   useFunnel,
+  useInsights,
   useInterviewInsights,
   usePipeline,
   useTeam,
@@ -56,9 +68,10 @@ import { TREND_SERIES } from '@/features/dashboard/charts/trend-series'
 import {
   DASHBOARD_SPEC,
   RANGE_OPTIONS,
-  candidatesHref,
+  WEEKDAYS,
   formatDateRange,
   formatPointDate,
+  hourLabel,
   rangeDays,
   rangeSpan,
   validCustomRange,
@@ -79,44 +92,37 @@ const TILES: readonly {
   key: MetricKey
   label: string
   icon: LucideIcon
-  to: string
+  /** Whether the number counts the window or the present moment; the drawer says which. */
+  covers: 'window' | 'now'
   goodDirection?: 'up' | 'down'
 }[] = [
-  { key: 'open_roles', label: 'Open roles', icon: BriefcaseIcon, to: '/jobs?status=open' },
-  { key: 'in_pipeline', label: 'In pipeline', icon: UsersIcon, to: '/candidates' },
-  {
-    key: 'new_candidates',
-    label: 'New candidates',
-    icon: UserPlusIcon,
-    to: '/candidates?sort=-created_at',
-  },
-  { key: 'interviews', label: 'Interviews', icon: CalendarClockIcon, to: '/interviews?bucket=all' },
-  {
-    key: 'offers_pending',
-    label: 'Offers pending',
-    icon: FileSignatureIcon,
-    to: candidatesHref({ statuses: ['offer_sent'] }),
-  },
-  {
-    key: 'hires',
-    label: 'Hires',
-    icon: RocketIcon,
-    to: candidatesHref({ statuses: ['onboarded'] }),
-  },
-  {
-    key: 'offer_acceptance',
-    label: 'Offer acceptance',
-    icon: HandshakeIcon,
-    to: candidatesHref({ statuses: ['offer_sent', 'offer_accepted'] }),
-  },
+  { key: 'open_roles', label: 'Open roles', icon: BriefcaseIcon, covers: 'now' },
+  { key: 'in_pipeline', label: 'In pipeline', icon: UsersIcon, covers: 'now' },
+  { key: 'new_candidates', label: 'New candidates', icon: UserPlusIcon, covers: 'window' },
+  { key: 'interviews', label: 'Interviews', icon: CalendarClockIcon, covers: 'window' },
+  { key: 'offers_pending', label: 'Offers pending', icon: FileSignatureIcon, covers: 'now' },
+  { key: 'hires', label: 'Hires', icon: RocketIcon, covers: 'window' },
+  { key: 'offer_acceptance', label: 'Offer acceptance', icon: HandshakeIcon, covers: 'window' },
   {
     key: 'time_to_hire',
     label: 'Time to hire',
     icon: TimerIcon,
-    to: candidatesHref({ statuses: ['onboarded'] }),
+    covers: 'window',
     goodDirection: 'down',
   },
 ]
+
+/** What the drawer is titled when a tile opens; the acceptance and time tiles list the same offers and hires. */
+const TILE_TITLES: Record<MetricKey, string> = {
+  open_roles: 'Open roles',
+  in_pipeline: 'Candidates in the pipeline',
+  new_candidates: 'New candidates',
+  interviews: 'Interviews',
+  offers_pending: 'Offers pending',
+  hires: 'Hires',
+  offer_acceptance: 'Offers answered',
+  time_to_hire: 'Hires and how long they took',
+}
 
 /** "Priya Nair's", "Priya Nair and Arun Kumar's", "Priya Nair and 2 others'". */
 function possessive(names: readonly string[]): string {
@@ -162,13 +168,29 @@ function busy<T>(query: UseQueryResult<T>): boolean {
   return query.isPlaceholderData || (query.isFetching && !query.isPending)
 }
 
+/** A "View all" that opens the records in the drawer rather than leaving the page. */
+function OpenAll({ onClick, label = 'View all' }: { onClick: () => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-small font-medium text-primary hover:underline"
+    >
+      {label}
+    </button>
+  )
+}
+
 /**
  * The HR dashboard (plan.md 9.3, redrawn): headline figures with sparklines, the
- * hiring activity trend, what needs attention, the funnel, the open roles, the
- * candidate sources, interview outcomes, team activity and the next interviews.
- * Three controls scope everything: the window (7, 30 or 90 days, or any two
- * days), and, for HR admins and HR, whose job descriptions to look at (any
- * number of people).
+ * hiring activity trend, what needs attention, pipeline health, the funnel, the
+ * open roles, skills demand, match quality, the candidate mix, sources,
+ * departments, offers, outreach, interview outcomes, the week's rhythm, search
+ * totals, team activity and the next interviews. Three controls scope
+ * everything: the window (7, 30 or 90 days, or any two days), and, for HR
+ * admins and HR, whose job descriptions to look at (any number of people).
+ * Every figure opens the records behind it in a drawer, so nothing leaves the page,
+ * and the whole page downloads as an Excel workbook, a CSV or a PDF.
  */
 export default function DashboardPage() {
   const user = useAuthStore((state) => state.user)
@@ -186,35 +208,26 @@ export default function DashboardPage() {
   const trends = useTrends(scope)
   const pipeline = usePipeline(scope)
   const funnel = useFunnel(scope, state.jd || undefined)
-  const insights = useInterviewInsights(scope)
+  const insights = useInsights(scope)
+  const interviews = useInterviewInsights(scope)
   const attention = useAttention(scope)
   const team = useTeam(period)
   const upcoming = useUpcomingInterviews(scope)
   const directory = useUsersDirectory()
+  const [detail, setDetail] = useState<DetailRequest | null>(null)
 
   const names = state.user.flatMap(
     (id) => directory.data?.find((row) => row.id === id)?.full_name ?? [],
   )
   const firstName = user?.first_name || user?.full_name?.split(' ')[0] || 'there'
   const windowLabel = custom ? formatDateRange(state.start, state.end) : `Last ${period.range} days`
+  const funnelJob = pipeline.data?.jobs.find((job) => job.id === state.jd)
   const empty =
     state.user.length === 0 &&
     summary.isSuccess &&
     summary.data.open_roles.value === 0 &&
     summary.data.in_pipeline.value === 0 &&
     summary.data.new_candidates.value === 0
-
-  const stageStatuses = (key: string) =>
-    pipeline.data?.stages.find((stage) => stage.key === key)?.statuses ?? []
-  const hrefs: Record<AttentionKey, string> = {
-    overdue_follow_ups: candidatesHref({ statuses: stageStatuses('contacted') }),
-    feedback_pending: '/interviews?bucket=pending_feedback',
-    offers_expiring: candidatesHref({ statuses: ['offer_sent'] }),
-    stale_candidates: candidatesHref({
-      statuses: ['shortlisted', 'contacted', 'interviewed', 'selected'].flatMap(stageStatuses),
-    }),
-    quiet_roles: '/jobs?status=open',
-  }
 
   // Navigations commit as transitions, so a second pick made before the first
   // has landed would read a stale URL; the handlers work from the last selection
@@ -270,6 +283,7 @@ export default function DashboardPage() {
           </TooltipTrigger>
           <TooltipContent>Refresh every figure</TooltipContent>
         </Tooltip>
+        <ExportMenu scope={scope} jobId={state.jd || undefined} />
       </div>
     </div>
   )
@@ -282,7 +296,7 @@ export default function DashboardPage() {
           state.user.length > 0
             ? `${possessive(names)} job descriptions`
             : 'every job description you can see'
-        }.`}
+        }. Click any figure to see the records behind it without leaving this page.`}
         breadcrumbs={[{ label: 'Dashboard' }]}
       />
       {empty ? (
@@ -319,7 +333,14 @@ export default function DashboardPage() {
                   label={tile.label}
                   metric={summary.data?.[tile.key]}
                   icon={tile.icon}
-                  to={tile.to}
+                  active={detail?.metric === tile.key}
+                  onClick={() =>
+                    setDetail({
+                      metric: tile.key,
+                      title: TILE_TITLES[tile.key],
+                      subtitle: tile.covers === 'window' ? windowLabel : 'Right now',
+                    })
+                  }
                   goodDirection={tile.goodDirection}
                   rangeDays={span}
                   loading={summary.isPending}
@@ -354,12 +375,54 @@ export default function DashboardPage() {
             </ChartCard>
             <ChartCard title="Needs attention" subtitle="Right now" busy={busy(attention)}>
               <Loaded query={attention} title="Couldn't load what needs attention" lines={5}>
-                {(data) => <AttentionList counts={data} hrefs={hrefs} />}
+                {(data) => (
+                  <AttentionList
+                    counts={data}
+                    onSelect={(item) =>
+                      setDetail({ metric: item.key, title: item.label, subtitle: 'Right now' })
+                    }
+                  />
+                )}
               </Loaded>
             </ChartCard>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
+            <ChartCard
+              title="Pipeline health"
+              subtitle="Right now, who is where and for how long"
+              busy={busy(insights)}
+              table={
+                insights.data && (
+                  <DataList
+                    caption="Pipeline health"
+                    columns={['Stage', 'Candidates', 'Avg days', 'Over a week']}
+                    rows={insights.data.stages.map((stage) => [
+                      stage.label,
+                      stage.value,
+                      stage.avg_days ?? '—',
+                      stage.stuck,
+                    ])}
+                  />
+                )
+              }
+            >
+              <Loaded query={insights} title="Couldn't load the pipeline health" lines={7}>
+                {(data) => (
+                  <PipelineHealth
+                    stages={data.stages}
+                    onSelect={(stage) =>
+                      setDetail({
+                        metric: 'stage',
+                        statuses: stage.statuses,
+                        title: stage.label,
+                        subtitle: 'Right now',
+                      })
+                    }
+                  />
+                )}
+              </Loaded>
+            </ChartCard>
             <ChartCard
               title="Recruitment funnel"
               subtitle="Right now, candidates who reached each stage"
@@ -401,24 +464,32 @@ export default function DashboardPage() {
                 {(data) => (
                   <FunnelChart
                     stages={data.stages}
-                    hrefFor={(stage) =>
-                      candidatesHref({ statuses: stage.statuses, jd: state.jd || undefined })
+                    onSelect={(stage) =>
+                      setDetail({
+                        metric: 'stage',
+                        statuses: stage.statuses,
+                        jobId: state.jd || undefined,
+                        title: `${stage.label} candidates`,
+                        subtitle: funnelJob?.title ?? 'All roles',
+                      })
                     }
                   />
                 )}
               </Loaded>
             </ChartCard>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
             <ChartCard
               title="Open roles"
               subtitle="Right now, candidates in play per role"
               busy={busy(pipeline)}
               action={
-                <Link
-                  to="/jobs?status=open"
-                  className="text-small font-medium text-primary hover:underline"
-                >
-                  View all
-                </Link>
+                <OpenAll
+                  onClick={() =>
+                    setDetail({ metric: 'open_roles', title: 'Open roles', subtitle: 'Right now' })
+                  }
+                />
               }
               table={
                 pipeline.data && (
@@ -445,23 +516,182 @@ export default function DashboardPage() {
               }
             >
               <Loaded query={pipeline} title="Couldn't load the open roles">
-                {(data) => <OpenRoles jobs={data.jobs} />}
+                {(data) => (
+                  <OpenRoles
+                    jobs={data.jobs}
+                    onSelect={(job) =>
+                      setDetail({
+                        metric: 'role',
+                        jobId: job.id,
+                        title: job.title,
+                        subtitle: 'Everyone on this role',
+                      })
+                    }
+                    onSelectAll={() =>
+                      setDetail({
+                        metric: 'open_roles',
+                        title: 'Open roles',
+                        subtitle: 'Right now',
+                      })
+                    }
+                  />
+                )}
+              </Loaded>
+            </ChartCard>
+            <ChartCard
+              title="Skills in demand"
+              subtitle="What open roles require, and who in the pipeline has it"
+              busy={busy(insights)}
+              table={
+                insights.data && (
+                  <DataList
+                    caption="Skills in demand"
+                    columns={['Skill', 'Roles asking', 'Candidates']}
+                    rows={insights.data.skills.map((skill) => [
+                      skill.label,
+                      skill.roles,
+                      skill.candidates,
+                    ])}
+                  />
+                )
+              }
+            >
+              <Loaded query={insights} title="Couldn't load the skills" lines={8}>
+                {(data) => (
+                  <SkillsDemand
+                    skills={data.skills}
+                    onSelect={(skill) =>
+                      setDetail({
+                        metric: 'skill',
+                        key: skill.key,
+                        title: `Candidates with ${skill.label}`,
+                        subtitle: `${skill.roles} open ${skill.roles === 1 ? 'role asks' : 'roles ask'} for it`,
+                      })
+                    }
+                  />
+                )}
               </Loaded>
             </ChartCard>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <ChartCard
+              title="Match quality"
+              subtitle="Right now, scored candidates by fit"
+              busy={busy(insights)}
+              table={
+                insights.data && (
+                  <DataList
+                    caption="Candidates by match score"
+                    columns={['Band', 'Candidates']}
+                    rows={insights.data.match.bands.map((band) => [band.label, band.value])}
+                  />
+                )
+              }
+            >
+              <Loaded query={insights} title="Couldn't load the match quality" lines={5}>
+                {(data) => (
+                  <MatchBands
+                    match={data.match}
+                    onSelect={(band) =>
+                      setDetail({
+                        metric: 'match_band',
+                        key: band.key,
+                        title: `Match ${band.label.toLowerCase()}`,
+                        subtitle: 'Scored candidates, best fit first',
+                      })
+                    }
+                  />
+                )}
+              </Loaded>
+            </ChartCard>
+            <ChartCard
+              title="Experience mix"
+              subtitle="Right now, candidates by years of experience"
+              busy={busy(insights)}
+              table={
+                insights.data && (
+                  <DataList
+                    caption="Candidates by experience"
+                    columns={['Experience', 'Candidates']}
+                    rows={insights.data.experience.map((band) => [band.label, band.value])}
+                  />
+                )
+              }
+            >
+              <Loaded query={insights} title="Couldn't load the experience mix" lines={5}>
+                {(data) => (
+                  <ExperienceMix
+                    bands={data.experience}
+                    onSelect={(band) =>
+                      setDetail({
+                        metric: 'experience',
+                        key: band.key,
+                        title: `Candidates with ${band.label.toLowerCase()}`,
+                        subtitle: 'Most experienced first',
+                      })
+                    }
+                  />
+                )}
+              </Loaded>
+            </ChartCard>
+            <ChartCard
+              title="AI searches"
+              subtitle={`${windowLabel}, what the searches brought in`}
+              busy={busy(insights)}
+              table={
+                insights.data && (
+                  <DataList
+                    caption="Search totals"
+                    columns={['Figure', 'Value']}
+                    rows={[
+                      ['Searches run', insights.data.searches.runs],
+                      ['Profiles found', insights.data.searches.found],
+                      ['AI shortlisted', insights.data.searches.shortlisted],
+                      ['New to the database', insights.data.searches.new],
+                      [
+                        'Average search time (s)',
+                        insights.data.searches.avg_duration_ms === null
+                          ? '—'
+                          : Math.round(insights.data.searches.avg_duration_ms / 1000),
+                      ],
+                    ]}
+                  />
+                )
+              }
+            >
+              <Loaded query={insights} title="Couldn't load the search totals" lines={5}>
+                {(data) => (
+                  <SearchStats
+                    searches={data.searches}
+                    onSelect={() =>
+                      setDetail({
+                        metric: 'searches',
+                        title: 'Searches run',
+                        subtitle: windowLabel,
+                      })
+                    }
+                  />
+                )}
+              </Loaded>
+            </ChartCard>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
             <ChartCard
               title="Candidates by source"
               subtitle="Right now, where the pipeline came from"
               busy={busy(pipeline)}
               action={
-                <Link
-                  to="/candidates"
-                  className="text-small font-medium text-primary hover:underline"
-                >
-                  View all
-                </Link>
+                <OpenAll
+                  onClick={() =>
+                    setDetail({
+                      metric: 'stage',
+                      title: 'Every candidate',
+                      subtitle: 'Right now, on every role you can see',
+                    })
+                  }
+                />
               }
               table={
                 pipeline.data && (
@@ -474,27 +704,142 @@ export default function DashboardPage() {
               }
             >
               <Loaded query={pipeline} title="Couldn't load the sources" lines={4}>
-                {(data) => <SourceDonut sources={data.sources} />}
+                {(data) => (
+                  <SourceDonut
+                    sources={data.sources}
+                    onSelect={(source) =>
+                      setDetail({
+                        metric: 'source',
+                        key: source.key,
+                        title: `Candidates from ${source.label}`,
+                        subtitle: 'Right now',
+                      })
+                    }
+                  />
+                )}
+              </Loaded>
+            </ChartCard>
+            <ChartCard
+              title="Departments"
+              subtitle="Right now, open roles and their candidates"
+              busy={busy(insights)}
+              table={
+                insights.data && (
+                  <DataList
+                    caption="Open roles by department"
+                    columns={['Department', 'Roles', 'Openings', 'Candidates']}
+                    rows={insights.data.departments.map((row) => [
+                      row.label,
+                      row.roles,
+                      row.openings,
+                      row.candidates,
+                    ])}
+                  />
+                )
+              }
+            >
+              <Loaded query={insights} title="Couldn't load the departments" lines={5}>
+                {(data) => (
+                  <Departments
+                    departments={data.departments}
+                    onSelect={(department) =>
+                      setDetail({
+                        metric: 'department',
+                        key: department.key,
+                        title: `Open roles in ${department.label}`,
+                        subtitle: 'Right now',
+                      })
+                    }
+                  />
+                )}
+              </Loaded>
+            </ChartCard>
+            <ChartCard
+              title="Offers"
+              subtitle="Right now, and how fast candidates answered"
+              busy={busy(insights)}
+              table={
+                insights.data && (
+                  <DataList
+                    caption="Offers by status"
+                    columns={['Status', 'Offers']}
+                    rows={insights.data.offers.statuses.map((row) => [row.label, row.value])}
+                  />
+                )
+              }
+            >
+              <Loaded query={insights} title="Couldn't load the offers" lines={5}>
+                {(data) => (
+                  <OffersMix
+                    offers={data.offers}
+                    onSelect={(status) =>
+                      setDetail({
+                        metric: 'offer_status',
+                        key: status.key,
+                        title: `${status.label} offers`,
+                        subtitle: 'Right now',
+                      })
+                    }
+                  />
+                )}
+              </Loaded>
+            </ChartCard>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
+            <ChartCard
+              title="Outreach"
+              subtitle={`${windowLabel}, calls, emails and messages`}
+              busy={busy(insights)}
+              table={
+                insights.data && (
+                  <DataList
+                    caption="Outreach by channel and outcome"
+                    columns={['Channel or outcome', 'Logged']}
+                    rows={[
+                      ...insights.data.outreach.channels.map((row) => [row.label, row.value]),
+                      ...insights.data.outreach.outcomes.map((row) => [
+                        `Outcome: ${row.label}`,
+                        row.value,
+                      ]),
+                    ]}
+                  />
+                )
+              }
+            >
+              <Loaded query={insights} title="Couldn't load the outreach" lines={6}>
+                {(data) => (
+                  <Outreach
+                    outreach={data.outreach}
+                    onSelect={(channel) =>
+                      setDetail({
+                        metric: 'channel',
+                        key: channel.key,
+                        title: `${channel.label} outreach`,
+                        subtitle: windowLabel,
+                      })
+                    }
+                  />
+                )}
               </Loaded>
             </ChartCard>
             <ChartCard
               title="Interviews"
               subtitle={`${windowLabel}, outcomes and load`}
-              busy={busy(insights)}
+              busy={busy(interviews)}
               action={
-                <Link
-                  to="/interviews"
-                  className="text-small font-medium text-primary hover:underline"
-                >
-                  View all
-                </Link>
+                <OpenAll
+                  onClick={() =>
+                    setDetail({ metric: 'interviews', title: 'Interviews', subtitle: windowLabel })
+                  }
+                />
               }
               table={
-                insights.data && (
+                interviews.data && (
                   <DataList
                     caption="Interviews per interviewer"
                     columns={['Interviewer', 'Held', 'Completed', 'Avg score']}
-                    rows={insights.data.interviewers.map((row) => [
+                    rows={interviews.data.interviewers.map((row) => [
                       row.user.full_name,
                       row.total,
                       row.completed,
@@ -504,11 +849,50 @@ export default function DashboardPage() {
                 )
               }
             >
-              <Loaded query={insights} title="Couldn't load interview outcomes">
-                {(data) => <InterviewOutcomes insights={data} />}
+              <Loaded query={interviews} title="Couldn't load interview outcomes">
+                {(data) => (
+                  <InterviewOutcomes
+                    insights={data}
+                    onSelect={(figure) =>
+                      setDetail(
+                        figure === 'interviews'
+                          ? { metric: 'interviews', title: 'Interviews', subtitle: windowLabel }
+                          : {
+                              metric: 'feedback_pending',
+                              title: 'Interview feedback owed',
+                              subtitle: 'Held, but no feedback submitted yet',
+                            },
+                      )
+                    }
+                  />
+                )}
               </Loaded>
             </ChartCard>
           </div>
+
+          <ChartCard
+            title="When the team works"
+            subtitle={`${windowLabel}, actions by hour of the day in your time zone`}
+            busy={busy(insights)}
+            table={
+              insights.data && (
+                <div className="max-h-80 overflow-auto">
+                  <DataList
+                    caption="Actions by weekday and hour"
+                    columns={['Hour', ...WEEKDAYS]}
+                    rows={Array.from({ length: 24 }, (_, hour) => [
+                      hourLabel(hour),
+                      ...insights.data!.heatmap.map((row) => row[hour]),
+                    ])}
+                  />
+                </div>
+              )
+            }
+          >
+            <Loaded query={insights} title="Couldn't load the activity heatmap" lines={7}>
+              {(data) => <ActivityHeatmap heatmap={data.heatmap} />}
+            </Loaded>
+          </ChartCard>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <ChartCard
@@ -553,7 +937,7 @@ export default function DashboardPage() {
                   to="/interviews"
                   className="text-small font-medium text-primary hover:underline"
                 >
-                  View all
+                  Calendar
                 </Link>
               }
             >
@@ -564,6 +948,7 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+      <DetailSheet request={detail} scope={scope} onClose={() => setDetail(null)} />
     </>
   )
 }

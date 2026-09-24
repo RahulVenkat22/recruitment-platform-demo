@@ -4,30 +4,31 @@ import type {
   CandidateRow,
   CandidateSkill,
 } from '@/types/domain'
+import { ORDER } from '@/features/applications/pipeline-target'
 
-/** The stage stepper of plan.md 9.10, in pipeline order (plan.md 6.4). */
+/**
+ * The stage stepper of plan.md 9.10. A step ends at `key`; the statuses between two
+ * steps (contact_pending, contacted, hr_interview, final_interview, onboarding) are
+ * shown as the step that follows them.
+ */
 export const STAGES: { key: ApplicationStatus; label: string }[] = [
   { key: 'new', label: 'Candidate Added' },
   { key: 'ai_shortlisted', label: 'AI Matched' },
   { key: 'hr_review', label: 'Shortlisted' },
-  { key: 'contact_pending', label: 'Contact Pending' },
-  { key: 'contacted', label: 'HR First Contact' },
   { key: 'phone_screening', label: 'Phone Screening' },
   { key: 'interview_scheduled', label: 'Interview Scheduled' },
-  { key: 'technical_interview', label: 'Technical' },
-  { key: 'hr_interview', label: 'HR' },
-  { key: 'final_interview', label: 'Final' },
-  { key: 'selected', label: 'Selected' },
-  { key: 'offer_sent', label: 'Offer Released' },
+  { key: 'technical_interview', label: 'Technical Assessment' },
+  { key: 'selected', label: 'Pre-Offer' },
+  { key: 'offer_sent', label: 'Offer Rolled Out' },
   { key: 'offer_accepted', label: 'Offer Accepted' },
-  { key: 'onboarding', label: 'Onboarding' },
-  { key: 'onboarded', label: 'Onboarded' },
+  { key: 'onboarded', label: 'Hired' },
 ]
 
 export const TRAY_STATUSES = new Set<string>(['rejected', 'withdrawn', 'on_hold'])
 
 export function stageIndex(status: string): number {
-  return STAGES.findIndex((stage) => stage.key === status)
+  const position = ORDER.indexOf(status)
+  return position < 0 ? -1 : STAGES.findIndex((stage) => ORDER.indexOf(stage.key) >= position)
 }
 
 /** "Strong match" / "Good match" / "Partial match" wording for the analysis card. */

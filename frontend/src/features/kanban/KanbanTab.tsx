@@ -1,6 +1,7 @@
 import { SearchIcon, SearchXIcon, UserSearchIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
+import { ClearFiltersButton } from '@/components/shared/ClearFiltersButton'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { FilterPopover } from '@/components/shared/FilterPopover'
@@ -130,6 +131,7 @@ export function KanbanTab({ job }: { job: JobDetail }) {
             ))}
           </SelectContent>
         </Select>
+        <ClearFiltersButton active={filtered} onClick={clearFilters} />
         {mobile && board.data && (
           <Select
             value={state.kcol || board.data.columns[0]?.key}

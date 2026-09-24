@@ -113,9 +113,10 @@ function Signal({ label, value, suffix = '' }: { label: string; value: number; s
 }
 
 /**
- * The LLM's verdict for a hybrid match (engine `hybrid_semantic`): the
- * grounded explanation, what it found and missed, the resume excerpts it was
- * shown, and the three signals that were blended into the overall score.
+ * Why and how this candidate matches the job description: the AI's grounded
+ * explanation, what it found and missed, the resume excerpts it was shown, and
+ * the signals that were blended into the overall score. This is the only place
+ * the summary is shown; the search results keep to the score.
  */
 function AIEvaluation({ match }: { match: CandidateMatch }) {
   const details = (match.semantic_details ?? null) as SemanticDetails | null
@@ -125,7 +126,7 @@ function AIEvaluation({ match }: { match: CandidateMatch }) {
   const evidence = details?.evidence ?? []
   const evaluated = details?.llm_score !== null && details?.llm_score !== undefined
   return (
-    <Card title="AI evaluation" className="border-accent/50">
+    <Card title="Why this candidate matches" className="border-accent/50">
       <div className="space-y-4">
         {match.explanation ? (
           <p className="flex items-start gap-2 text-[15px]/[24px] text-ink">
