@@ -564,7 +564,7 @@ export default function InterviewsPage() {
         }
       />
       <div className="space-y-4">
-        {toolbar}
+        <div className="mb-5 rounded-card border border-line bg-surface/75 p-4">{toolbar}</div>
         {body}
       </div>
       {actions.dialogs}

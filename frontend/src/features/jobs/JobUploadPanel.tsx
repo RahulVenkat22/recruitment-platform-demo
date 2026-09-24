@@ -1,5 +1,5 @@
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import { FileUpIcon, Loader2Icon, SparklesIcon } from 'lucide-react'
-import { useReducedMotion } from 'motion/react'
 import { useRef, useState, type DragEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -24,7 +24,7 @@ const ACCEPT =
  */
 export function JobUploadPanel({ className }: { className?: string }) {
   const navigate = useNavigate()
-  const reducedMotion = useReducedMotion()
+  const reducedMotion = useMotionPreference()
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState('')

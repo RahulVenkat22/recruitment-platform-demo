@@ -14,6 +14,8 @@ export interface UiState {
   sidebarCollapsed: boolean
   /** Default rows per page for every list; persisted (plan.md 9.13 Preferences). */
   pageSize: PageSize
+  motionEffects: boolean
+  setMotionEffects: (enabled: boolean) => void
   /** Published by the current page's PageHeader and rendered in the TopBar. */
   breadcrumbs: Crumb[]
   toggleSidebar: () => void
@@ -29,6 +31,8 @@ export const useUiStore = create<UiState>()(
     (set) => ({
       sidebarCollapsed: false,
       pageSize: 20,
+      motionEffects: true,
+      setMotionEffects: (motionEffects) => set({ motionEffects }),
       breadcrumbs: [],
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
@@ -40,6 +44,7 @@ export const useUiStore = create<UiState>()(
       partialize: (state) => ({
         sidebarCollapsed: state.sidebarCollapsed,
         pageSize: state.pageSize,
+        motionEffects: state.motionEffects,
       }),
     },
   ),

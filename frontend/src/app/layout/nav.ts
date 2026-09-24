@@ -28,9 +28,9 @@ export interface NavItem {
 
 /** The sidebar's groups, in order; a group the user has nothing in is not shown. */
 export const NAV_SECTIONS: readonly { key: NavSection; label: string }[] = [
-  { key: 'main', label: 'Main' },
+  { key: 'main', label: 'Workspace' },
   { key: 'recruiting', label: 'Recruiting' },
-  { key: 'general', label: 'General' },
+  { key: 'general', label: 'Stay connected' },
 ]
 
 /**
@@ -62,6 +62,6 @@ export function navItemsFor(user: SessionUser | null): NavItem[] {
   )
 }
 
-export const SIDEBAR_WIDTH_EXPANDED = 256
-export const SIDEBAR_WIDTH_COLLAPSED = 64
-export const TOPBAR_HEIGHT = 64
+export const SIDEBAR_WIDTH_EXPANDED = 248
+export const SIDEBAR_WIDTH_COLLAPSED = 72
+export const TOPBAR_HEIGHT = 72

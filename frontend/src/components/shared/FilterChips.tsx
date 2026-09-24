@@ -66,7 +66,7 @@ export function FilterChips({
             style={style}
             onClick={() => toggle(option.key)}
             className={cn(
-              'inline-flex h-7 items-center gap-1.5 rounded-pill border px-2.5 text-small select-none',
+              'inline-flex h-8 items-center gap-1.5 rounded-control border px-3 text-small select-none',
               'transition-[background-color,border-color,color] duration-250 ease-brand',
               'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
               checked

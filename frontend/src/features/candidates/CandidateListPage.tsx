@@ -1,3 +1,4 @@
+import { AnimatedNumber } from '@/components/shared/AnimatedNumber'
 import type { ColumnDef } from '@tanstack/react-table'
 import { LockIcon, PlusIcon, SearchIcon, SearchXIcon, UploadIcon, UsersIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -307,7 +308,7 @@ export default function CandidateListPage() {
               Contact details are hidden for your role.
             </span>
           ) : (
-            'Everyone the sources have surfaced, with their active applications.'
+            'A world of experience, skills and potential. Find the person behind every profile.'
           )
         }
         breadcrumbs={[{ label: 'Candidates' }]}
@@ -328,6 +329,32 @@ export default function CandidateListPage() {
           ) : undefined
         }
       />
+      <section
+        aria-label="Candidate directory overview"
+        className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-card border border-line bg-surface p-5 shadow-card"
+      >
+        <div className="flex items-center gap-4">
+          <span className="grid size-12 place-items-center rounded-2xl bg-primary-soft text-primary">
+            <UsersIcon aria-hidden="true" className="size-6" strokeWidth={1.5} />
+          </span>
+          <div>
+            <h2 className="text-h3">Your talent network</h2>
+            <p className="mt-1 text-small text-ink-subtle">
+              {filtered
+                ? 'Showing profiles that match your current filters.'
+                : 'Every profile is the beginning of a new possibility.'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="font-heading text-[32px] font-semibold tracking-tight text-primary">
+            {list.isPending || list.isError ? '—' : <AnimatedNumber value={total} />}
+          </span>
+          <span className="text-small text-ink-subtle">
+            {filtered ? 'matching profiles' : 'candidate profiles'}
+          </span>
+        </div>
+      </section>
       {list.isError ? (
         <div className="space-y-4">
           {toolbar}

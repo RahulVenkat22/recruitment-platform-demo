@@ -1,4 +1,5 @@
-import { motion, useReducedMotion } from 'motion/react'
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
+import { motion } from 'motion/react'
 import { matchTone, type MatchTone } from '@/components/shared/match-tone'
 import { cn } from '@/lib/utils'
 
@@ -19,7 +20,7 @@ const FILL: Record<MatchTone, string> = {
 
 /** One row of the AI Match Analysis breakdown: label left, value right, 6px track. */
 export function MatchBar({ label, value, weight, className }: MatchBarProps) {
-  const reducedMotion = useReducedMotion()
+  const reducedMotion = useMotionPreference()
   const pct = Math.round(Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0)))
   const tone = matchTone(pct)
 
@@ -47,7 +48,7 @@ export function MatchBar({ label, value, weight, className }: MatchBarProps) {
           className={cn('h-full rounded-pill', FILL[tone])}
           initial={reducedMotion ? false : { width: 0 }}
           animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: reducedMotion ? 0 : 0.6, ease: [0.22, 1, 0.36, 1] }}
         />
       </div>
     </div>

@@ -1,7 +1,8 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { MotionConfig } from 'motion/react'
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import { BrowserRouter } from 'react-router'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -14,9 +15,16 @@ interface CoreProvidersProps {
 
 /** Everything except the router, so tests can wrap a MemoryRouter around it. */
 export function CoreProviders({ children, client = defaultQueryClient }: CoreProvidersProps) {
+  const reduced = useMotionPreference()
+  useEffect(() => {
+    document.documentElement.dataset.motion = reduced ? 'reduced' : 'full'
+    return () => {
+      delete document.documentElement.dataset.motion
+    }
+  }, [reduced])
   return (
     <QueryClientProvider client={client}>
-      <MotionConfig reducedMotion="user">
+      <MotionConfig reducedMotion={reduced ? 'always' : 'user'}>
         <TooltipProvider delayDuration={200}>
           {children}
           <Toaster position="bottom-right" />

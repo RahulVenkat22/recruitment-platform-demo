@@ -1,3 +1,4 @@
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import { useState } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { SERIES } from '@/features/dashboard/charts/theme'
@@ -19,6 +20,7 @@ export function SourceDonut({
   onSelect: (source: KeyCount) => void
   className?: string
 }) {
+  const reduced = useMotionPreference()
   const [hovered, setHovered] = useState<string | null>(null)
   const total = sources.reduce((sum, source) => sum + source.value, 0)
   const rows = sources.map((source, index) => ({ ...source, color: SERIES[index % SERIES.length] }))
@@ -44,7 +46,8 @@ export function SourceDonut({
               startAngle={90}
               endAngle={-270}
               stroke="none"
-              isAnimationActive={false}
+              isAnimationActive={!reduced}
+              animationDuration={700}
               onMouseEnter={(_data, index) =>
                 setHovered(rows.filter((r) => r.value > 0)[index]?.key ?? null)
               }

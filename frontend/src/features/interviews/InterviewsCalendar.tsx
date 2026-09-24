@@ -76,7 +76,7 @@ export function InterviewsCalendar({
       <div className="overflow-x-auto rounded-card border border-line bg-surface shadow-card">
         <div aria-busy="true" aria-label="Loading week" className={GRID_CLASS}>
           {days.map((day, index) => (
-            <div key={day.toISOString()} className="min-h-64">
+            <div key={day.toISOString()} className="min-h-72">
               <div className="border-b border-line bg-surface-2 px-3 py-2">
                 <Skeleton className="h-3 w-12 bg-surface-3" />
               </div>
@@ -110,12 +110,12 @@ export function InterviewsCalendar({
                 key={day.toISOString()}
                 aria-label={dayLabel(day, byDay[index].length)}
                 aria-current={today ? 'date' : undefined}
-                className="min-h-64"
+                className="min-h-72"
               >
                 <div
                   aria-hidden="true"
                   className={cn(
-                    'border-b border-line px-3 py-2 text-caption font-medium tracking-[0.06em] uppercase',
+                    'border-b border-line px-3 py-4 text-caption font-medium tracking-[0.06em] uppercase',
                     today ? 'bg-primary-soft text-primary' : 'bg-surface-2 text-ink-subtle',
                   )}
                 >
