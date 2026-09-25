@@ -414,3 +414,33 @@ class PhoneCall(UUIDTimestampedModel):
 
     def __str__(self) -> str:
         return f"{self.get_purpose_display()} call with {self.application.candidate.full_name}"
+
+
+CHAT_ROLES = (("user", "User"), ("assistant", "Assistant"))
+
+
+class SearchChatMessage(UUIDTimestampedModel):
+    """One turn of a user's conversation about the results of one search run.
+
+    A thread is private to the person asking. The assistant's turns record the
+    candidates they were grounded in (``citations``: ``[{id, name, avatar_url,
+    match_pct, status, status_label}]``) and the model that wrote them.
+    """
+
+    search_run = models.ForeignKey(
+        SearchRun, on_delete=models.CASCADE, related_name="chat_messages"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="search_chat_messages"
+    )
+    role = models.CharField(max_length=10, choices=CHAT_ROLES)
+    content = models.TextField()
+    citations = models.JSONField(default=list, blank=True)
+    model = models.CharField(max_length=80, blank=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        indexes = [models.Index(fields=["search_run", "user", "created_at"])]
+
+    def __str__(self) -> str:
+        return f"{self.role}: {self.content[:60]}"

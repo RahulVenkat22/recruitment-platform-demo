@@ -70,3 +70,15 @@ class CallPlacementFailed(APIException):
     status_code = status.HTTP_502_BAD_GATEWAY
     default_detail = "The voice provider could not place the call."
     default_code = "call_placement_failed"
+
+
+class SearchInProgress(APIException):
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = "Wait for the search to finish before asking about its results."
+    default_code = "search_in_progress"
+
+
+class ChatUnavailable(APIException):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_detail = "The AI assistant is not available right now."
+    default_code = "chat_unavailable"

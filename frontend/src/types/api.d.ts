@@ -720,6 +720,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/searches/{id}/chat/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The conversation about this search's results
+         * @description ``/searches/{id}/chat/``: a conversation about one search's results, private to the
+         *     user asking. ``GET`` the thread, ``POST`` a question (the answer streams back as
+         *     server-sent events), ``DELETE`` to start over.
+         */
+        get: operations["searches_chat_retrieve"];
+        put?: never;
+        /**
+         * Ask about the results; the answer streams back
+         * @description Answers only from this search's results. The response is `text/event-stream`: `context` (the candidates the answer is grounded in), `token` events carrying the text as it is written, then `done` with the stored question and answer, or `error` with a message. A question that fails is not kept.
+         */
+        post: operations["searches_chat_ask"];
+        /**
+         * Forget this conversation
+         * @description ``/searches/{id}/chat/``: a conversation about one search's results, private to the
+         *     user asking. ``GET`` the thread, ``POST`` a question (the answer streams back as
+         *     server-sent events), ``DELETE`` to start over.
+         */
+        delete: operations["searches_chat_clear"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/searches/": {
         parameters: {
             query?: never;
@@ -3987,6 +4019,54 @@ export interface components {
         ResumeUploadRequestRequest: {
             files: string[];
         };
+        /** @description ``POST /searches/{id}/chat/``: one question; the answer streams back. */
+        SearchChatAskRequest: {
+            message: string;
+        };
+        /** @description A candidate an answer is grounded in: enough to draw a chip that links to them. */
+        SearchChatCitation: {
+            id: string;
+            name: string;
+            avatar_url?: string | null;
+            /** Format: double */
+            match_pct: number;
+            status: string;
+            status_label: string;
+        };
+        SearchChatMessage: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly role: string;
+            readonly content: string;
+            readonly citations: components["schemas"]["SearchChatCitation"][];
+            readonly model: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /** @description What the conversation is about, for the panel header. */
+        SearchChatScope: {
+            run_id: string;
+            job_id: string;
+            job_title: string;
+            status: string;
+            total_found: number;
+            shortlisted: number;
+            new_candidates: number;
+            ranked: number;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at: string | null;
+            requested_by: components["schemas"]["UserSummary"] | null;
+            sources: string[];
+            model: string;
+        };
+        /** @description ``GET /searches/{id}/chat/``: the scope, the user's turns so far and opening questions. */
+        SearchChatThread: {
+            scope: components["schemas"]["SearchChatScope"];
+            messages: components["schemas"]["SearchChatMessage"][];
+            suggestions: string[];
+        };
         /** @description ``POST /searches/``: ``{job_description_id, sources: ["naukri", "linkedin"] | ["all"]}``. */
         SearchRequestRequest: {
             /** Format: uuid */
@@ -5906,6 +5986,122 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EmailConfig"];
                 };
+            };
+        };
+    };
+    searches_chat_retrieve: {
+        parameters: {
+            query?: {
+                format?: "event-stream" | "json";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchChatThread"];
+                    "text/event-stream": components["schemas"]["SearchChatThread"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    searches_chat_ask: {
+        parameters: {
+            query?: {
+                format?: "event-stream" | "json";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchChatAskRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["SearchChatAskRequest"];
+                "multipart/form-data": components["schemas"]["SearchChatAskRequest"];
+            };
+        };
+        responses: {
+            /** @description text/event-stream of context, token, done or error */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    searches_chat_clear: {
+        parameters: {
+            query?: {
+                format?: "event-stream" | "json";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

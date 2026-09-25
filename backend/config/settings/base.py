@@ -495,6 +495,9 @@ EMAIL_COMPANY_NAME = env.str("EMAIL_COMPANY_NAME", default="").strip() or "Aimio
 # (yours) until go-live. VOICE_DEFAULT_REGION parses national numbers.
 VOICE_PROVIDER = env.str("VOICE_PROVIDER", default="").strip().lower()
 VOICE_MODEL = env.str("VOICE_MODEL", default="").strip() or LLM_SEARCH_MODEL
+# The assistant that answers questions about a search's results (streamed to the
+# browser as server-sent events) runs on SEARCH_CHAT_MODEL, default: the search model.
+SEARCH_CHAT_MODEL = env.str("SEARCH_CHAT_MODEL", default="").strip() or LLM_SEARCH_MODEL
 VOICE_SAFE_NUMBER = env.str("VOICE_SAFE_NUMBER", default="").strip()
 VOICE_DEFAULT_REGION = env.str("VOICE_DEFAULT_REGION", default="").strip().upper() or "IN"
 PUBLIC_BASE_URL = env.str("PUBLIC_BASE_URL", default="").strip()

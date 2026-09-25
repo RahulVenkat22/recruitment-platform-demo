@@ -39,6 +39,7 @@ export const endpoints = {
   sources: `${API_PREFIX}/sources/`,
   searches: `${API_PREFIX}/searches/`,
   search: (id: string) => `${API_PREFIX}/searches/${id}/`,
+  searchChat: (id: string) => `${API_PREFIX}/searches/${id}/chat/`,
   applications: `${API_PREFIX}/applications/`,
   application: (id: string) => `${API_PREFIX}/applications/${id}/`,
   applicationAction: (id: string, action: string) => `${API_PREFIX}/applications/${id}/${action}/`,

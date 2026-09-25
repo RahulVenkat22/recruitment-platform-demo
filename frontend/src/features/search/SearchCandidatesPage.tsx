@@ -64,6 +64,7 @@ import { useJob, useJobList } from '@/features/jobs/api'
 import { isWorkable, jobSummaryLine, skillChips } from '@/features/jobs/job-utils'
 import { skillLabel } from '@/features/jobs/job-utils'
 import { AISearchLoader } from '@/features/search/AISearchLoader'
+import { SearchChat } from '@/features/search/SearchChat'
 import { useEnumOptions } from '@/lib/enums'
 import { describeError } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
@@ -225,6 +226,7 @@ export default function SearchCandidatesPage() {
   const runSearch = useRunSearch()
   const cancelSearch = useCancelSearch()
   const [confirmCancel, setConfirmCancel] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
   const invalidatePipeline = useInvalidatePipeline()
   const sourceOptions = useEnumOptions('candidate_source')
   const [selected, setSelected] = useState<string[] | null>(null)
@@ -282,6 +284,14 @@ export default function SearchCandidatesPage() {
   const total = list.data?.count ?? 0
   const lastRun = lastResponse?.run ?? runs.data?.[0] ?? null
   const latestRun = runs.data?.[0]
+  // The results chat follows the latest finished search of the chosen job description.
+  const chatRun =
+    lastRun &&
+    lastRun.job_description === state.jd &&
+    isRunFinished(lastRun) &&
+    lastRun.total_found > 0
+      ? lastRun
+      : null
 
   useEffect(() => {
     if (!state.jd && live.data) setState({ jd: live.data.job_description, page: 1 })
@@ -346,6 +356,7 @@ export default function SearchCandidatesPage() {
     // One search at a time: the button is disabled while a run is in flight and
     // a second call is ignored (Enhancement.md 7).
     if (!state.jd || chosen.length === 0 || searching) return
+    setChatOpen(false)
     setSearchError(null)
     setStartedAt(Date.now())
     try {
@@ -380,6 +391,7 @@ export default function SearchCandidatesPage() {
   }
 
   function pickJob(jd: string) {
+    setChatOpen(false)
     setLastResponse(null)
     setSearchError(null)
     contact.stop()
@@ -578,6 +590,20 @@ export default function SearchCandidatesPage() {
             <p className="text-small text-ink-muted tabular-nums">
               {total} candidates on this job description
             </p>
+          )}
+          {chatRun && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setChatOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={chatOpen}
+              className="ml-auto border-primary/20 bg-primary-soft text-primary hover:bg-primary-soft/70 hover:text-primary-hover"
+            >
+              <SparklesIcon data-icon="inline-start" aria-hidden="true" className="text-primary" />
+              Ask AI about these results
+            </Button>
           )}
         </div>
         <AIBrief plan={(lastRun?.query_plan as QueryPlan | null) ?? null} />
@@ -932,6 +958,14 @@ export default function SearchCandidatesPage() {
         </AnimatePresence>
       </div>
       {actions.dialogs}
+      {chatRun && !searching && !searchError && !pollError && (
+        <SearchChat
+          run={chatRun}
+          jobTitle={selectedJob?.title}
+          open={chatOpen}
+          onOpenChange={setChatOpen}
+        />
+      )}
       <ConfirmDialog
         open={confirmCancel}
         onOpenChange={setConfirmCancel}

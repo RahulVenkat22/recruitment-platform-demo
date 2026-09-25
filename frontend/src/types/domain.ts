@@ -245,6 +245,13 @@ export interface SemanticDetails {
   summary_model?: string
 }
 export type SearchResponse = Schemas['SearchResponse']
+
+/** `GET /searches/{id}/chat/`: the conversation about one search's results (plan: results chat). */
+export type SearchChatThread = Schemas['SearchChatThread']
+export type SearchChatScope = Schemas['SearchChatScope']
+export type SearchChatMessage = Schemas['SearchChatMessage']
+/** A candidate an answer is grounded in; rendered as a chip that links to them. */
+export type SearchChatCitation = Schemas['SearchChatCitation']
 export type JobRef = Schemas['JobRef']
 export type CandidateSkillRef = Schemas['CandidateSkillRef']
 export type CandidateSummary = Schemas['CandidateSummary']

@@ -45,6 +45,7 @@ from pipeline.models import (
     Offer,
     Onboarding,
     PhoneCall,
+    SearchChatMessage,
     SearchRun,
 )
 from pipeline.services import PURPOSES, TONES, checklist_progress, format_ctc
@@ -327,6 +328,62 @@ class SearchResponseSerializer(serializers.Serializer):
     run = SearchRunSerializer()
     results = ApplicationRowSerializer(many=True)
     errors = serializers.DictField(child=serializers.CharField())
+
+
+# ------------------------------------------------------------- results chat
+
+
+class SearchChatCitationSerializer(serializers.Serializer):
+    """A candidate an answer is grounded in: enough to draw a chip that links to them."""
+
+    id = serializers.CharField()
+    name = serializers.CharField()
+    avatar_url = serializers.CharField(allow_null=True, required=False)
+    match_pct = serializers.FloatField()
+    status = serializers.CharField()
+    status_label = serializers.CharField()
+
+
+class SearchChatMessageSerializer(serializers.ModelSerializer):
+    role = serializers.CharField(read_only=True)
+    citations = SearchChatCitationSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = SearchChatMessage
+        fields = ["id", "role", "content", "citations", "model", "created_at"]
+        read_only_fields = fields
+
+
+class SearchChatScopeSerializer(serializers.Serializer):
+    """What the conversation is about, for the panel header."""
+
+    run_id = serializers.CharField()
+    job_id = serializers.CharField()
+    job_title = serializers.CharField()
+    status = serializers.CharField()
+    total_found = serializers.IntegerField()
+    shortlisted = serializers.IntegerField()
+    new_candidates = serializers.IntegerField()
+    ranked = serializers.IntegerField()
+    started_at = serializers.DateTimeField()
+    finished_at = serializers.DateTimeField(allow_null=True)
+    requested_by = UserSummarySerializer(allow_null=True)
+    sources = serializers.ListField(child=serializers.CharField())
+    model = serializers.CharField()
+
+
+class SearchChatThreadSerializer(serializers.Serializer):
+    """``GET /searches/{id}/chat/``: the scope, the user's turns so far and opening questions."""
+
+    scope = SearchChatScopeSerializer()
+    messages = SearchChatMessageSerializer(many=True)
+    suggestions = serializers.ListField(child=serializers.CharField())
+
+
+class SearchChatAskSerializer(serializers.Serializer):
+    """``POST /searches/{id}/chat/``: one question; the answer streams back."""
+
+    message = serializers.CharField(max_length=2000)
 
 
 # ------------------------------------------------------ interviews, comms, offers, onboardings

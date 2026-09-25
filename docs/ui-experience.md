@@ -16,6 +16,8 @@ The homepage combines live job-status counts, shortcuts and the existing hiring 
 
 Search, resume uploads and email templates include compact workflow guidance. Settings uses a vertical section navigator on desktop and a horizontal strip on phones. Login pairs an animated talent illustration with a light form; the brief welcome transition opens the workspace after 900 ms and is skipped when reduced motion is enabled. The not-found page offers a clear route back home.
 
+Completed searches with results include **Ask AI about these results**, available beside the results heading and from the floating launcher. The assistant uses the navy header, teal controls, shared typography and responsive panels. It supports suggested questions, streamed answers, linked candidate references, retry/stop, and a private conversation history per user and search. Workspace and system motion preferences also apply to the chat.
+
 Existing API contracts, permission checks, form validation, filtering, routing and mutations remain in place. The homepage's summary counts come from the accessible-job facets and explicitly describe that scope; filters below apply to the work table.
 
 ## Motion
@@ -38,8 +40,11 @@ npm run build
 npm run lint
 npm test -- --maxWorkers=4
 node scripts/verify-experience.mjs
+node scripts/verify-search-chat.mjs
 ```
 
 The browser script requires the running frontend/API and seeded demo data. It opens the main pages and detail tabs at 1440 px and 390 px, checks page and content overflow, verifies API-backed rendering, and exercises mobile navigation, modal closing, the command palette, sidebar collapse and persisted/system motion preferences. It does not submit hiring, email, call or support mutations. Screenshots are written to the ignored `frontend/.screenshots/redesign/` folder.
 
 Use `node scripts/verify-experience.mjs --interactions-only` to rerun only the interaction checks. `SHOTS_BASE_URL`, `SHOTS_USER` and `SHOTS_PASSWORD` can override the local demo defaults.
+
+The search chat check reads a real completed search and its API context, then intercepts chat mutations to exercise suggestions, answers, candidate links, retry, stop, clear confirmation, keyboard focus and layouts at 1440, 390 and 320 px. It does not invoke a model or change saved conversations. The backend chat integration tests also use a mocked model; live provider output is not covered by these checks. Run `make migrate` when setting up a database that does not yet have the chat-message migration.
