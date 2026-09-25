@@ -140,6 +140,7 @@ export type FacetOption = Schemas['FacetOption']
 /** `POST /job-descriptions/extract/`: the fields the AI read from an uploaded JD file. */
 export type JobExtraction = Schemas['JobExtraction']
 export type JobExtractedFields = Schemas['JobExtractedFields']
+export type JobUpload = Schemas['JobUpload']
 export type SkillSuggestion = Schemas['SkillSuggestion']
 
 export type JobVersion = Schemas['VersionRow']

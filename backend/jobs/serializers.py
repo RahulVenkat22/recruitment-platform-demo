@@ -22,7 +22,12 @@ from common.permissions import (
     can_manage_participants,
     can_work_pipeline,
 )
-from jobs.models import JobDescription, JobDescriptionVersion, RecruitmentParticipant
+from jobs.models import (
+    JobDescription,
+    JobDescriptionUpload,
+    JobDescriptionVersion,
+    RecruitmentParticipant,
+)
 from jobs.services import CONTENT_FIELDS, METRIC_KEYS, JobService
 from matching.skills import display_name, normalize_skills
 
@@ -375,6 +380,24 @@ class JobExtractedFieldsSerializer(serializers.Serializer):
 class JobExtractionSerializer(serializers.Serializer):
     file_name = serializers.CharField()
     fields = JobExtractedFieldsSerializer()
+
+
+class JobUploadRequestSerializer(serializers.Serializer):
+    file_name = serializers.CharField(max_length=255)
+
+    def validate_file_name(self, value):
+        if value.rsplit(".", 1)[-1].lower() not in ("pdf", "docx"):
+            raise serializers.ValidationError("Upload a PDF or Word (.docx) file.")
+        return value
+
+
+class JobUploadSerializer(serializers.ModelSerializer):
+    fields = JobExtractedFieldsSerializer(read_only=True)
+
+    class Meta:
+        model = JobDescriptionUpload
+        fields = ["id", "file_name", "status", "fields", "error", "created_at", "updated_at"]
+        read_only_fields = fields
 
 
 # -------------------------------------------------------------------- writes

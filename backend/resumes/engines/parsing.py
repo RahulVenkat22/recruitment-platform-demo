@@ -37,7 +37,7 @@ from pathlib import Path
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from matching.skills import normalize_skill
-from resumes.engines.llm import LLMBusy, LLMError, invoke_structured_with_file
+from resumes.engines.llm import LLMCallInfo, LLMError, invoke_structured_with_file
 from resumes.engines.pdf_payload import PdfPayload
 from resumes.engines.schemas import ParsedExperience, ParsedResume
 
@@ -188,7 +188,13 @@ _PDF_SYSTEM = SystemMessage(
 )
 
 
-def parse_pdf_with_llm(pdf: PdfPayload, *, model: str) -> ParsedResume:
+def parse_pdf_with_llm(
+    pdf: PdfPayload,
+    *,
+    model: str,
+    fallback_model: str | None = None,
+    call_info: LLMCallInfo | None = None,
+) -> ParsedResume:
     """Send the PDF itself and take the model's structured answer as the result."""
     return invoke_structured_with_file(
         ParsedResume,
@@ -205,6 +211,8 @@ def parse_pdf_with_llm(pdf: PdfPayload, *, model: str) -> ParsedResume:
         file_name=pdf.file_name,
         model=model,
         num_predict=PDF_ANSWER_TOKENS,
+        fallback_model=fallback_model,
+        call_info=call_info,
     )
 
 
@@ -254,8 +262,8 @@ class ValidatedResume:
     # ProfileSync.sync_skills: it drives the rule-based match score and the
     # structured-skill floor of hybrid retrieval. Every row is the model's.
     skill_rows: list[dict]
-    # The model that produced the profile: the configured one, or the fallback
-    # when the configured one was busy. Empty on the unreadable placeholder.
+    # Provider-qualified model that produced the profile, including failover.
+    # Empty on the unreadable placeholder.
     model: str = ""
 
     @property
@@ -328,7 +336,7 @@ def validate(parsed: ParsedResume) -> ValidatedResume:
 
 
 def parse_resume(
-    pdf: PdfPayload, *, model: str, fallback_model: str = ""
+    pdf: PdfPayload, *, model: str, fallback_model: str | None = None
 ) -> tuple[ValidatedResume, str, list[str]]:
     """Send the PDF to the model and validate its answer.
 
@@ -336,9 +344,8 @@ def parse_resume(
     ``"llm_pdf"`` for a stored profile and ``UNREADABLE`` when there is nothing
     to store, in which case the caller shelves the document as ``needs_review``.
 
-    ``fallback_model`` is tried once when ``model`` is busy -- a server error or
-    a rate limit that outlived the client's own retries (``LLMBusy``). The
-    document says which model answered: ``ValidatedResume.model`` and a warning.
+    The shared LLM layer handles failover, including OpenAI to Gemini. The
+    document records the provider and model that answered, plus failed attempts.
 
     ``UNREADABLE`` is reached from three places: the model call raising, the
     call succeeding with a blank answer (a blank, upside-down or handwritten
@@ -387,19 +394,18 @@ def parse_resume(
 
 
 def _ask_model(
-    pdf: PdfPayload, model: str, fallback_model: str, warnings: list[str]
+    pdf: PdfPayload, model: str, fallback_model: str | None, warnings: list[str]
 ) -> tuple[ParsedResume, str]:
-    """The answer and which model gave it; the fallback is tried once when the primary is busy."""
+    """The answer and actual provider/model; failover happens only in the shared layer."""
+    info = LLMCallInfo()
     try:
-        return parse_pdf_with_llm(pdf, model=model), model
-    except LLMBusy as exc:
-        if not fallback_model or fallback_model == model:
-            raise
-        logger.warning(
-            "%s is busy for %s (%s); trying %s", model, pdf.file_name, exc, fallback_model
-        )
-        warnings.append(f"{model} was busy ({exc}), so {fallback_model} was tried instead")
-        return parse_pdf_with_llm(pdf, model=fallback_model), fallback_model
+        answer = parse_pdf_with_llm(pdf, model=model, fallback_model=fallback_model, call_info=info)
+    finally:
+        warnings.extend(f"LLM attempt failed: {failure}" for failure in info.failures)
+    used = f"{info.provider}:{info.model}"
+    if info.failures:
+        warnings.append(f"parsed with fallback model {used}")
+    return answer, used
 
 
 def _unreadable(warnings: list[str]) -> tuple[ValidatedResume, str, list[str]]:

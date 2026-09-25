@@ -151,6 +151,8 @@ def _document(state: IngestionState) -> ResumeDocument:
 
 def _llm_provenance(model: str = "") -> str:
     """What ``ResumeDocument.llm_model`` records: the provider-qualified model that answered."""
+    if model.startswith(("openai:", "gemini:")):
+        return model
     return f"{settings.LLM_PROVIDER}:{model or settings.LLM_MODEL}"
 
 
@@ -429,7 +431,7 @@ def store(state: IngestionState) -> IngestionState:
         candidate,
         state["drafts"],
         state["vectors"],
-        embedding_model=f"{settings.LLM_PROVIDER}:{settings.EMBEDDING_MODEL}",
+        embedding_model=f"{settings.EMBEDDING_PROVIDER}:{settings.EMBEDDING_MODEL}",
     )
     ResumeRepository.supersede_others(document)
     ResumeRepository.mark(document, ResumeStatus.PARSED, "", ingested_at=timezone.now())

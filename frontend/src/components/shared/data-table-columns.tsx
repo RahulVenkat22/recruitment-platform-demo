@@ -24,14 +24,18 @@ export interface SelectionColumnOptions<T> {
   getLabel?: (row: T) => string
 }
 
+const SELECTION_CHECKBOX_CLASS =
+  'size-5 cursor-pointer border-2 border-ink-subtle bg-surface hover:border-primary focus-visible:ring-primary/30'
+
 export function selectionColumn<T>(options: SelectionColumnOptions<T> = {}): ColumnDef<T, unknown> {
   return {
     id: 'select',
     enableSorting: false,
-    size: 36,
-    meta: { className: 'w-9 pr-0' },
+    size: 44,
+    meta: { className: 'w-11 pl-3 pr-0' },
     header: ({ table }) => (
       <Checkbox
+        className={SELECTION_CHECKBOX_CLASS}
         aria-label="Select all rows"
         checked={
           table.getIsAllRowsSelected()
@@ -49,6 +53,7 @@ export function selectionColumn<T>(options: SelectionColumnOptions<T> = {}): Col
         : defaultRowLabel(row.original, `row ${row.index + 1}`)
       return (
         <Checkbox
+          className={SELECTION_CHECKBOX_CLASS}
           aria-label={`Select ${label}`}
           checked={row.getIsSelected()}
           disabled={!row.getCanSelect()}

@@ -8,7 +8,7 @@ import {
 import { LayoutGroup, motion } from 'motion/react'
 import { useState } from 'react'
 import { Link, useLocation, useMatch } from 'react-router'
-import { NAV_SECTIONS, navItemsFor, type NavItem } from '@/app/layout/nav'
+import { navItemsFor, type NavItem } from '@/app/layout/nav'
 import { Avatar } from '@/components/shared/Avatar'
 import { BrandLogo } from '@/components/shared/BrandLogo'
 import { TalentOSLogo } from '@/components/shared/TalentOSLogo'
@@ -102,37 +102,24 @@ function SidebarNav({
 }) {
   const items = navItemsFor(user)
   const unread = useUnreadCount(user !== null).data?.unread ?? 0
-  const sections = NAV_SECTIONS.map((section) => ({
-    ...section,
-    items: items.filter((item) => item.section === section.key),
-  })).filter((section) => section.items.length)
   return (
     <LayoutGroup id={onNavigate ? 'mobile-nav' : 'desktop-nav'}>
       <nav
         aria-label="Primary"
         className={cn('min-h-0 flex-1 overflow-y-auto py-3', collapsed ? 'px-3' : 'px-4')}
       >
-        {sections.map((section, index) => (
-          <div key={section.key} className={index > 0 ? 'mt-4' : ''}>
-            {!collapsed && (
-              <p className="mb-2 px-3 text-[10px] font-semibold tracking-[0.16em] text-[#829cac] uppercase">
-                {section.label}
-              </p>
-            )}
-            <ul className="space-y-1">
-              {section.items.map((item) => (
-                <li key={item.to}>
-                  <SidebarNavItem
-                    item={item}
-                    collapsed={collapsed}
-                    count={item.to === '/notifications' ? unread : 0}
-                    onNavigate={onNavigate}
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+        <ul className="space-y-1">
+          {items.map((item) => (
+            <li key={item.to}>
+              <SidebarNavItem
+                item={item}
+                collapsed={collapsed}
+                count={item.to === '/notifications' ? unread : 0}
+                onNavigate={onNavigate}
+              />
+            </li>
+          ))}
+        </ul>
       </nav>
     </LayoutGroup>
   )

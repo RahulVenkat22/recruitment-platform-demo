@@ -1,7 +1,21 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { ClipboardListIcon, PlusIcon, SearchIcon, SearchXIcon, UserSearchIcon } from 'lucide-react'
-import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
+import {
+  ArrowUpRightIcon,
+  BriefcaseBusinessIcon,
+  ClipboardListIcon,
+  Clock3Icon,
+  LayoutGridIcon,
+  ListIcon,
+  MapPinIcon,
+  PlusIcon,
+  RefreshCwIcon,
+  SearchIcon,
+  SearchXIcon,
+  UsersIcon,
+} from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { toast } from 'sonner'
 import { ClearFiltersButton } from '@/components/shared/ClearFiltersButton'
 import { ActionMenu } from '@/components/shared/ActionMenu'
 import { rowActionsColumn } from '@/components/shared/data-table-columns'
@@ -13,12 +27,13 @@ import { FilterPopover } from '@/components/shared/FilterPopover'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Pagination } from '@/components/shared/Pagination'
 import { SkeletonCard } from '@/components/shared/Skeletons'
+import { SegmentedControl } from '@/components/shared/SegmentedControl'
+import { SkillChips } from '@/components/shared/SkillChips'
 import { StaggerItem } from '@/components/shared/Stagger'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { UserChip } from '@/components/shared/UserChip'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -26,9 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { WorkspaceOverview } from '@/features/home/WorkspaceOverview'
+import { WorkspaceOverview, WorkspaceQuickActions } from '@/features/home/WorkspaceOverview'
 import { CompletionMeter } from '@/features/home/CompletionMeter'
 import {
   HOME_CLEARED,
@@ -44,9 +58,11 @@ import { useAuthStore } from '@/lib/auth-store'
 import { enumLabel, useEnumMeta, useEnumOptions } from '@/lib/enums'
 import { formatDateTime, formatRelative } from '@/lib/format'
 import { useDebounce, useIsMobile, useUrlState } from '@/lib/hooks'
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import { useUiStore, type PageSize } from '@/lib/ui-store'
 import { cn } from '@/lib/utils'
 import { personFromUser, type JobRow, type UserRow } from '@/types/domain'
+import './home.css'
 
 /** The status chips in the order a recruiter thinks about them. */
 const STATUS_ORDER = ['open', 'on_hold', 'draft', 'closed', 'force_closed', 'archived']
@@ -109,7 +125,7 @@ function RolePill({ role }: { role: string }) {
   )
 }
 
-/** Phone layout: one card per JD with the same six facts as the table row. */
+/** Shared responsive card view; every count and progress indicator comes from the job. */
 function WorkCard({
   job,
   showCreator,
@@ -122,46 +138,77 @@ function WorkCard({
   const status = useEnumMeta('jd_status', job.status)
   const items = actions.itemsFor(job)
   return (
-    <article
-      data-slot="work-card"
-      className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-surface p-4 shadow-card"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="truncate text-h3 text-ink">
-            <Link to={`/jobs/${job.id}`} className="rounded-control hover:underline">
-              {job.title}
-            </Link>
-          </h3>
-          <p className="mt-0.5 truncate text-small text-ink-muted">
-            {job.department} • {formatLocation(job.location, job.work_mode)}
-          </p>
-        </div>
+    <article data-slot="work-card" className="home-work-card" data-status={job.status}>
+      <div className="home-work-card-top">
+        <span className="home-department-mark" aria-hidden="true">
+          {job.department.slice(0, 2).toUpperCase() || <BriefcaseBusinessIcon size={20} />}
+        </span>
         <div className="flex shrink-0 items-center gap-1">
           <StatusBadge status={job.status} kind="jd_status" dot />
           {items.length > 0 && <ActionMenu items={items} label={`Actions for ${job.title}`} />}
         </div>
       </div>
-      <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 text-small">
-        <dt className="text-ink-subtle">Interviewer</dt>
-        <dd className="min-w-0">
-          <Interviewers people={job.interviewers} compact />
-        </dd>
-        <dt className="text-ink-subtle">Updated</dt>
-        <dd>
-          <UpdatedAt value={job.last_activity_at} />
-        </dd>
+      <div className="home-work-card-title">
+        <h3>
+          <Link to={`/jobs/${job.id}`}>
+            {job.title}
+            <ArrowUpRightIcon aria-hidden="true" size={16} />
+          </Link>
+        </h3>
+        <p>
+          {job.department || 'General'} <span aria-hidden="true">·</span>{' '}
+          {job.employment_type_label || enumLabel('employment_type', job.employment_type)}
+        </p>
+      </div>
+      <div className="home-work-card-meta">
+        <span>
+          <MapPinIcon size={13} aria-hidden="true" />
+          {formatLocation(job.location, job.work_mode)}
+        </span>
+        <span>
+          <UsersIcon size={13} aria-hidden="true" />
+          {job.counts.candidates} candidates
+        </span>
+      </div>
+      <SkillChips
+        skills={job.required_skill_names.map((name) => ({ name }))}
+        max={3}
+        className="home-work-card-skills"
+      />
+      <div className="home-work-card-progress">
+        <div>
+          <span>Hiring progress</span>
+          <span>
+            {job.openings} {job.openings === 1 ? 'opening' : 'openings'}
+          </span>
+        </div>
+        <CompletionMeter value={job.completion_pct} />
+      </div>
+      <dl className="home-work-card-people">
+        <div>
+          <dt>Interviewer</dt>
+          <dd>
+            <Interviewers people={job.interviewers} compact />
+          </dd>
+        </div>
         {showCreator && (
-          <>
-            <dt className="text-ink-subtle">Created by</dt>
-            <dd className="flex min-w-0 flex-wrap items-center gap-2">
+          <div>
+            <dt>Created by</dt>
+            <dd>
               <UserChip user={personFromUser(job.created_by)} />
-              <RolePill role={job.created_by.role} />
             </dd>
-          </>
+          </div>
         )}
       </dl>
-      <CompletionMeter value={job.completion_pct} />
+      <div className="home-work-card-footer">
+        <span>
+          <Clock3Icon size={12} aria-hidden="true" />
+          <UpdatedAt value={job.last_activity_at} />
+        </span>
+        <Link to={`/jobs/${job.id}`} aria-label={`Open role: ${job.title}`}>
+          Open role <ArrowUpRightIcon size={13} aria-hidden="true" />
+        </Link>
+      </div>
       <span className="sr-only">{status.label}</span>
     </article>
   )
@@ -184,10 +231,12 @@ export default function HomePage() {
   const [state, setState] = useUrlState(HOME_SPEC)
   const [draft, setDraft] = useState(state.q)
   const debounced = useDebounce(draft, 300)
-  const mineId = useId()
+  const workspaceRef = useRef<HTMLHeadingElement>(null)
+  const reducedMotion = useMotionPreference()
   const actions = useJobWorkActions()
   const facets = useJobFacets()
   const statuses = useEnumOptions('jd_status')
+  const cardView = mobile || state.view === 'cards'
 
   // Low-level users always see their own work; the toggle exists for HR only.
   const mine = highLevel ? state.mine : true
@@ -212,15 +261,13 @@ export default function HomePage() {
   const filtered = state.q !== '' || state.status.length > 0 || state.creator.length > 0
 
   const statusChips = useMemo(() => {
-    const counts = new Map((facets.data?.statuses ?? []).map((row) => [row.key, row.count]))
     return STATUS_ORDER.filter((key) => statuses.some((option) => option.key === key)).map(
       (key) => ({
         key,
         label: statuses.find((option) => option.key === key)?.label ?? key,
-        count: counts.get(key) ?? 0,
       }),
     )
-  }, [facets.data, statuses])
+  }, [statuses])
 
   const columns = useMemo<ColumnDef<JobRow, unknown>[]>(() => {
     const defs: ColumnDef<JobRow, unknown>[] = [
@@ -302,6 +349,27 @@ export default function HomePage() {
     setState(HOME_CLEARED)
   }
 
+  const exploreWorkspace = () => {
+    workspaceRef.current?.scrollIntoView({
+      behavior: reducedMotion ? 'instant' : 'smooth',
+      block: 'start',
+    })
+    workspaceRef.current?.focus({ preventScroll: true })
+  }
+
+  const selectOverviewStatus = (status: string) => {
+    setDraft('')
+    setState({ ...HOME_CLEARED, mine: false, status: [status] })
+    exploreWorkspace()
+  }
+
+  const refreshWorkspace = async () => {
+    const results = await Promise.all([list.refetch(), facets.refetch()])
+    if (results.some((result) => result.isError))
+      toast.error('Some workspace data could not be refreshed. Try again.')
+    else toast.success('Your workspace is up to date.')
+  }
+
   const emptyState: ReactNode = filtered ? (
     <EmptyState
       icon={SearchXIcon}
@@ -336,27 +404,22 @@ export default function HomePage() {
   )
 
   const toolbar = (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="home-toolbar">
+      <div className="home-status-filters">
+        <button
+          type="button"
+          className="home-all-statuses"
+          aria-pressed={state.status.length === 0}
+          onClick={() => setState({ status: [], page: 1 })}
+        >
+          All statuses
+        </button>
         <FilterChips
           aria-label="Status"
           options={statusChips}
           selected={state.status}
           onChange={(status) => setState({ status, page: 1 })}
         />
-        {highLevel && (
-          <div className="ml-auto inline-flex h-8 items-center gap-2 rounded-control border border-line bg-surface px-2.5">
-            <Switch
-              id={mineId}
-              size="sm"
-              checked={state.mine}
-              onCheckedChange={(next) => setState({ mine: next, creator: [], page: 1 })}
-            />
-            <Label htmlFor={mineId} className="text-small font-normal text-ink-muted">
-              Mine
-            </Label>
-          </div>
-        )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1 basis-56">
@@ -406,24 +469,34 @@ export default function HomePage() {
   const firstName = user?.first_name || user?.full_name?.split(' ')[0] || 'there'
 
   return (
-    <>
+    <div className="home-page" data-reduced-motion={reducedMotion || undefined}>
       <PageHeader
         title={`${greeting()}, ${firstName}`}
-        subtitle="A fresh perspective on your hiring. Let’s make your next great connection."
+        subtitle="Here’s where your hiring stands. Let’s move the right people forward."
+        className="home-page-header"
         breadcrumbs={[{ label: 'Homepage' }]}
         actions={
           <>
-            <Button asChild variant="outline">
-              <Link to="/search">
-                <UserSearchIcon data-icon="inline-start" aria-hidden="true" />
-                Search Candidates
-              </Link>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => void refreshWorkspace()}
+              disabled={list.isFetching || facets.isFetching}
+            >
+              <RefreshCwIcon
+                aria-hidden="true"
+                className={cn(
+                  'size-3.5',
+                  (list.isFetching || facets.isFetching) && 'home-refresh-spinning',
+                )}
+              />
+              {list.isFetching || facets.isFetching ? 'Refreshing…' : 'Refresh'}
             </Button>
             {canCreate && (
-              <Button asChild>
+              <Button asChild className="home-create-role">
                 <Link to="/jobs/new">
                   <PlusIcon data-icon="inline-start" aria-hidden="true" />
-                  Create Job Description
+                  Create a role
                 </Link>
               </Button>
             )}
@@ -434,95 +507,167 @@ export default function HomePage() {
         facets={facets.data}
         loading={facets.isPending}
         failed={facets.isError}
-        canCreate={canCreate}
+        selectedStatuses={
+          (!highLevel || !mine) && !state.q && !state.creator.length ? state.status : []
+        }
+        onSelectStatus={selectOverviewStatus}
       />
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-h3 font-bold text-ink">Your hiring workspace</h2>
-          <p className="mt-1 text-small text-ink-subtle">
-            {everyone
-              ? 'Every role, every update. Keep good things moving.'
-              : 'Your roles and the progress you’re making together.'}
-          </p>
-        </div>
-        <span className="rounded-full border border-line bg-surface px-3 py-1 text-caption text-ink-muted">
-          {list.isPending ? 'Loading roles…' : `${total} ${total === 1 ? 'role' : 'roles'}`}
-        </span>
-      </div>
-      <div className="space-y-4">
-        <div className="rounded-card border border-line bg-surface/75 p-4">{toolbar}</div>
-        {list.isError ? (
-          <ErrorState
-            title="Couldn't load your job descriptions"
-            error={list.error}
-            onRetry={() => void list.refetch()}
-          />
-        ) : mobile ? (
-          <>
-            {list.isPending ? (
-              <div aria-busy="true" aria-label="Loading job descriptions" className="space-y-3">
-                {Array.from({ length: 4 }, (_, index) => (
-                  <SkeletonCard key={index} lines={2} />
-                ))}
+      <div className="home-content-grid" data-view={cardView ? 'cards' : 'table'}>
+        <section className="home-workspace" aria-labelledby="home-workspace-heading">
+          <div className="home-workspace-heading">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h2 ref={workspaceRef} tabIndex={-1} id="home-workspace-heading">
+                  Your workspace
+                </h2>
+                <span className="home-role-count" aria-live="polite">
+                  {list.isPending ? '…' : list.isError ? '—' : total}
+                </span>
               </div>
-            ) : rows.length === 0 ? (
-              <div className="rounded-card border border-line bg-surface">{emptyState}</div>
+              <p>
+                {everyone
+                  ? 'Your roles, people, and next steps in one place.'
+                  : 'The roles you’re working on and where they stand.'}
+              </p>
+            </div>
+            <div className="home-view-controls">
+              {highLevel && (
+                <SegmentedControl
+                  aria-label="Workspace scope"
+                  options={[
+                    { key: 'all', label: 'All roles' },
+                    { key: 'mine', label: 'My roles' },
+                  ]}
+                  value={mine ? 'mine' : 'all'}
+                  onChange={(scope) => setState({ mine: scope === 'mine', creator: [], page: 1 })}
+                  className="w-auto"
+                />
+              )}
+              {!mobile && (
+                <div className="home-view-toggle" role="group" aria-label="Workspace view">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="Card view"
+                        aria-pressed={cardView}
+                        onClick={() => setState({ view: 'cards' })}
+                      >
+                        <LayoutGridIcon size={16} aria-hidden="true" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Card view</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="Table view"
+                        aria-pressed={!cardView}
+                        onClick={() => setState({ view: 'table' })}
+                      >
+                        <ListIcon size={17} aria-hidden="true" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Table view</TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="space-y-4">
+            {toolbar}
+            {list.isError ? (
+              <ErrorState
+                title="Couldn't load your job descriptions"
+                error={list.error}
+                onRetry={() => void list.refetch()}
+              />
+            ) : cardView ? (
+              <>
+                {list.isPending ? (
+                  <div
+                    aria-busy="true"
+                    aria-label="Loading job descriptions"
+                    className="home-role-grid"
+                  >
+                    {Array.from({ length: 4 }, (_, index) => (
+                      <SkeletonCard key={index} lines={2} />
+                    ))}
+                  </div>
+                ) : rows.length === 0 ? (
+                  <div className="rounded-card border border-line bg-surface">{emptyState}</div>
+                ) : (
+                  <div aria-busy={list.isFetching || undefined} className="home-role-grid">
+                    {rows.map((job, index) => (
+                      <StaggerItem key={job.id} index={index}>
+                        <WorkCard job={job} showCreator={everyone} actions={actions} />
+                      </StaggerItem>
+                    ))}
+                  </div>
+                )}
+                {total > 0 && (
+                  <Pagination
+                    pageIndex={state.page - 1}
+                    pageSize={pageSize}
+                    total={total}
+                    onChange={({ pageIndex, pageSize: next }) => {
+                      if (next !== pageSize) setPageSize(next as PageSize)
+                      setState({ page: pageIndex + 1 })
+                    }}
+                  />
+                )}
+              </>
             ) : (
-              <div aria-busy={list.isFetching || undefined} className="space-y-3">
-                {rows.map((job, index) => (
-                  <StaggerItem key={job.id} index={index}>
-                    <WorkCard job={job} showCreator={everyone} actions={actions} />
-                  </StaggerItem>
-                ))}
-              </div>
-            )}
-            {total > 0 && (
-              <Pagination
-                pageIndex={state.page - 1}
-                pageSize={pageSize}
-                total={total}
-                onChange={({ pageIndex, pageSize: next }) => {
-                  if (next !== pageSize) setPageSize(next as PageSize)
-                  setState({ page: pageIndex + 1 })
+              <DataTable<JobRow>
+                aria-label="Your job descriptions"
+                columns={columns}
+                data={rows}
+                loading={list.isPending || list.isFetching}
+                getRowId={(row) => row.id}
+                sorting={{
+                  state: state.sort
+                    ? [{ id: state.sort.replace(/^-/, ''), desc: state.sort.startsWith('-') }]
+                    : [],
+                  onChange: (sorting) => {
+                    const [first] = sorting
+                    setState({
+                      sort: first ? `${first.desc ? '-' : ''}${first.id}` : '-last_activity_at',
+                      page: 1,
+                    })
+                  },
                 }}
+                total={total}
+                pagination={{
+                  pageIndex: state.page - 1,
+                  pageSize,
+                  onChange: ({ pageIndex, pageSize: next }) => {
+                    if (next !== pageSize) setPageSize(next as PageSize)
+                    setState({ page: pageIndex + 1 })
+                  },
+                }}
+                onRowClick={(job) => navigate(`/jobs/${job.id}`)}
+                emptyState={emptyState}
+                className={cn(list.isPending && 'min-h-40')}
               />
             )}
-          </>
-        ) : (
-          <DataTable<JobRow>
-            aria-label="Your job descriptions"
-            columns={columns}
-            data={rows}
-            loading={list.isPending || list.isFetching}
-            getRowId={(row) => row.id}
-            sorting={{
-              state: state.sort
-                ? [{ id: state.sort.replace(/^-/, ''), desc: state.sort.startsWith('-') }]
-                : [],
-              onChange: (sorting) => {
-                const [first] = sorting
-                setState({
-                  sort: first ? `${first.desc ? '-' : ''}${first.id}` : '-last_activity_at',
-                  page: 1,
-                })
-              },
-            }}
-            total={total}
-            pagination={{
-              pageIndex: state.page - 1,
-              pageSize,
-              onChange: ({ pageIndex, pageSize: next }) => {
-                if (next !== pageSize) setPageSize(next as PageSize)
-                setState({ page: pageIndex + 1 })
-              },
-            }}
-            onRowClick={(job) => navigate(`/jobs/${job.id}`)}
-            emptyState={emptyState}
-            className={cn(list.isPending && 'min-h-40')}
-          />
-        )}
+          </div>
+        </section>
+        <WorkspaceQuickActions
+          facets={facets.data}
+          loading={facets.isPending}
+          failed={facets.isError}
+          canCreate={canCreate}
+          onSelectStatus={selectOverviewStatus}
+        />
       </div>
+      <footer className="home-page-footer">
+        <span>A clearer view. A better next hire.</span>
+        <span>
+          Talent<span className="text-primary">OS</span>
+        </span>
+      </footer>
       {actions.dialogs}
-    </>
+    </div>
   )
 }

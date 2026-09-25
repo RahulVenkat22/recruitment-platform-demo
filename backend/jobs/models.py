@@ -13,6 +13,34 @@ from common import enums
 from common.models import UUIDTimestampedModel
 
 
+class JobDescriptionUpload(UUIDTimestampedModel):
+    """A user's extraction result, retained independently of the page that started it."""
+
+    class Status(models.TextChoices):
+        UPLOADING = "uploading", "Uploading"
+        PROCESSING = "processing", "Reading job description"
+        READY = "ready", "Ready for review"
+        FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    file_name = models.CharField(max_length=255)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.UPLOADING)
+    fields = models.JSONField(default=dict, blank=True)
+    error = models.TextField(blank=True)
+    dismissed = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["uploaded_by"],
+                condition=models.Q(status__in=["uploading", "processing"]),
+                name="jobs_one_active_upload_per_user",
+            ),
+        ]
+
+
 class JobDescription(UUIDTimestampedModel):
     """A hiring requirement. Content fields are snapshotted into
     ``JobDescriptionVersion`` on create and on every content change."""

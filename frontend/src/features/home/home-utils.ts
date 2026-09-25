@@ -10,6 +10,7 @@ export const HOME_SPEC = {
   creator: param.list<string>([]),
   sort: param.string('-last_activity_at'),
   page: param.number(1),
+  view: param.enum<'cards' | 'table'>('cards', ['cards', 'table']),
 }
 
 export const HOME_SORT_OPTIONS = [

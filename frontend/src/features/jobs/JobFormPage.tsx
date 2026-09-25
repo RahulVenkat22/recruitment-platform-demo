@@ -17,6 +17,7 @@ import {
 } from '@/features/jobs/job-form-schema'
 import { canCreateJob } from '@/features/jobs/job-permissions'
 import type { SubmitIntent } from '@/features/jobs/JobForm'
+import { useJobUploadStore } from '@/features/jobs/job-upload-store'
 import { useAuthStore } from '@/lib/auth-store'
 import type { Crumb } from '@/lib/ui-store'
 import { personFromUser } from '@/types/domain'
@@ -27,6 +28,7 @@ const LIST_CRUMB: Crumb = { label: 'Job Descriptions', to: '/jobs' }
 interface FilledState {
   prefill?: Partial<JobFormValues>
   filledFrom?: string
+  uploadId?: string
 }
 
 // The form pulls in the schema, pickers and dialogs; keep it out of the list and detail chunks.
@@ -91,6 +93,8 @@ export default function JobFormPage({ mode }: { mode: 'create' | 'edit' }) {
       toast.success(
         intent === 'draft' ? `Saved “${created.title}” as a draft` : `Created “${created.title}”`,
       )
+      const uploadId = (location.state as FilledState | null)?.uploadId
+      if (uploadId) void useJobUploadStore.getState().dismiss(uploadId)
       // Replace the form in the history so Back from the new JD returns to the list, not the form.
       navigate(`/jobs/${created.id}`, { replace: true })
     }

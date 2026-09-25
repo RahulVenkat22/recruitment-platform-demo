@@ -48,6 +48,28 @@ describe('LoginPage', () => {
     expect(screen.getByLabelText('Remember me')).not.toBeChecked()
   })
 
+  it('syncs the page theme and copy with automatic and manual carousel changes without resetting the form', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const ui = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderLogin()
+    await ui.type(screen.getByLabelText('Email or username'), 'preview@example.com')
+    await ui.type(screen.getByLabelText('Password'), 'kept-while-rotating')
+    expect(screen.getByRole('main')).toHaveAttribute('data-carousel-theme', 'resumes')
+
+    await act(() => vi.advanceTimersByTimeAsync(2000))
+    expect(screen.getByRole('main')).toHaveAttribute('data-carousel-theme', 'candidates')
+    expect(screen.getByRole('heading', { name: /People\. Potential\./ })).toBeInTheDocument()
+    expect(screen.getByText('PEOPLE. STRENGTHS. CONNECTIONS.')).toBeInTheDocument()
+
+    await ui.click(screen.getByRole('button', { name: 'Show interviews' }))
+    expect(screen.getByRole('main')).toHaveAttribute('data-carousel-theme', 'interviews')
+    expect(screen.getByText('CONVERSATIONS. CONNECTIONS. GROWTH.')).toBeInTheDocument()
+    await act(() => vi.advanceTimersByTimeAsync(2000))
+    expect(screen.getByRole('main')).toHaveAttribute('data-carousel-theme', 'resumes')
+    expect(screen.getByLabelText('Email or username')).toHaveValue('preview@example.com')
+    expect(screen.getByLabelText('Password')).toHaveValue('kept-while-rotating')
+  })
+
   it('validates required fields before calling the API', async () => {
     const ui = userEvent.setup()
     const post = vi.spyOn(api, 'post')

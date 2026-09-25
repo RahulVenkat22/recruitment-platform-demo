@@ -1,6 +1,6 @@
 """``EmbeddingService``: text -> vectors through the configured provider's embedding model.
 
-The embeddings follow ``LLM_PROVIDER`` exactly as the chat model does: OpenAI's
+The embeddings use a fixed ``EMBEDDING_PROVIDER``, independent of chat failover: OpenAI's
 ``text-embedding-3-small`` or Gemini's ``gemini-embedding-001``, both asked for
 ``EMBEDDING_DIMENSIONS``-wide vectors (768 by default). Both models support a
 reduced output width natively -- ``dimensions`` on OpenAI,
@@ -48,7 +48,7 @@ class EmbeddingService:
         batch_size: int | None = None,
         dimensions: int | None = None,
     ) -> None:
-        self.provider = provider or settings.LLM_PROVIDER
+        self.provider = provider or settings.EMBEDDING_PROVIDER
         self.model = model or settings.EMBEDDING_MODEL
         self.batch_size = max(1, batch_size or settings.EMBEDDING_BATCH_SIZE)
         self.dimensions = dimensions or settings.EMBEDDING_DIMENSIONS
@@ -141,7 +141,7 @@ def get_embedding_service() -> EmbeddingService:
 
 def embedding_status() -> dict[str, Any]:
     """Can the configured provider embed? Key present and client constructible; no network."""
-    provider = settings.LLM_PROVIDER
+    provider = settings.EMBEDDING_PROVIDER
     error = ""
     if not api_key_for(provider):
         error = f"{key_setting_for(provider)} is not set"

@@ -1,7 +1,8 @@
 """The LLM behind resume parsing, JD analysis and candidate evaluation.
 
 One place -- ``chat_model`` -- builds the LangChain client from settings, and
-``LLM_PROVIDER`` decides which: ``ChatOpenAI`` or ``ChatGoogleGenerativeAI``.
+``LLM_PROVIDER`` decides which provider starts each request. OpenAI calls try
+the primary model, another OpenAI model, then Gemini on any LLM error.
 The Pydantic schemas, the prompts and everything after the request is built are
 identical for both; only the client, the structured-output method and the error
 mapping differ, and all three live here.
@@ -17,7 +18,7 @@ callers route on: ``LLMUnavailable`` (key missing or rejected, model missing,
 quota, network), ``LLMTimeout`` and ``LLMOutputInvalid`` (the answer did not
 fit the schema). ``LLMBusy`` is the ``LLMUnavailable`` subclass for a transient
 refusal -- a server error or a rate limit that outlived the client's retries --
-which the resume parse answers by trying ``LLM_FALLBACK_MODEL`` once. OpenAI uses
+which participates in the same shared fallback chain as other errors. OpenAI uses
 ``method="json_schema"`` and Gemini
 ``method="function_calling"`` (see ``_structured_method``); LangChain parses
 the answer into the schema on both, and a document whose answer does not parse
@@ -30,9 +31,14 @@ and the client can be constructed.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import importlib
 import logging
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
@@ -47,6 +53,39 @@ logger = logging.getLogger(__name__)
 
 class LLMError(Exception):
     """Base class; ``str(exc)`` is a sentence fit for logs and API messages."""
+
+
+class LLMCancelled(LLMError):
+    """Explicit cancellation stops the current request and every fallback."""
+
+
+_cancellation: ContextVar[Callable[[], bool] | None] = ContextVar("llm_cancellation", default=None)
+
+
+@contextmanager
+def cancellable_llm(should_cancel: Callable[[], bool]) -> Iterator[None]:
+    """Give one worker a cancellation check without affecting other LLM callers."""
+    token = _cancellation.set(should_cancel)
+    try:
+        yield
+    finally:
+        _cancellation.reset(token)
+
+
+async def _invoke_cancellable(runnable, messages, should_cancel):
+    """Cancel the SDK's async HTTP request, then drain it before leaving the loop."""
+    task = asyncio.create_task(runnable.ainvoke(messages))
+    try:
+        while True:
+            if await asyncio.to_thread(should_cancel):
+                raise LLMCancelled("The job description upload was cancelled.")
+            if task.done():
+                return await task
+            await asyncio.wait({task}, timeout=0.25)
+    finally:
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
 
 
 class LLMUnavailable(LLMError):
@@ -65,6 +104,35 @@ class LLMOutputInvalid(LLMError):
     pass
 
 
+@dataclass
+class LLMCallInfo:
+    """Request-local provenance; never shared across concurrent calls."""
+
+    provider: str = ""
+    model: str = ""
+    failures: list[str] = field(default_factory=list)
+
+
+def chat_targets(
+    model: str | None = None, *, fallback_model: str | None = None
+) -> list[tuple[str, str]]:
+    """Ordered, distinct provider/model pairs for a single chat request."""
+    provider = settings.LLM_PROVIDER
+    name = _resolve_model(model)
+    fallback = settings.LLM_FALLBACK_MODEL if fallback_model is None else fallback_model
+    targets = [(provider, name)]
+    if fallback:
+        targets.append((provider, fallback))
+    if provider == "openai":
+        gemini_model = (
+            settings.GEMINI_SEARCH_MODEL
+            if name == settings.LLM_SEARCH_MODEL and name != settings.LLM_MODEL
+            else settings.GEMINI_MODEL
+        )
+        targets.append(("gemini", gemini_model))
+    return list(dict.fromkeys(targets))
+
+
 def _import(module: str, attribute: str, package: str) -> Any:
     """Import a provider client on demand, as an ``LLMError`` the callers handle."""
     try:
@@ -74,7 +142,7 @@ def _import(module: str, attribute: str, package: str) -> Any:
         # renamed or dropped the class must still leave this helper raising the
         # LLMError its callers route on, not an AttributeError from inside it.
         raise LLMUnavailable(
-            f"LLM_PROVIDER={settings.LLM_PROVIDER} needs `pip install {package}` "
+            f"The provider client needs `pip install {package}` "
             f"(could not load {module}.{attribute}: {type(exc).__name__})."
         ) from exc
 
@@ -110,6 +178,7 @@ def require_api_key(provider: str) -> str:
 def chat_model(
     model: str | None = None,
     *,
+    provider: str | None = None,
     num_predict: int | None = None,
     temperature: float = 0.0,
     timeout: float | None = None,
@@ -120,8 +189,8 @@ def chat_model(
     budget on both providers; the Gemini client counts total attempts rather
     than retries, so it is translated at this seam.
     """
-    provider = settings.LLM_PROVIDER
-    name = _resolve_model(model)
+    provider = provider or settings.LLM_PROVIDER
+    name = model or (settings.OPENAI_MODEL if provider == "openai" else settings.GEMINI_MODEL)
     key = require_api_key(provider)
     if provider == "openai":
         chat_openai = _import("langchain_openai", "ChatOpenAI", "langchain-openai")
@@ -228,6 +297,8 @@ def invoke_structured_with_file[SchemaT: BaseModel](
     mime_type: str = "application/pdf",
     model: str | None = None,
     num_predict: int | None = None,
+    fallback_model: str | None = None,
+    call_info: LLMCallInfo | None = None,
 ) -> SchemaT:
     """``invoke_structured`` with a file attached to the human message.
 
@@ -235,7 +306,14 @@ def invoke_structured_with_file[SchemaT: BaseModel](
     switch and the per-provider error mapping apply to the PDF path unchanged.
     """
     attached = attach_file(messages, data, file_name=file_name, mime_type=mime_type)
-    return invoke_structured(schema, attached, model=model, num_predict=num_predict)
+    return invoke_structured(
+        schema,
+        attached,
+        model=model,
+        num_predict=num_predict,
+        fallback_model=fallback_model,
+        call_info=call_info,
+    )
 
 
 def invoke_structured[SchemaT: BaseModel](
@@ -244,20 +322,58 @@ def invoke_structured[SchemaT: BaseModel](
     *,
     model: str | None = None,
     num_predict: int | None = None,
+    fallback_model: str | None = None,
+    call_info: LLMCallInfo | None = None,
 ) -> SchemaT:
-    """Run ``messages`` through the LLM and return a validated ``schema`` instance."""
-    provider = settings.LLM_PROVIDER
-    name = _resolve_model(model)
+    """Return the first validated answer, advancing on any mapped LLM error."""
+    info = call_info if call_info is not None else LLMCallInfo()
+    info.provider = info.model = ""
+    info.failures.clear()
+    last_error: LLMError | None = None
+    for provider, name in chat_targets(model, fallback_model=fallback_model):
+        should_cancel = _cancellation.get()
+        if should_cancel and should_cancel():
+            raise LLMCancelled("The job description upload was cancelled.")
+        try:
+            result = _invoke_once(schema, messages, provider, name, num_predict=num_predict)
+        except LLMCancelled:
+            raise
+        except LLMError as exc:
+            last_error = exc
+            info.failures.append(f"{provider}:{name}: {exc}")
+            logger.warning("LLM attempt failed for %s:%s (%s)", provider, name, type(exc).__name__)
+            continue
+        info.provider, info.model = provider, name
+        return result
+    assert last_error is not None
+    raise type(last_error)(
+        "All configured LLM models failed. " + "; ".join(info.failures)
+    ) from last_error
+
+
+def _invoke_once[SchemaT: BaseModel](
+    schema: type[SchemaT],
+    messages: list[BaseMessage],
+    provider: str,
+    name: str,
+    *,
+    num_predict: int | None,
+) -> SchemaT:
+    """Build, invoke and validate one provider-specific request."""
     try:
         # Built inside the try: the hosted clients raise from their constructor
         # when the key is missing or malformed.
-        runnable = chat_model(model, num_predict=num_predict).with_structured_output(
-            schema, method=_structured_method(provider)
+        client = chat_model(name, provider=provider, num_predict=num_predict)
+        runnable = client.with_structured_output(schema, method=_structured_method(provider))
+        should_cancel = _cancellation.get()
+        result = (
+            asyncio.run(_invoke_cancellable(runnable, messages, should_cancel))
+            if should_cancel
+            else runnable.invoke(messages)
         )
-        result = runnable.invoke(messages)
     except LLMError:
         raise
-    except OutputParserException as exc:
+    except (OutputParserException, ValidationError) as exc:
         # Logged with the detail, raised without it: the message is persisted
         # (ResumeDocument.warnings, SearchRun.error) and the parser's text embeds
         # the raw model output, resume included.
@@ -293,12 +409,20 @@ def _openai_error(name: str, exc: Exception, *, model_setting: str) -> LLMError:
     # APITimeoutError is a subclass of APIConnectionError: test it first.
     if isinstance(exc, openai.APITimeoutError):
         return LLMTimeout(f"OpenAI did not answer within {settings.LLM_TIMEOUT_SECONDS}s ({name}).")
-    if isinstance(exc, openai.AuthenticationError | openai.PermissionDeniedError):
+    if isinstance(exc, openai.AuthenticationError):
         return LLMUnavailable("OpenAI rejected the credentials; check OPENAI_API_KEY.")
+    if isinstance(exc, openai.PermissionDeniedError):
+        return LLMUnavailable("OpenAI denied access; check project permissions and model access.")
     if isinstance(exc, openai.NotFoundError):
         return LLMUnavailable(f"OpenAI has no model {name!r}; check {model_setting}.")
     if isinstance(exc, openai.RateLimitError):
-        return LLMBusy(f"OpenAI rate limit or quota reached for {name}.")
+        if exc.code in {"insufficient_quota", "credit_balance_exhausted"} or (
+            exc.type == "insufficient_quota"
+        ):
+            return LLMUnavailable(
+                "OpenAI API credits or quota are exhausted; check project billing and limits."
+            )
+        return LLMBusy(f"OpenAI rate limit reached for {name}.")
     if isinstance(exc, openai.InternalServerError):
         return LLMBusy(f"OpenAI returned a server error for {name}.")
     if isinstance(exc, openai.LengthFinishReasonError):
@@ -383,10 +507,10 @@ def _gemini_error(name: str, exc: Exception, *, model_setting: str) -> LLMError:
     except ImportError:  # pragma: no cover - only if the package vanished mid-run
         classes = {}
     bad_key = "API key not valid" in str(exc) or "API_KEY_INVALID" in str(exc)
-    if isinstance(exc, classes.get("GoogleAuthenticationError", ())) or isinstance(
-        exc, classes.get("GooglePermissionDeniedError", ())
-    ):
+    if isinstance(exc, classes.get("GoogleAuthenticationError", ())):
         return LLMUnavailable("Google rejected the credentials; check GEMINI_API_KEY.")
+    if isinstance(exc, classes.get("GooglePermissionDeniedError", ())):
+        return LLMUnavailable("Google denied access; check Gemini project permissions and access.")
     # Before the generic ClientError branch below: GoogleContextOverflowError IS
     # a ClientError (400), and the model name is not the knob that fixes it.
     if isinstance(exc, classes.get("GoogleContextOverflowError", ())):
@@ -411,8 +535,12 @@ def _gemini_error(name: str, exc: Exception, *, model_setting: str) -> LLMError:
     # ChatGoogleGenerativeAIError), matched on the HTTP code it carries.
     if isinstance(exc, genai_errors.ClientError):
         code = getattr(exc, "code", None)
-        if code in {401, 403} or bad_key:
+        if code == 401 or bad_key:
             return LLMUnavailable("Google rejected the credentials; check GEMINI_API_KEY.")
+        if code == 403:
+            return LLMUnavailable(
+                "Google denied access; check Gemini project permissions and access."
+            )
         if code == 404:
             return LLMUnavailable(f"Gemini has no model {name!r}; check {model_setting}.")
         if code == 429:
@@ -432,44 +560,42 @@ def _gemini_error(name: str, exc: Exception, *, model_setting: str) -> LLMError:
 
 
 def chat_status() -> dict[str, Any]:
-    """Can the configured *chat* provider answer? No network call.
+    """Check client construction across both chat chains without network calls.
 
-    Both models are reported, but they are NOT the same question and must not
-    share one flag. ``LLM_MODEL`` parses and analyses: ingestion and JD analysis
-    need it, so a problem with it is ``available=False``. ``LLM_SEARCH_MODEL``
-    is used by one path only -- the interactive search-time evaluation -- and
-    ``ingest_resumes`` never calls it, so a problem with it comes back as
-    ``warning`` with ``available`` untouched.
-
-    The check is the key *plus* an actual client construction -- which imports
-    the provider package and validates the arguments, and is the failure a
-    missing `pip install langchain-openai` would otherwise hide until the first
-    call. Deliberately no network call: this runs on the health card.
+    A usable fallback keeps ingestion/search available when the primary cannot
+    be built. This checks local configuration, not live model availability.
     """
     provider = settings.LLM_PROVIDER
     model = settings.LLM_MODEL
     search_model = settings.LLM_SEARCH_MODEL
-    error = "" if api_key_for(provider) else f"{key_setting_for(provider)} is not set"
-    warning = ""
-    if not error:
-        error = _client_error(provider, model)
-        if not error and search_model != model:
-            warning = _client_error(provider, search_model)
+    targets = chat_targets(model)
+    search_targets = chat_targets(search_model)
+    errors = {
+        target: _client_error(*target) for target in dict.fromkeys([*targets, *search_targets])
+    }
+    available = any(not errors[target] for target in targets)
+    search_available = any(not errors[target] for target in search_targets)
+    error = "" if available else "; ".join(errors[target] for target in targets)
+    warning = "" if search_available else "; ".join(errors[target] for target in search_targets)
     return {
         "provider": provider,
         "model": model,
         "search_model": search_model,
-        "available": not error,
-        "search_model_available": not warning,
+        "available": available,
+        "search_model_available": search_available,
         "error": error,
         "warning": warning,
+        "models": [
+            {"provider": p, "model": m, "available": not errors[(p, m)], "error": errors[(p, m)]}
+            for p, m in targets
+        ],
     }
 
 
 def _client_error(provider: str, name: str) -> str:
     """Build the client for ``name`` and report why it could not be, or ``""``."""
     try:
-        chat_model(name)
+        chat_model(name, provider=provider)
     except LLMError as exc:
         return str(exc)
     except Exception as exc:  # noqa: BLE001 - a client we cannot build is unavailable

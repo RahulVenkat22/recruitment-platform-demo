@@ -6,6 +6,7 @@ import {
   LayoutDashboardIcon,
   LifeBuoyIcon,
   MailsIcon,
+  ShieldCheckIcon,
   UserSearchIcon,
   UsersIcon,
   type LucideIcon,
@@ -13,46 +14,33 @@ import {
 import { HIGH_LEVEL_ROLES } from '@/features/jobs/job-permissions'
 import type { SessionUser, UserRole } from '@/types/domain'
 
-export type NavSection = 'main' | 'recruiting' | 'general'
-
 export interface NavItem {
   to: string
   label: string
   icon: LucideIcon
-  section: NavSection
   /** Match the exact path only; the homepage lives at "/" and would otherwise match everything. */
   end?: boolean
   /** Only these roles get the item; everyone gets it when unset. */
   roles?: readonly UserRole[]
 }
 
-/** The sidebar's groups, in order; a group the user has nothing in is not shown. */
-export const NAV_SECTIONS: readonly { key: NavSection; label: string }[] = [
-  { key: 'main', label: 'Workspace' },
-  { key: 'recruiting', label: 'Recruiting' },
-  { key: 'general', label: 'Stay connected' },
-]
-
-/**
- * Sidebar items (Enhancement.md 2) in their sections: Homepage and Dashboard up top,
- * the recruiting flow in the middle, Notifications and Support at the end.
- */
+/** Sidebar items in display order. */
 export const NAV_ITEMS: readonly NavItem[] = [
-  { to: '/', label: 'Homepage', icon: HouseIcon, section: 'main', end: true },
+  { to: '/', label: 'Homepage', icon: HouseIcon, end: true },
+  { to: '/jobs', label: 'Job Descriptions', icon: BriefcaseIcon },
+  { to: '/search', label: 'Search Candidates', icon: UserSearchIcon },
+  { to: '/interviews', label: 'Interviews', icon: CalendarClockIcon },
+  { to: '/candidates', label: 'Candidates', icon: UsersIcon },
+  { to: '/templates', label: 'Email Templates', icon: MailsIcon },
   {
     to: '/dashboard',
     label: 'Dashboard',
     icon: LayoutDashboardIcon,
-    section: 'main',
     roles: HIGH_LEVEL_ROLES,
   },
-  { to: '/jobs', label: 'Job Descriptions', icon: BriefcaseIcon, section: 'recruiting' },
-  { to: '/search', label: 'Search Candidates', icon: UserSearchIcon, section: 'recruiting' },
-  { to: '/interviews', label: 'Interviews', icon: CalendarClockIcon, section: 'recruiting' },
-  { to: '/candidates', label: 'Candidates', icon: UsersIcon, section: 'recruiting' },
-  { to: '/templates', label: 'Email Templates', icon: MailsIcon, section: 'recruiting' },
-  { to: '/notifications', label: 'Notifications', icon: BellIcon, section: 'general' },
-  { to: '/support', label: 'Support', icon: LifeBuoyIcon, section: 'general' },
+  { to: '/notifications', label: 'Notifications', icon: BellIcon },
+  { to: '/security', label: 'Security & Trust', icon: ShieldCheckIcon },
+  { to: '/support', label: 'Support', icon: LifeBuoyIcon },
 ]
 
 /** The items this user gets: the dashboard is HR's view, so interviewers and employees never see it. */

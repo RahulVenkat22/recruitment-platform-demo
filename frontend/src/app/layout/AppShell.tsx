@@ -5,6 +5,7 @@ import { Outlet, useLocation } from 'react-router'
 import { RouteErrorBoundary } from '@/app/RouteErrorBoundary'
 import { Sidebar } from '@/app/layout/Sidebar'
 import { TopBar } from '@/app/layout/TopBar'
+import { JobUploadStatus } from '@/features/jobs/JobUploadStatus'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLoadEnums } from '@/lib/enums'
 import { useTrackHistory } from '@/lib/hooks/useBackNavigation'
@@ -62,6 +63,7 @@ export function AppShell() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
+        <JobUploadStatus />
         {/* The content area is its own scroll container so the sidebar and top bar stay put. */}
         <main
           ref={mainRef}

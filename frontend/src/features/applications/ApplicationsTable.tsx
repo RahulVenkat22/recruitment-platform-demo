@@ -1,5 +1,5 @@
 import type { ColumnDef, RowSelectionState, SortingState } from '@tanstack/react-table'
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { ActionMenu, type RowAction } from '@/components/shared/ActionMenu'
 import { Avatar } from '@/components/shared/Avatar'
@@ -115,6 +115,73 @@ function ApplicationCard({ row, actions }: { row: ApplicationRow; actions?: RowA
   )
 }
 
+// TanStack renders cell callbacks as React components. Keep their identities
+// stable so selection updates do not remount cells and replay match animations.
+const SELECTION_COLUMN = selectionColumn<ApplicationRow>({
+  getLabel: (row) => row.candidate.full_name,
+})
+
+const CONTENT_COLUMNS: ColumnDef<ApplicationRow, unknown>[] = [
+  {
+    id: 'candidate__full_name',
+    header: 'Candidate',
+    enableSorting: true,
+    cell: ({ row }) => <CandidateCell row={row.original} />,
+  },
+  {
+    id: 'job_description__title',
+    header: 'Job description',
+    enableSorting: true,
+    cell: ({ row }) => (
+      <Link to={`/jobs/${row.original.job_description}`} className="text-ink hover:underline">
+        {row.original.job.title}
+      </Link>
+    ),
+  },
+  {
+    id: 'match__overall_pct',
+    header: 'Match',
+    enableSorting: true,
+    sortDescFirst: true,
+    cell: ({ row }) =>
+      row.original.match ? (
+        <MatchRing value={row.original.match.overall_pct} size="sm" />
+      ) : (
+        <span className="text-caption text-ink-subtle">Not scored</span>
+      ),
+  },
+  {
+    id: 'candidate__total_experience_years',
+    header: 'Experience',
+    enableSorting: true,
+    sortDescFirst: true,
+    cell: ({ row }) => (
+      <span className="text-ink tabular-nums">
+        {formatYears(row.original.candidate.total_experience_years)}
+      </span>
+    ),
+  },
+  {
+    id: 'skills',
+    header: 'Skills',
+    enableSorting: false,
+    meta: { className: 'min-w-64' },
+    cell: ({ row }) => <SkillChips skills={skillChipsFor(row.original)} highlight max={5} />,
+  },
+  {
+    id: 'source',
+    header: 'Source',
+    enableSorting: false,
+    cell: ({ row }) => <SourceBadge source={row.original.candidate.sources} />,
+  },
+  {
+    id: 'status',
+    header: 'Status',
+    enableSorting: true,
+    cell: ({ row }) => <StatusBadge status={row.original.status} dot />,
+  },
+]
+
 /** The ranked candidate table (plan.md 9.8, 9.6 Candidates tab) with a card view. */
 export function ApplicationsTable({
   rows,
@@ -134,82 +201,21 @@ export function ApplicationsTable({
 }: ApplicationsTableProps) {
   const navigate = useNavigate()
 
-  const columns: ColumnDef<ApplicationRow, unknown>[] = [
-    ...(selection
-      ? [selectionColumn<ApplicationRow>({ getLabel: (row) => row.candidate.full_name })]
-      : []),
-    {
+  const rankColumn = useMemo<ColumnDef<ApplicationRow, unknown>>(
+    () => ({
       id: 'rank',
       header: '#',
       enableSorting: false,
       meta: { className: 'w-10 text-ink-subtle tabular-nums' },
       cell: ({ row }) => rankOffset + row.index + 1,
-    },
-    {
-      id: 'candidate__full_name',
-      header: 'Candidate',
-      enableSorting: true,
-      cell: ({ row }) => <CandidateCell row={row.original} />,
-    },
-    ...(showJob
-      ? [
-          {
-            id: 'job_description__title',
-            header: 'Job description',
-            enableSorting: true,
-            cell: ({ row }) => (
-              <Link
-                to={`/jobs/${row.original.job_description}`}
-                className="text-ink hover:underline"
-              >
-                {row.original.job.title}
-              </Link>
-            ),
-          } satisfies ColumnDef<ApplicationRow, unknown>,
-        ]
-      : []),
-    {
-      id: 'match__overall_pct',
-      header: 'Match',
-      enableSorting: true,
-      sortDescFirst: true,
-      cell: ({ row }) =>
-        row.original.match ? (
-          <MatchRing value={row.original.match.overall_pct} size="sm" />
-        ) : (
-          <span className="text-caption text-ink-subtle">Not scored</span>
-        ),
-    },
-    {
-      id: 'candidate__total_experience_years',
-      header: 'Experience',
-      enableSorting: true,
-      sortDescFirst: true,
-      cell: ({ row }) => (
-        <span className="text-ink tabular-nums">
-          {formatYears(row.original.candidate.total_experience_years)}
-        </span>
-      ),
-    },
-    {
-      id: 'skills',
-      header: 'Skills',
-      enableSorting: false,
-      meta: { className: 'min-w-64' },
-      cell: ({ row }) => <SkillChips skills={skillChipsFor(row.original)} highlight max={5} />,
-    },
-    {
-      id: 'source',
-      header: 'Source',
-      enableSorting: false,
-      cell: ({ row }) => <SourceBadge source={row.original.candidate.sources} />,
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      enableSorting: true,
-      cell: ({ row }) => <StatusBadge status={row.original.status} dot />,
-    },
+    }),
+    [rankOffset],
+  )
+
+  const columns: ColumnDef<ApplicationRow, unknown>[] = [
+    ...(selection ? [SELECTION_COLUMN] : []),
+    rankColumn,
+    ...CONTENT_COLUMNS.filter((column) => showJob || column.id !== 'job_description__title'),
     ...(actionsFor
       ? [
           rowActionsColumn<ApplicationRow>(actionsFor, {

@@ -1,0 +1,809 @@
+/* Login-only colours follow the selected recruitment stage. */
+.talent-login {
+  --login-text: color-mix(in srgb, var(--login-accent) 12%, white);
+  --login-card-muted: color-mix(in srgb, var(--login-ink) 72%, white);
+  --login-line: color-mix(in srgb, var(--login-accent) 16%, transparent);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+  overflow: clip;
+  padding: 28px clamp(24px, 4.5vw, 80px) 22px;
+  color: var(--login-text);
+  background-color: var(--login-bg);
+  transition:
+    background-color 700ms ease,
+    color 700ms ease;
+}
+
+.talent-login::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  opacity: 0.24;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.84' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23fff' opacity='.13' filter='url(%23n)' d='M0 0h180v180H0z'/%3E%3C/svg%3E");
+  content: '';
+  pointer-events: none;
+}
+
+/* A masked colour wash blends smoothly; the grain stays fixed above it. */
+.talent-login::after {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  background-color: var(--login-glow);
+  opacity: 0.23;
+  mask-image:
+    radial-gradient(ellipse at 25% 52%, #000, transparent 66%),
+    radial-gradient(ellipse at 92% 8%, #0008, transparent 42%);
+  transition: background-color 700ms ease;
+  pointer-events: none;
+  content: '';
+}
+
+.talent-login
+  :where(
+    .talent-login__content,
+    .talent-login__brand-partner > span,
+    .talent-login__eyebrow,
+    .talent-login__secure,
+    .talent-login__description,
+    .talent-login__card-note,
+    .talent-login__access-note,
+    .talent-login__footer,
+    .talent-login__footer-status i,
+    .talent-showcase__eyebrow,
+    .talent-showcase__eyebrow > span,
+    .talent-showcase__intro h2 > span,
+    .talent-showcase__description,
+    .talent-carousel__toolbar > span,
+    .talent-carousel__status-dot,
+    .talent-carousel__glow,
+    .talent-carousel__floor,
+    .talent-carousel__hint,
+    .talent-carousel__hint svg,
+    .talent-carousel__caption,
+    .talent-carousel__caption h3,
+    .talent-carousel__caption p,
+    .talent-carousel__count,
+    .talent-carousel__count > span,
+    .talent-carousel__steps button > i
+  ) {
+  transition:
+    color 700ms ease,
+    background-color 700ms ease,
+    border-color 700ms ease,
+    box-shadow 700ms ease;
+}
+
+.talent-login__skip {
+  position: fixed;
+  z-index: 10;
+  top: 12px;
+  left: 12px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  color: var(--login-ink);
+  background: var(--login-accent);
+  transform: translateY(-150%);
+}
+
+.talent-login__skip:focus {
+  transform: translateY(0);
+}
+
+.talent-login__header,
+.talent-login__brand-partner,
+.talent-login__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.talent-login__header {
+  gap: 24px;
+}
+.talent-login__brand-partner {
+  gap: 18px;
+}
+.talent-login__brand-partner > span {
+  color: var(--login-muted);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+.talent-login__brand-partner > img {
+  height: 36px;
+}
+
+.talent-login__layout {
+  display: grid;
+  width: 100%;
+  max-width: 1440px;
+  flex: 1;
+  grid-template-columns: minmax(0, 1.3fr) minmax(370px, 0.9fr);
+  align-items: center;
+  gap: clamp(28px, 5vw, 84px);
+  align-self: center;
+  padding-block: 32px;
+}
+
+.talent-login__form-panel {
+  --color-primary: var(--login-button);
+  --color-primary-hover: var(--login-button-hover);
+  --color-ink: var(--login-ink);
+  --color-ink-muted: var(--login-card-muted);
+  --color-ink-subtle: var(--login-card-muted);
+  --color-line: var(--login-border);
+  --color-line-strong: var(--login-button);
+  --border: var(--login-border);
+  --input: var(--login-border);
+  --ring: var(--login-button);
+  --foreground: var(--login-ink);
+  --muted-foreground: var(--login-card-muted);
+  position: relative;
+  width: 100%;
+  max-width: 470px;
+  justify-self: end;
+}
+.talent-login__content {
+  position: relative;
+  padding: clamp(28px, 2.8vw, 40px);
+  border: 1px solid #ffffff;
+  border-radius: 24px;
+  color: var(--login-ink);
+  background-color: var(--login-card);
+  background-image: linear-gradient(135deg, #ffffffed, #ffffff00);
+  box-shadow:
+    0 24px 80px #00000026,
+    0 0 0 7px #ffffff04,
+    0 0 0 8px #ffffff07;
+}
+
+.talent-login__card-top {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.talent-login__secure {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--login-card-muted);
+  font-size: 10px;
+}
+.talent-login__secure svg {
+  width: 12px;
+  height: 12px;
+}
+.talent-login__eyebrow {
+  margin-top: 32px;
+  color: var(--login-card-muted);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+}
+.talent-login__content h1 {
+  margin-top: 10px;
+  font-size: clamp(30px, 2.8vw, 39px);
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.055em;
+}
+.talent-login__description {
+  margin-top: 9px;
+  color: var(--login-card-muted);
+  font-size: 13px;
+}
+.talent-login__form {
+  margin-top: 30px;
+}
+.talent-login__form [data-slot='field-label'] {
+  font-size: 12px;
+}
+.talent-login__form input:not([data-slot='input-group-control']),
+.talent-login__form [data-slot='input-group'] {
+  height: 49px;
+  border-radius: 10px;
+  background-color: #fff;
+  box-shadow: 0 2px 3px #1b321803;
+}
+.talent-login__form input {
+  font-size: 13px;
+}
+.talent-login__form input::placeholder {
+  color: #9ba59f;
+}
+.talent-login__form [data-slot='input-group-addon'] {
+  padding-inline: 13px;
+  color: var(--login-card-muted);
+}
+.talent-login__form button[type='submit'] {
+  height: 49px;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid var(--login-button);
+  border-radius: 10px;
+  color: #ffffff;
+  background-color: var(--login-button);
+  background-image: linear-gradient(135deg, #ffffff0a, transparent);
+  transition:
+    background-color 700ms ease,
+    border-color 700ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+  box-shadow:
+    0 4px 9px #172c2424,
+    inset 0 1px 0 #ffffff17;
+}
+.talent-login__form button[type='submit']:hover {
+  transform: translateY(-1px);
+  background-color: var(--login-button-hover);
+  box-shadow: 0 6px 14px #172c2430;
+}
+.talent-login__form button[type='submit']:active {
+  transform: translateY(0);
+}
+.talent-login__card-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 24px;
+  color: var(--login-card-muted);
+  font-size: 10px;
+}
+.talent-login__card-note svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.talent-login__access-note {
+  margin-top: 21px;
+  color: var(--login-muted);
+  font-size: 10px;
+  text-align: center;
+}
+.talent-login__footer {
+  gap: 16px;
+  padding-top: 20px;
+  border-top: 1px solid color-mix(in srgb, var(--login-accent) 9%, transparent);
+  color: var(--login-muted);
+  font-size: 10px;
+}
+.talent-login__footer-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.talent-login__footer-status i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--login-accent);
+}
+
+.talent-showcase {
+  min-width: 0;
+  padding-top: 8px;
+}
+.talent-showcase__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--login-muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+.talent-showcase__eyebrow > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--login-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--login-accent) 6%, transparent);
+}
+.talent-showcase__intro h2 {
+  min-height: 2.24em;
+  margin-top: 20px;
+  font-size: clamp(38px, 3.4vw, 56px);
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -0.055em;
+}
+.talent-showcase__intro :is(h2, .talent-showcase__description) {
+  animation: login-stage-copy 420ms ease-out;
+}
+@keyframes login-stage-copy {
+  from {
+    opacity: 0.65;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.talent-showcase__intro h2 > span {
+  color: var(--login-accent);
+}
+.talent-showcase__description {
+  margin-top: 16px;
+  color: var(--login-muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.talent-carousel {
+  position: relative;
+  margin-top: 20px;
+}
+.talent-carousel__toolbar {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.talent-carousel__toolbar > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--login-muted);
+  font-size: 8px;
+  letter-spacing: 0.14em;
+}
+.talent-carousel__status-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--login-accent);
+}
+.talent-carousel__stage {
+  position: relative;
+  isolation: isolate;
+  width: calc(100% + 32px);
+  height: clamp(280px, 34vh, 360px);
+  margin: 0 -16px;
+  border-radius: 18px;
+  cursor: grab;
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.talent-carousel[data-dragging='true'] .talent-carousel__stage {
+  cursor: grabbing;
+}
+.talent-carousel__stage:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--login-accent) 45%, transparent);
+  outline-offset: 2px;
+}
+.talent-carousel__scene {
+  position: absolute;
+  inset: 0 12px 22px;
+  pointer-events: none;
+}
+.talent-carousel__canvas {
+  z-index: 1;
+  pointer-events: none;
+}
+.talent-carousel__scene:has(canvas) .talent-carousel__fallback {
+  opacity: 0;
+}
+.talent-carousel__glow {
+  position: absolute;
+  inset: 10% 0 0;
+  opacity: 0.18;
+  background-color: var(--login-glow);
+  mask-image: radial-gradient(ellipse at 50% 55%, #000, transparent 62%);
+}
+.talent-carousel__floor {
+  position: absolute;
+  inset: 20% -5% -8%;
+  opacity: 0.2;
+  background-image:
+    linear-gradient(currentColor 1px, transparent 1px),
+    linear-gradient(90deg, currentColor 1px, transparent 1px);
+  color: var(--login-line);
+  background-size: 38px 38px;
+  transform: perspective(500px) rotateX(63deg);
+  mask-image: radial-gradient(ellipse, #000 10%, transparent 65%);
+}
+
+.talent-carousel__hint {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+  color: var(--login-muted);
+  font-size: 9px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.talent-carousel__hint svg {
+  width: 16px;
+  height: 16px;
+  color: var(--login-accent);
+}
+.talent-carousel__caption {
+  display: flex;
+  min-height: 80px;
+  align-items: flex-start;
+  gap: 18px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--login-line);
+}
+.talent-carousel__count {
+  flex-shrink: 0;
+  margin-top: 5px;
+  color: var(--login-accent);
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+.talent-carousel__count > span {
+  color: var(--login-muted);
+}
+.talent-carousel__caption h3 {
+  color: var(--login-text);
+  font-size: clamp(15px, 1.5vw, 20px);
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -0.025em;
+}
+.talent-carousel__caption p {
+  margin-top: 5px;
+  color: var(--login-muted);
+  font-size: 11px;
+  line-height: 1.65;
+}
+.talent-carousel__steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.talent-carousel__steps button {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 62px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 4px 13px;
+  border: 1px solid transparent;
+  border-radius: 8px 8px 0 0;
+  color: var(--login-muted);
+  font-size: 10px;
+  transition:
+    color 200ms,
+    background 200ms;
+  cursor: pointer;
+}
+.talent-carousel__steps button > svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.6;
+}
+.talent-carousel__steps button > i {
+  position: absolute;
+  right: 4px;
+  bottom: 0;
+  left: 4px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--login-line);
+}
+.talent-carousel__steps button:hover {
+  color: var(--login-text);
+  background: color-mix(in srgb, var(--login-accent) 5%, transparent);
+}
+.talent-carousel__steps button[aria-current='step'] {
+  color: var(--login-accent);
+  background-color: color-mix(in srgb, var(--login-accent) 6%, transparent);
+}
+.talent-carousel__steps button[aria-current='step'] > i {
+  background: var(--login-accent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--login-accent) 15%, transparent);
+}
+.talent-carousel :is(button, [tabindex]):focus-visible {
+  outline-color: var(--login-accent);
+}
+
+/* The same selectable journey remains available without WebGL. */
+.talent-carousel__fallback {
+  position: absolute;
+  inset: 0;
+  perspective: 800px;
+}
+.talent-carousel__fallback-model {
+  position: absolute;
+  z-index: calc(1 + var(--model-depth) * 10);
+  top: 38%;
+  left: 50%;
+  display: flex;
+  width: 130px;
+  height: 170px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: -70px -65px;
+  border: 1px solid #ffffff91;
+  border-radius: 14px;
+  color: #2c493b;
+  background: var(--model-color);
+  box-shadow:
+    6px 6px 0 color-mix(in srgb, var(--model-color), #223b2c 30%),
+    12px 22px 32px #0005;
+  transform: translateX(calc(var(--model-x) * clamp(100px, 18vw, 195px)))
+    translateY(calc((1 - var(--model-depth)) * -30px)) scale(calc(0.58 + var(--model-depth) * 0.5))
+    rotateY(calc(var(--model-x) * -22deg));
+  opacity: calc(0.45 + var(--model-depth) * 0.55);
+  transition:
+    transform 650ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 500ms;
+}
+.talent-carousel__fallback-model > svg {
+  width: 44px;
+  height: 44px;
+  stroke-width: 1.4;
+}
+.talent-carousel__fallback-model > span {
+  font-size: 11px;
+  font-weight: 600;
+}
+.talent-carousel__fallback-model > i {
+  width: 66px;
+  height: 4px;
+  margin-top: -6px;
+  border-radius: 4px;
+  background: #24473430;
+}
+.talent-carousel__fallback[data-dragging='true'] > div {
+  transition: none;
+}
+.talent-showcase[data-reduced-motion='true'] *,
+.talent-login[data-reduced-motion='true'],
+.talent-login[data-reduced-motion='true']::before,
+.talent-login[data-reduced-motion='true']::after,
+.talent-login[data-reduced-motion='true'] * {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (min-width: 1500px) {
+  .talent-login__layout {
+    grid-template-columns: minmax(0, 1.3fr) minmax(410px, 0.9fr);
+    gap: 100px;
+  }
+  .talent-login__form-panel {
+    max-width: 500px;
+  }
+  .talent-carousel__stage {
+    height: 410px;
+  }
+}
+@media (min-width: 960px) and (max-height: 820px) {
+  .talent-login {
+    padding-top: 22px;
+  }
+  .talent-login__layout {
+    padding-block: 22px;
+  }
+  .talent-showcase__intro h2 {
+    font-size: clamp(38px, 3.5vw, 50px);
+  }
+  .talent-showcase__description {
+    margin-top: 12px;
+  }
+  .talent-carousel {
+    margin-top: 18px;
+  }
+  .talent-carousel__stage {
+    height: 280px;
+  }
+  .talent-carousel__caption {
+    margin-top: 12px;
+    min-height: 80px;
+    padding-top: 16px;
+  }
+  .talent-carousel__steps {
+    margin-top: 6px;
+  }
+  .talent-login__content {
+    padding-block: 28px;
+  }
+  .talent-login__eyebrow {
+    margin-top: 24px;
+  }
+  .talent-login__form {
+    margin-top: 24px;
+  }
+}
+@media (max-width: 1100px) and (min-width: 960px) {
+  .talent-login {
+    padding-inline: 30px;
+  }
+  .talent-login__layout {
+    gap: 38px;
+    grid-template-columns: minmax(0, 1fr) 370px;
+  }
+  .talent-showcase__intro h2 {
+    font-size: 41px;
+  }
+  .talent-carousel__stage {
+    height: 300px;
+  }
+  .talent-carousel__caption {
+    gap: 13px;
+  }
+  .talent-carousel__caption h3 {
+    font-size: 16px;
+  }
+  .talent-carousel__steps button {
+    font-size: 9px;
+  }
+}
+@media (max-width: 959px) {
+  .talent-login {
+    padding: 24px 28px;
+  }
+  .talent-login__layout {
+    max-width: 640px;
+    grid-template-columns: 1fr;
+    gap: 36px;
+    padding-top: 36px;
+  }
+  .talent-showcase__intro {
+    text-align: center;
+  }
+  .talent-showcase__eyebrow {
+    justify-content: center;
+  }
+  .talent-showcase__intro h2 {
+    font-size: clamp(38px, 6vw, 54px);
+  }
+  .talent-showcase__description {
+    margin-top: 14px;
+  }
+  .talent-carousel__stage {
+    height: 345px;
+  }
+  .talent-carousel__caption h3 {
+    font-size: 19px;
+  }
+  .talent-login__form-panel {
+    max-width: 490px;
+    justify-self: center;
+  }
+  .talent-login__content {
+    padding: 36px;
+  }
+  .talent-login__footer > span:nth-child(2) {
+    display: none;
+  }
+}
+@media (max-width: 540px) {
+  .talent-login {
+    padding: 20px 20px 18px;
+  }
+  .talent-login__header [role='img'] {
+    gap: 7px;
+  }
+  .talent-login__header [role='img'] > img {
+    width: 27px;
+    height: 27px;
+  }
+  .talent-login__brand-partner {
+    gap: 8px;
+  }
+  .talent-login__brand-partner > span {
+    display: none;
+  }
+  .talent-login__brand-partner > img {
+    height: 29px;
+  }
+  .talent-login__layout {
+    gap: 28px;
+    padding-top: 25px;
+  }
+  .talent-showcase__eyebrow {
+    font-size: 8px;
+    letter-spacing: 0.03em;
+  }
+  .talent-showcase__intro h2 {
+    margin-top: 14px;
+    font-size: clamp(30px, 8.2vw, 40px);
+  }
+  .talent-showcase__description {
+    margin-top: 10px;
+    font-size: 10px;
+  }
+  .talent-carousel {
+    margin-top: 21px;
+  }
+  .talent-carousel__toolbar > span {
+    font-size: 7px;
+  }
+  .talent-carousel__stage {
+    height: 265px;
+  }
+  .talent-carousel__scene {
+    inset-inline: 0;
+  }
+
+  .talent-carousel__hint {
+    font-size: 8px;
+  }
+  .talent-carousel__caption {
+    min-height: 89px;
+    gap: 12px;
+    margin-top: 14px;
+    padding-top: 16px;
+  }
+  .talent-carousel__count {
+    font-size: 9px;
+  }
+  .talent-carousel__caption h3 {
+    font-size: 15px;
+  }
+  .talent-carousel__caption p {
+    font-size: 10px;
+  }
+  .talent-carousel__steps {
+    gap: 5px;
+    margin-top: 4px;
+  }
+  .talent-carousel__steps button {
+    font-size: 8px;
+    min-height: 56px;
+    gap: 7px;
+  }
+  .talent-login__content {
+    padding: 24px;
+    border-radius: 20px;
+  }
+  .talent-login__eyebrow {
+    margin-top: 24px;
+    font-size: 8px;
+  }
+  .talent-login__content h1 {
+    font-size: 32px;
+  }
+  .talent-login__form {
+    margin-top: 24px;
+  }
+  .talent-login__form input {
+    font-size: 16px;
+  }
+  .talent-login__access-note {
+    margin-top: 16px;
+  }
+  .talent-login__footer {
+    font-size: 8px;
+  }
+  .talent-carousel__fallback-model {
+    width: 100px;
+    height: 140px;
+    margin-left: -50px;
+  }
+  .talent-carousel__fallback-model > span {
+    font-size: 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .talent-login *,
+  .talent-login *::before,
+  .talent-login *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

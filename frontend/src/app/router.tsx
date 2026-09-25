@@ -20,6 +20,7 @@ const EmailTemplatesPage = lazy(() => import('@/features/communications/EmailTem
 const InterviewsPage = lazy(() => import('@/features/interviews/InterviewsPage'))
 const NotificationsPage = lazy(() => import('@/features/notifications/NotificationsPage'))
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'))
+const SecurityPage = lazy(() => import('@/features/security/SecurityPage'))
 const SupportPage = lazy(() => import('@/features/support/SupportPage'))
 const TicketDetailPage = lazy(() => import('@/features/support/TicketDetailPage'))
 const NotFoundPage = lazy(() => import('@/app/NotFoundPage'))
@@ -58,6 +59,7 @@ export function AppRoutes() {
         <Route path="templates" element={<EmailTemplatesPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="security" element={<SecurityPage />} />
         <Route path="support" element={<SupportPage />} />
         <Route path="support/:id" element={<TicketDetailPage />} />
         <Route path="*" element={<NotFoundPage />} />

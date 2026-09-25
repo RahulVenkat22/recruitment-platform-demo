@@ -24,6 +24,10 @@ export const endpoints = {
   jobs: `${API_PREFIX}/job-descriptions/`,
   jobFacets: `${API_PREFIX}/job-descriptions/facets/`,
   jobExtract: `${API_PREFIX}/job-descriptions/extract/`,
+  jobUploads: `${API_PREFIX}/job-description-uploads/`,
+  jobUpload: (id: string) => `${API_PREFIX}/job-description-uploads/${id}/`,
+  jobUploadAction: (id: string, action: string) =>
+    `${API_PREFIX}/job-description-uploads/${id}/${action}/`,
   job: (id: string) => `${API_PREFIX}/job-descriptions/${id}/`,
   jobAction: (id: string, action: string) => `${API_PREFIX}/job-descriptions/${id}/${action}/`,
   jobVersion: (id: string, version: number) =>

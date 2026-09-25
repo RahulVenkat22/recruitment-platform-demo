@@ -574,6 +574,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/job-description-uploads/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Uploads belong to their uploader, including cancellation and extracted content. */
+        get: operations["job_description_uploads_list"];
+        put?: never;
+        /** @description Uploads belong to their uploader, including cancellation and extracted content. */
+        post: operations["job_description_uploads_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-description-uploads/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Uploads belong to their uploader, including cancellation and extracted content. */
+        get: operations["job_description_uploads_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-description-uploads/{id}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Uploads belong to their uploader, including cancellation and extracted content. */
+        post: operations["job_description_uploads_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-description-uploads/{id}/dismiss/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Uploads belong to their uploader, including cancellation and extracted content. */
+        post: operations["job_description_uploads_dismiss_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-description-uploads/{id}/file/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Uploads belong to their uploader, including cancellation and extracted content. */
+        post: operations["job_description_uploads_file_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/activities/": {
         parameters: {
             query?: never;
@@ -1734,7 +1820,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Every dashboard figure and table as a CSV, an Excel workbook or a PDF
+         * Every dashboard figure and table as a CSV, an Excel workbook or a PDF report
          * @description HR admins and HR only: the dashboard is the recruiting team's view (plan.md 6.9).
          */
         get: operations["dashboard_export"];
@@ -3062,6 +3148,30 @@ export interface components {
             readonly department: string;
             readonly location: string;
         };
+        JobUpload: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly file_name: string;
+            readonly status: components["schemas"]["JobUploadStatusEnum"];
+            readonly fields: components["schemas"]["JobExtractedFields"];
+            readonly error: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        JobUploadRequestRequest: {
+            file_name: string;
+        };
+        /**
+         * @description * `uploading` - Uploading
+         *     * `processing` - Reading job description
+         *     * `ready` - Ready for review
+         *     * `failed` - Failed
+         *     * `cancelled` - Cancelled
+         * @enum {string}
+         */
+        JobUploadStatusEnum: "uploading" | "processing" | "ready" | "failed" | "cancelled";
         Kanban: {
             columns: components["schemas"]["KanbanColumn"][];
             tray: components["schemas"]["KanbanTray"];
@@ -5587,6 +5697,137 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VersionRow"][];
+                };
+            };
+        };
+    };
+    job_description_uploads_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobUpload"][];
+                };
+            };
+        };
+    };
+    job_description_uploads_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobUploadRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["JobUploadRequestRequest"];
+                "multipart/form-data": components["schemas"]["JobUploadRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobUpload"];
+                };
+            };
+        };
+    };
+    job_description_uploads_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobUpload"];
+                };
+            };
+        };
+    };
+    job_description_uploads_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobUpload"];
+                };
+            };
+        };
+    };
+    job_description_uploads_dismiss_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    job_description_uploads_file_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["JobExtractRequestRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobUpload"];
                 };
             };
         };

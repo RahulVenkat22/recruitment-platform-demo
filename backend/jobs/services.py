@@ -875,3 +875,159 @@ def search_skills(query: str, limit: int = SKILL_SUGGESTION_LIMIT) -> list[dict[
                 counts[key] += 1
     ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[: max(limit, 0)]
     return [{"key": key, "display_name": display_name(key), "count": n} for key, n in ranked]
+
+
+class JobUploadService:
+    """Reserve an upload before transferring bytes so it can always be cancelled."""
+
+    @staticmethod
+    def recent(user):
+        from jobs.models import JobDescriptionUpload
+
+        return list(
+            JobDescriptionUpload.objects.filter(uploaded_by=user, dismissed=False).exclude(
+                status=JobDescriptionUpload.Status.CANCELLED
+            )[:1]
+        )
+
+    @staticmethod
+    def get(user, upload_id):
+        from django.shortcuts import get_object_or_404
+
+        from jobs.models import JobDescriptionUpload
+
+        return get_object_or_404(JobDescriptionUpload, pk=upload_id, uploaded_by=user)
+
+    @staticmethod
+    def reserve(user, file_name):
+        from django.db import IntegrityError
+        from rest_framework.exceptions import ValidationError
+
+        from jobs.models import JobDescriptionUpload
+
+        try:
+            with transaction.atomic():
+                upload = JobDescriptionUpload.objects.create(uploaded_by=user, file_name=file_name)
+                JobDescriptionUpload.objects.filter(uploaded_by=user).exclude(pk=upload.pk).update(
+                    dismissed=True
+                )
+                return upload
+        except IntegrityError as exc:
+            raise ValidationError(
+                "An upload is already running. Finish or cancel it first."
+            ) from exc
+
+    @staticmethod
+    def receive(upload, file):
+        from jobs.engines import MAX_MB
+        from jobs.exceptions import InvalidJobFile
+        from jobs.models import JobDescriptionUpload
+
+        if file.name != upload.file_name:
+            raise InvalidJobFile("Choose the same file that started this upload.")
+        if file.size > MAX_MB * 1024 * 1024:
+            raise InvalidJobFile(f"The file is larger than {MAX_MB} MB.")
+        data = file.read()
+        # A cancelled or duplicate transfer must never launch another worker.
+        started = JobDescriptionUpload.objects.filter(
+            pk=upload.pk, status=JobDescriptionUpload.Status.UPLOADING
+        ).update(status=JobDescriptionUpload.Status.PROCESSING, updated_at=timezone.now())
+        if started:
+            transaction.on_commit(lambda: JobUploadService.launch(upload.pk, file.name, data))
+        upload.refresh_from_db()
+        return upload
+
+    @staticmethod
+    def launch(upload_id, file_name, data):
+        import threading
+
+        threading.Thread(
+            target=JobUploadService.process,
+            args=(upload_id, file_name, data),
+            name=f"jd-upload-{upload_id}",
+            daemon=True,
+        ).start()
+
+    @staticmethod
+    def is_cancelled(upload_id):
+        from django.db import close_old_connections, connections
+
+        from jobs.models import JobDescriptionUpload
+
+        # Also called from the async client's monitoring thread; close its own connection.
+        close_old_connections()
+        try:
+            return not JobDescriptionUpload.objects.filter(
+                pk=upload_id, status=JobDescriptionUpload.Status.PROCESSING
+            ).exists()
+        finally:
+            connections.close_all()
+
+    @staticmethod
+    def process(upload_id, file_name, data):
+        import logging
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.db import close_old_connections, connections
+
+        from jobs.engines import extract_job_description
+        from jobs.exceptions import InvalidJobFile, JobFileNotRead
+        from jobs.models import JobDescriptionUpload
+        from resumes.engines.llm import cancellable_llm
+
+        close_old_connections()
+        try:
+            with cancellable_llm(lambda: JobUploadService.is_cancelled(upload_id)):
+                if JobUploadService.is_cancelled(upload_id):
+                    return
+                fields = extract_job_description(SimpleUploadedFile(file_name, data))
+            if not fields:
+                raise InvalidJobFile("No job description fields could be read from this file.")
+            changes = {"status": JobDescriptionUpload.Status.READY, "fields": fields, "error": ""}
+        except (InvalidJobFile, JobFileNotRead) as exc:
+            changes = {"status": JobDescriptionUpload.Status.FAILED, "error": str(exc.detail)}
+        except Exception as exc:
+            logging.getLogger(__name__).error(
+                "JD upload %s failed (%s)", upload_id, type(exc).__name__
+            )
+            changes = {
+                "status": JobDescriptionUpload.Status.FAILED,
+                "error": "The upload could not be processed. Please try again.",
+            }
+        finally:
+            connections.close_all()
+        # Cancellation wins even when a result arrives at the same time.
+        try:
+            JobDescriptionUpload.objects.filter(
+                pk=upload_id, status=JobDescriptionUpload.Status.PROCESSING
+            ).update(**changes, updated_at=timezone.now())
+        finally:
+            connections.close_all()
+
+    @staticmethod
+    def cancel(upload):
+        from jobs.models import JobDescriptionUpload
+
+        JobDescriptionUpload.objects.filter(pk=upload.pk).update(
+            status=JobDescriptionUpload.Status.CANCELLED,
+            fields={},
+            error="",
+            dismissed=True,
+            updated_at=timezone.now(),
+        )
+        upload.refresh_from_db()
+        return upload
+
+    @staticmethod
+    def dismiss(upload):
+        from rest_framework.exceptions import ValidationError
+
+        from jobs.models import JobDescriptionUpload
+
+        if upload.status in (
+            JobDescriptionUpload.Status.UPLOADING,
+            JobDescriptionUpload.Status.PROCESSING,
+        ):
+            raise ValidationError("Cancel the upload before dismissing it.")
+        upload.dismissed = True
+        upload.save(update_fields=["dismissed", "updated_at"])

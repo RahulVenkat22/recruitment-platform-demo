@@ -1,11 +1,10 @@
 import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import { FileUpIcon, Loader2Icon, SparklesIcon } from 'lucide-react'
 import { useRef, useState, type DragEvent } from 'react'
-import { useNavigate } from 'react-router'
-import { toast } from 'sonner'
-import { useExtractJobDescription } from '@/features/jobs/api'
+import { Link } from 'react-router'
+import { Button } from '@/components/ui/button'
 import { extractionToForm } from '@/features/jobs/job-form-schema'
-import { describeError } from '@/lib/errors'
+import { uploadIsActive, useJobUploadStore } from '@/features/jobs/job-upload-store'
 import { cn } from '@/lib/utils'
 
 const MAX_FILE_MB = 10
@@ -14,22 +13,22 @@ const ACCEPT =
 
 /**
  * The Job Descriptions page's opening panel: drop a JD as a PDF or Word file
- * and the AI reads it into a new job description. The New Job Description
- * page then opens with the fields filled in for review; nothing is created
- * until it is submitted there. Behind the copy loops a short brand animation
+ * and the AI reads it into a new job description. Progress follows the user
+ * across pages; Review opens the form with those fields filled in. Nothing is
+ * created until it is submitted there. Behind the copy loops a short brand animation
  * of documents flowing into the matching core and out to roles
  * (public/brand/jd-upload-loop.mp4 and .webm); it stays still under reduced
  * motion. One job description per file; a file with none or with several is
  * refused by the server and the message shown here.
  */
 export function JobUploadPanel({ className }: { className?: string }) {
-  const navigate = useNavigate()
   const reducedMotion = useMotionPreference()
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState('')
-  const extract = useExtractJobDescription()
-  const pending = extract.isPending
+  const uploadState = useJobUploadStore()
+  const pending = uploadIsActive(uploadState)
+  const upload = uploadState.upload
 
   async function read(files: FileList | null) {
     const file = files?.[0]
@@ -48,23 +47,7 @@ export function JobUploadPanel({ className }: { className?: string }) {
       return
     }
     setError('')
-    try {
-      const result = await extract.mutateAsync(file)
-      const values = extractionToForm(result.fields)
-      const count = Object.keys(values).length
-      if (count === 0) {
-        setError(
-          `Nothing could be read from ${result.file_name}. Check that it is a job description.`,
-        )
-        return
-      }
-      toast.success(
-        `Read ${count} field${count === 1 ? '' : 's'} from ${result.file_name}. Review them, then create the job description.`,
-      )
-      navigate('/jobs/new', { state: { prefill: values, filledFrom: result.file_name } })
-    } catch (caught) {
-      setError(describeError(caught))
-    }
+    await uploadState.start(file)
   }
 
   function onDrop(event: DragEvent<HTMLDivElement>) {
@@ -163,11 +146,17 @@ export function JobUploadPanel({ className }: { className?: string }) {
             <span className="pointer-events-none min-w-0">
               <span className="block font-medium text-white">
                 {pending
-                  ? 'Reading the job description with AI…'
+                  ? uploadState.cancelling
+                    ? 'Cancelling upload…'
+                    : uploadState.transferring || uploadState.starting
+                      ? 'Uploading the job description…'
+                      : 'Reading the job description with AI…'
                   : 'Drop the job description here, or click to choose'}
               </span>
               <span className="mt-0.5 block text-small text-ink-muted">
-                PDF or Word (.docx), one job description per file, up to {MAX_FILE_MB} MB.
+                {pending
+                  ? uploadState.fileName
+                  : `PDF or Word (.docx), one job description per file, up to ${MAX_FILE_MB} MB.`}
               </span>
             </span>
             {pending && (
@@ -190,6 +179,41 @@ export function JobUploadPanel({ className }: { className?: string }) {
               }}
             />
           </div>
+          {pending && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-caption text-white/75">
+                Your upload continues when you switch pages.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={uploadState.cancelling}
+                onClick={() => void uploadState.cancel()}
+              >
+                {uploadState.cancelling ? 'Cancelling…' : 'Cancel upload'}
+              </Button>
+            </div>
+          )}
+          {upload?.status === 'ready' && (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <span className="min-w-0 flex-1 truncate text-small text-white">
+                {upload.file_name} is ready.
+              </span>
+              <Button asChild size="sm">
+                <Link
+                  to="/jobs/new"
+                  state={{
+                    prefill: extractionToForm(upload.fields),
+                    filledFrom: upload.file_name,
+                    uploadId: upload.id,
+                  }}
+                >
+                  Review and create job description
+                </Link>
+              </Button>
+            </div>
+          )}
           {error && (
             <p
               role="alert"

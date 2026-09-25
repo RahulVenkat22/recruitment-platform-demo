@@ -1,6 +1,14 @@
 import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowRightIcon, CircleAlertIcon, EyeIcon, EyeOffIcon, Loader2Icon } from 'lucide-react'
+import {
+  ArrowRightIcon,
+  CircleAlertIcon,
+  EyeIcon,
+  EyeOffIcon,
+  Loader2Icon,
+  LockKeyholeIcon,
+  MailIcon,
+} from 'lucide-react'
 import { motion } from 'motion/react'
 import { useEffect, useId, useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
@@ -8,7 +16,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import {
   InputGroup,
   InputGroupAddon,
@@ -119,16 +126,20 @@ export function LoginForm({ className }: LoginFormProps) {
           <motion.div {...rise(0, reducedMotion)}>
             <Field data-invalid={Boolean(errors.identifier)}>
               <FieldLabel htmlFor={ids.identifier}>Email or username</FieldLabel>
-              <Input
-                id={ids.identifier}
-                type="text"
-                inputMode="email"
-                autoComplete="username"
-                autoFocus
-                className="h-11 bg-surface transition-[border-color,box-shadow] duration-150 ease-brand hover:border-line-strong"
-                aria-invalid={Boolean(errors.identifier)}
-                {...form.register('identifier')}
-              />
+              <InputGroup className="h-11 bg-surface transition-[border-color,box-shadow] duration-150 ease-brand hover:border-line-strong">
+                <InputGroupAddon>
+                  <MailIcon aria-hidden="true" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  id={ids.identifier}
+                  type="text"
+                  inputMode="email"
+                  autoComplete="username"
+                  placeholder="Enter your email or username"
+                  aria-invalid={Boolean(errors.identifier)}
+                  {...form.register('identifier')}
+                />
+              </InputGroup>
               <FieldError errors={[errors.identifier]} />
             </Field>
           </motion.div>
@@ -149,10 +160,14 @@ export function LoginForm({ className }: LoginFormProps) {
                 </button>
               </div>
               <InputGroup className="h-11 bg-surface transition-[border-color,box-shadow] duration-150 ease-brand hover:border-line-strong">
+                <InputGroupAddon>
+                  <LockKeyholeIcon aria-hidden="true" />
+                </InputGroupAddon>
                 <InputGroupInput
                   id={ids.password}
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
+                  placeholder="Enter your password"
                   aria-invalid={Boolean(errors.password)}
                   {...form.register('password')}
                 />

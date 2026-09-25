@@ -1,7 +1,7 @@
 """pytest settings: same PostgreSQL server (pytest-django creates test_<db>), fast hashing."""
 
 from .base import *  # noqa: F403
-from .base import GEMINI_MODEL, GEMINI_SEARCH_MODEL, REST_FRAMEWORK, SIMPLE_JWT
+from .base import REST_FRAMEWORK, SIMPLE_JWT
 
 DEBUG = False
 
@@ -46,12 +46,21 @@ LOGGING = {
 # the model names. Both keys are blanked, so a call that does slip through fails
 # at the client constructor with LLMUnavailable, before any network request.
 LLM_PROVIDER = "gemini"
+GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_SEARCH_MODEL = "gemini-2.5-flash-lite"
+GEMINI_FALLBACK_MODEL = ""
+OPENAI_MODEL = "gpt-4.1-mini"
+OPENAI_SEARCH_MODEL = OPENAI_MODEL
+OPENAI_FALLBACK_MODEL = "gpt-4o-mini"
+OPENAI_BASE_URL = ""
 LLM_MODEL = GEMINI_MODEL
 LLM_SEARCH_MODEL = GEMINI_SEARCH_MODEL
+LLM_FALLBACK_MODEL = GEMINI_FALLBACK_MODEL
 LLM_TIMEOUT_SECONDS = 120
 LLM_MAX_RETRIES = 2
 OPENAI_API_KEY = ""
 GEMINI_API_KEY = ""
+EMBEDDING_PROVIDER = "gemini"
 EMBEDDING_MODEL = "gemini-embedding-001"
 SEARCH_RUN_ASYNC = False
 RESUME_INGEST_ASYNC = False
