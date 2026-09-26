@@ -153,10 +153,13 @@ describe('LoginPage', () => {
     await ui.click(screen.getByLabelText('Remember me'))
     await fillAndSubmit(ui, 'rahul@aimious.demo', 'Demo@1234')
 
-    // The welcome transition is brief, then returns to the requested route.
+    // Keep the welcome loader visible for five seconds before returning to the requested route.
     expect(await screen.findByRole('status', { name: 'Signing you in' })).toBeInTheDocument()
     expect(screen.queryByText('Job detail page')).not.toBeInTheDocument()
-    await act(() => vi.advanceTimersByTimeAsync(900))
+    await act(() => vi.advanceTimersByTimeAsync(4000))
+    expect(screen.getByRole('status', { name: 'Signing you in' })).toBeInTheDocument()
+    expect(screen.queryByText('Job detail page')).not.toBeInTheDocument()
+    await act(() => vi.advanceTimersByTimeAsync(1000))
 
     expect(await screen.findByText('Job detail page')).toBeInTheDocument()
     expect(post).toHaveBeenCalledWith(endpoints.authLogin, {
@@ -176,7 +179,7 @@ describe('LoginPage', () => {
     await fillAndSubmit(ui, 'rahul@aimious.demo', 'Demo@1234')
 
     expect(await screen.findByRole('status', { name: 'Signing you in' })).toBeInTheDocument()
-    await act(() => vi.advanceTimersByTimeAsync(900))
+    await act(() => vi.advanceTimersByTimeAsync(5000))
 
     expect(await screen.findByText('Home page')).toBeInTheDocument()
   })

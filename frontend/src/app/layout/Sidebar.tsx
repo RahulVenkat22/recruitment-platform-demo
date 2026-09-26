@@ -144,12 +144,7 @@ function BrandLink({
       ) : (
         <span className="flex flex-col gap-3">
           <BrandLogo on="dark" className="h-auto w-[158px]" />
-          <span className="flex items-center gap-2">
-            <TalentOSLogo on="dark" size="sm" />
-            <span className="ml-1 rounded border border-white/15 px-1.5 py-0.5 text-[8px] tracking-[0.08em] text-[#afc4cd] uppercase">
-              Workspace
-            </span>
-          </span>
+          <TalentOSLogo on="dark" size="sm" />
         </span>
       )}
     </Link>

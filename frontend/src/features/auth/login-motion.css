@@ -125,7 +125,7 @@
   align-items: center;
   gap: clamp(28px, 5vw, 84px);
   align-self: center;
-  padding-block: 32px;
+  padding-block: clamp(12px, 3dvh, 32px);
 }
 
 .talent-login__form-panel {
@@ -363,8 +363,10 @@
 .talent-carousel__stage {
   position: relative;
   isolation: isolate;
+  container-type: size;
   width: calc(100% + 32px);
-  height: clamp(280px, 34vh, 360px);
+  /* Leave room for the header, introduction, controls and footer on short screens. */
+  height: clamp(180px, calc(100dvh - 660px), 360px);
   margin: 0 -16px;
   border-radius: 18px;
   cursor: grab;
@@ -526,16 +528,15 @@
 .talent-carousel__fallback-model {
   position: absolute;
   z-index: calc(1 + var(--model-depth) * 10);
-  top: 38%;
+  top: 50%;
   left: 50%;
   display: flex;
-  width: 130px;
-  height: 170px;
+  width: clamp(84px, 45cqh, 130px);
+  height: clamp(110px, 60cqh, 170px);
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  margin: -70px -65px;
+  gap: clamp(6px, 5cqh, 14px);
   border: 1px solid #ffffff91;
   border-radius: 14px;
   color: #2c493b;
@@ -543,6 +544,7 @@
   box-shadow:
     6px 6px 0 color-mix(in srgb, var(--model-color), #223b2c 30%),
     12px 22px 32px #0005;
+  translate: -50% -50%;
   transform: translateX(calc(var(--model-x) * clamp(100px, 18vw, 195px)))
     translateY(calc((1 - var(--model-depth)) * -30px)) scale(calc(0.58 + var(--model-depth) * 0.5))
     rotateY(calc(var(--model-x) * -22deg));
@@ -552,8 +554,8 @@
     opacity 500ms;
 }
 .talent-carousel__fallback-model > svg {
-  width: 44px;
-  height: 44px;
+  width: clamp(24px, 16cqh, 44px);
+  height: clamp(24px, 16cqh, 44px);
   stroke-width: 1.4;
 }
 .talent-carousel__fallback-model > span {
@@ -588,44 +590,7 @@
     max-width: 500px;
   }
   .talent-carousel__stage {
-    height: 410px;
-  }
-}
-@media (min-width: 960px) and (max-height: 820px) {
-  .talent-login {
-    padding-top: 22px;
-  }
-  .talent-login__layout {
-    padding-block: 22px;
-  }
-  .talent-showcase__intro h2 {
-    font-size: clamp(38px, 3.5vw, 50px);
-  }
-  .talent-showcase__description {
-    margin-top: 12px;
-  }
-  .talent-carousel {
-    margin-top: 18px;
-  }
-  .talent-carousel__stage {
-    height: 280px;
-  }
-  .talent-carousel__caption {
-    margin-top: 12px;
-    min-height: 80px;
-    padding-top: 16px;
-  }
-  .talent-carousel__steps {
-    margin-top: 6px;
-  }
-  .talent-login__content {
-    padding-block: 28px;
-  }
-  .talent-login__eyebrow {
-    margin-top: 24px;
-  }
-  .talent-login__form {
-    margin-top: 24px;
+    height: clamp(180px, calc(100dvh - 660px), 410px);
   }
 }
 @media (max-width: 1100px) and (min-width: 960px) {
@@ -638,9 +603,6 @@
   }
   .talent-showcase__intro h2 {
     font-size: 41px;
-  }
-  .talent-carousel__stage {
-    height: 300px;
   }
   .talent-carousel__caption {
     gap: 13px;
@@ -659,26 +621,10 @@
   .talent-login__layout {
     max-width: 640px;
     grid-template-columns: 1fr;
-    gap: 36px;
-    padding-top: 36px;
   }
-  .talent-showcase__intro {
-    text-align: center;
-  }
-  .talent-showcase__eyebrow {
-    justify-content: center;
-  }
-  .talent-showcase__intro h2 {
-    font-size: clamp(38px, 6vw, 54px);
-  }
-  .talent-showcase__description {
-    margin-top: 14px;
-  }
-  .talent-carousel__stage {
-    height: 345px;
-  }
-  .talent-carousel__caption h3 {
-    font-size: 19px;
+  /* Keep sign-in on the first screen instead of stacking the decorative showcase. */
+  .talent-showcase {
+    display: none;
   }
   .talent-login__form-panel {
     max-width: 490px;
@@ -711,62 +657,6 @@
   .talent-login__brand-partner > img {
     height: 29px;
   }
-  .talent-login__layout {
-    gap: 28px;
-    padding-top: 25px;
-  }
-  .talent-showcase__eyebrow {
-    font-size: 8px;
-    letter-spacing: 0.03em;
-  }
-  .talent-showcase__intro h2 {
-    margin-top: 14px;
-    font-size: clamp(30px, 8.2vw, 40px);
-  }
-  .talent-showcase__description {
-    margin-top: 10px;
-    font-size: 10px;
-  }
-  .talent-carousel {
-    margin-top: 21px;
-  }
-  .talent-carousel__toolbar > span {
-    font-size: 7px;
-  }
-  .talent-carousel__stage {
-    height: 265px;
-  }
-  .talent-carousel__scene {
-    inset-inline: 0;
-  }
-
-  .talent-carousel__hint {
-    font-size: 8px;
-  }
-  .talent-carousel__caption {
-    min-height: 89px;
-    gap: 12px;
-    margin-top: 14px;
-    padding-top: 16px;
-  }
-  .talent-carousel__count {
-    font-size: 9px;
-  }
-  .talent-carousel__caption h3 {
-    font-size: 15px;
-  }
-  .talent-carousel__caption p {
-    font-size: 10px;
-  }
-  .talent-carousel__steps {
-    gap: 5px;
-    margin-top: 4px;
-  }
-  .talent-carousel__steps button {
-    font-size: 8px;
-    min-height: 56px;
-    gap: 7px;
-  }
   .talent-login__content {
     padding: 24px;
     border-radius: 20px;
@@ -790,13 +680,89 @@
   .talent-login__footer {
     font-size: 8px;
   }
-  .talent-carousel__fallback-model {
-    width: 100px;
-    height: 140px;
-    margin-left: -50px;
+}
+@media (max-height: 950px) {
+  .talent-login {
+    padding-block: 16px;
   }
-  .talent-carousel__fallback-model > span {
-    font-size: 9px;
+  .talent-login__layout {
+    padding-block: 16px;
+  }
+  .talent-login__content {
+    padding-block: 20px;
+  }
+  .talent-login__eyebrow {
+    margin-top: 12px;
+  }
+  .talent-login__content h1 {
+    margin-top: 8px;
+    font-size: 32px;
+  }
+  .talent-login__form {
+    margin-top: 18px;
+  }
+  .talent-login__form > :not(:last-child),
+  .talent-login__form fieldset > :not(:last-child) {
+    margin-block-end: 14px;
+  }
+  .talent-login__form [data-slot='input-group'],
+  .talent-login__form button[type='submit'] {
+    height: 44px;
+  }
+  .talent-login__card-note,
+  .talent-login__access-note {
+    margin-top: 12px;
+  }
+  .talent-login__footer {
+    padding-top: 12px;
+  }
+  .talent-showcase__intro h2 {
+    margin-top: 12px;
+    font-size: clamp(32px, 3.2vw, 44px);
+  }
+  .talent-showcase__description {
+    margin-top: 10px;
+  }
+  .talent-carousel {
+    margin-top: 12px;
+  }
+  .talent-carousel__caption {
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+}
+@media (max-height: 740px) {
+  .talent-login__card-top,
+  .talent-login__eyebrow,
+  .talent-login__card-note,
+  .talent-showcase__description,
+  .talent-carousel__toolbar {
+    display: none;
+  }
+  .talent-login__content h1 {
+    margin-top: 0;
+  }
+  .talent-carousel__stage {
+    height: 140px;
+  }
+}
+@media (max-height: 600px) {
+  .talent-login,
+  .talent-login__layout {
+    padding-block: 12px;
+  }
+  .talent-login__content {
+    padding-block: 16px;
+  }
+  .talent-login__form {
+    margin-top: 12px;
+  }
+  .talent-login__form > :not(:last-child),
+  .talent-login__form fieldset > :not(:last-child) {
+    margin-block-end: 10px;
+  }
+  .talent-login__access-note {
+    display: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {

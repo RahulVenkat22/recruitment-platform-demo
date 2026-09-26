@@ -15,7 +15,7 @@ import { EASE_BRAND } from '@/lib/motion'
 interface FromState {
   from?: { pathname?: string; search?: string }
 }
-const SIGN_IN_HOLD_MS = 900
+const SIGN_IN_HOLD_MS = 5000
 
 function redirectTarget(state: unknown): string {
   const from = (state as FromState | null)?.from
