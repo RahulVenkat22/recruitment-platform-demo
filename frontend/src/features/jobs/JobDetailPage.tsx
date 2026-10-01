@@ -26,6 +26,7 @@ import {
   metricTabLink,
 } from '@/features/jobs/job-utils'
 import { JobOverview } from '@/features/jobs/JobOverview'
+import { JobTat } from '@/features/jobs/JobTat'
 import { PeopleTab } from '@/features/jobs/PeopleTab'
 import { StatusNoteDialog } from '@/features/jobs/StatusNoteDialog'
 import { CandidatesTab } from '@/features/jobs/CandidatesTab'
@@ -288,7 +289,8 @@ export default function JobDetailPage() {
 
         <MetricRow metrics={detail.metrics} />
 
-        <TabsContent value="overview">
+        <TabsContent value="overview" className="space-y-5">
+          <JobTat tat={detail.tat} />
           <JobOverview
             content={detail}
             status={detail.status}

@@ -9,8 +9,13 @@ from datetime import date, datetime
 from typing import Any
 
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill
+from openpyxl.chart import BarChart, DoughnutChart, LineChart, Reference
+from openpyxl.chart.label import DataLabelList
+from openpyxl.chart.series import DataPoint
+from openpyxl.formatting.rule import ColorScaleRule
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.worksheet import Worksheet
 
 from accounts.models import User
 from common import enums
@@ -18,6 +23,50 @@ from dashboard import services
 from dashboard.services import Scope
 
 Cell = str | int | float | date | datetime | None
+
+# ------------------------------------------------------------------ palette
+# The app's own colours (frontend/src/index.css and charts/theme.ts), used by
+# the PDF drawings and the workbook charts alike.
+
+INK = "#0a0a0a"
+MUTED = "#4a4d48"
+SUBTLE = "#5d615c"
+LINE = "#e1e1db"
+LINE_STRONG = "#b7b7ae"
+SURFACE = "#ffffff"
+SURFACE_2 = "#f0f0ec"
+ACCENT = "#c4d600"
+ON_DARK = "#c9cbc3"
+SUCCESS, SUCCESS_SOFT = "#1f7a4d", "#e3f3ea"
+WARNING, WARNING_SOFT = "#8f5d12", "#fbf1dc"
+DANGER, DANGER_SOFT = "#d50032", "#fce7ec"
+SERIES = ("#6b7500", "#3f3fb5", "#b7791f", "#1d4ed8", "#b42318")
+ORDINAL = ("#abac0c", "#949507", "#7e7f03", "#696900", "#545400", "#404005")
+STAGE = {
+    "found": ORDINAL[0],
+    "awaiting": ORDINAL[0],
+    "shortlisted": ORDINAL[1],
+    "contacted": ORDINAL[2],
+    "interviewed": ORDINAL[3],
+    "selected": ORDINAL[4],
+    "onboarded": ORDINAL[5],
+}
+OUTCOME = {
+    "strong_proceed": "#1f7a4d",
+    "proceed": "#4c9d6f",
+    "hold": "#b7b7ae",
+    "reject": "#d50032",
+}
+OFFER = {
+    "draft": "#b7b7ae",
+    "sent": "#1d4ed8",
+    "negotiating": "#b7791f",
+    "accepted": "#1f7a4d",
+    "declined": "#d50032",
+    "withdrawn": "#5d615c",
+    "expired": "#5d615c",
+}
+HEAT = ("#f3f7d2", "#dde48a", "#c4d600", "#8fa000", "#6b7500")
 
 ROLE_STAGES = ("shortlisted", "contacted", "interviewed", "selected", "onboarded")
 ACTIVE_ROLE_STATUSES = (enums.JDStatus.OPEN, enums.JDStatus.ON_HOLD)
@@ -146,12 +195,28 @@ def cell_text(cell: Cell) -> str:
 
 
 @dataclass(frozen=True)
+class Chart:
+    """How a table is drawn as a native Excel chart: which columns are the
+    series, in which colours, over which rows. The first column is always the
+    category axis."""
+
+    kind: str  # column | bar | line | doughnut | stacked-bar
+    values: tuple[int, ...]  # 1-based table columns holding the series
+    # One colour per series, or one per category when a single series is coloured by point.
+    colors: tuple[str, ...] = ()
+    by_point: bool = False
+    rows: tuple[int, int | None] = (0, None)  # the slice of table rows to plot
+    title: str = ""
+
+
+@dataclass(frozen=True)
 class Table:
     title: str
     columns: list[str]
     rows: list[list[Cell]]
     # One line under the title: what "now" means, the role the funnel is narrowed to…
     note: str = ""
+    chart: Chart | None = None
 
 
 ATTENTION_ITEMS = (
@@ -169,7 +234,8 @@ HEADLINE_FIGURES = (
     ("offers_pending", "Offers pending", "now"),
     ("hires", "Hires", "window"),
     ("offer_acceptance", "Offer acceptance", "window"),
-    ("time_to_hire", "Time to hire", "window"),
+    ("recruitment_tat", "Recruitment TAT", "window"),
+    ("time_to_hire", "Candidate TAT", "window"),
 )
 TREND_SERIES = (
     ("candidates", "Candidates found"),
@@ -179,6 +245,19 @@ TREND_SERIES = (
     ("hires", "Hires"),
 )
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+ROLE_LIMIT = 12
+
+
+def stage_colors(rows: list[dict[str, Any]]) -> tuple[str, ...]:
+    return tuple(
+        STAGE.get(row["key"], ORDINAL[index % len(ORDINAL)]) for index, row in enumerate(rows)
+    )
+
+
+def cycle(colors: tuple[str, ...], count: int) -> tuple[str, ...]:
+    return tuple(colors[index % len(colors)] for index in range(count))
 
 
 def tables(snap: Snapshot) -> list[Table]:
@@ -208,10 +287,22 @@ def tables(snap: Snapshot) -> list[Table]:
             ],
         ),
         Table(
+            "Stage TAT",
+            ["Stage", "Average days per hire", "Hires visiting stage"],
+            [
+                [stage["label"], stage["avg_days"], stage["hires"]]
+                for stage in insights["tat"]["stages"]
+            ],
+            note=f"{window}: completed hires. Calendar days include holds and repeat visits. "
+            f"{insights['tat']['incomplete_histories']} incomplete histories excluded.",
+            chart=Chart("column", (2,), stage_colors(insights["tat"]["stages"]), by_point=True),
+        ),
+        Table(
             "Needs attention",
             ["Item", "What it means", "Count"],
             [[label, meaning, attention[key]] for key, label, meaning in ATTENTION_ITEMS],
             note="Right now",
+            chart=Chart("bar", (3,), (WARNING,)),
         ),
         Table(
             "Hiring activity",
@@ -221,6 +312,7 @@ def tables(snap: Snapshot) -> list[Table]:
                 for point in snap.trends["points"]
             ],
             note=f"{window}, by day",
+            chart=Chart("line", (2, 3, 4, 5, 6), SERIES),
         ),
         Table(
             "Pipeline health",
@@ -230,6 +322,7 @@ def tables(snap: Snapshot) -> list[Table]:
                 for stage in insights["stages"]
             ],
             note="Right now",
+            chart=Chart("column", (2,), stage_colors(insights["stages"]), by_point=True),
         ),
         Table(
             "Recruitment funnel",
@@ -239,6 +332,7 @@ def tables(snap: Snapshot) -> list[Table]:
                 for stage in snap.funnel["stages"]
             ],
             note=snap.funnel_job.title if snap.funnel_job else "All roles",
+            chart=Chart("bar", (2,), stage_colors(snap.funnel["stages"]), by_point=True),
         ),
         Table(
             "Open roles",
@@ -270,11 +364,18 @@ def tables(snap: Snapshot) -> list[Table]:
                 for job in snap.jobs
             ],
             note="Right now, candidates in play per role",
+            chart=Chart(
+                "stacked-bar",
+                (6, 7, 8, 9, 10),
+                tuple(STAGE[key] for key in ROLE_STAGES),
+                rows=(0, ROLE_LIMIT),
+            ),
         ),
         Table(
             "Skills in demand",
             ["Skill", "Open roles asking", "Candidates who have it"],
             [[skill["label"], skill["roles"], skill["candidates"]] for skill in insights["skills"]],
+            chart=Chart("bar", (2, 3), (SERIES[1], SERIES[0])),
         ),
         Table(
             "Match quality",
@@ -284,12 +385,14 @@ def tables(snap: Snapshot) -> list[Table]:
                 f"Right now, {match['scored']} scored candidates"
                 + (f", {match['avg_pct']}% on average" if match["avg_pct"] is not None else "")
             ),
+            chart=Chart("column", (2,), ORDINAL[1:5], by_point=True),
         ),
         Table(
             "Experience mix",
             ["Experience", "Candidates"],
             [[band["label"], band["value"]] for band in insights["experience"]],
             note="Right now",
+            chart=Chart("doughnut", (2,), ORDINAL[1:5], by_point=True),
         ),
         Table(
             "AI searches",
@@ -307,12 +410,16 @@ def tables(snap: Snapshot) -> list[Table]:
                 ],
             ],
             note=window,
+            chart=Chart("column", (2,), (SERIES[0],), rows=(0, 4)),
         ),
         Table(
             "Candidates by source",
             ["Source", "Candidates"],
             [[source["label"], source["value"]] for source in snap.pipeline["sources"]],
             note="Right now",
+            chart=Chart(
+                "doughnut", (2,), cycle(SERIES, len(snap.pipeline["sources"])), by_point=True
+            ),
         ),
         Table(
             "Departments",
@@ -322,6 +429,7 @@ def tables(snap: Snapshot) -> list[Table]:
                 for row in insights["departments"]
             ],
             note="Right now",
+            chart=Chart("bar", (4, 2), (SERIES[0], SERIES[1])),
         ),
         Table(
             "Offers",
@@ -335,6 +443,12 @@ def tables(snap: Snapshot) -> list[Table]:
                     else ""
                 )
             ),
+            chart=Chart(
+                "doughnut",
+                (2,),
+                tuple(OFFER.get(row["key"], SUBTLE) for row in offers["statuses"]),
+                by_point=True,
+            ),
         ),
         Table(
             "Outreach",
@@ -344,6 +458,7 @@ def tables(snap: Snapshot) -> list[Table]:
                 *([f"Outcome: {row['label']}", row["value"]] for row in outreach["outcomes"]),
             ],
             note=window,
+            chart=Chart("bar", (2,), (SERIES[1],)),
         ),
         Table(
             "Interviews",
@@ -362,6 +477,17 @@ def tables(snap: Snapshot) -> list[Table]:
                 ),
             ],
             note=window,
+            chart=Chart(
+                "bar",
+                (2,),
+                tuple(
+                    OUTCOME.get(row["key"], LINE_STRONG)
+                    for row in snap.interviews["recommendations"]
+                ),
+                by_point=True,
+                rows=(7, None),
+                title="Interview recommendations",
+            ),
         ),
         Table(
             "Interviewer load",
@@ -371,6 +497,7 @@ def tables(snap: Snapshot) -> list[Table]:
                 for row in snap.interviews["interviewers"]
             ],
             note=window,
+            chart=Chart("bar", (2, 3), (SERIES[1], SERIES[0])),
         ),
         Table(
             "When the team works",
@@ -394,6 +521,7 @@ def tables(snap: Snapshot) -> list[Table]:
                 for member in snap.team
             ],
             note=f"{window}, across everything you can see",
+            chart=Chart("stacked-bar", (3, 4, 5, 6), SERIES[:4]),
         ),
         Table(
             "Upcoming interviews",
@@ -431,40 +559,264 @@ def to_csv(snap: Snapshot) -> bytes:
 
 
 HEADER_FILL = PatternFill("solid", fgColor="E8EDF5")
+TILE_FILL = PatternFill("solid", fgColor="F4F5EF")
+TILE_EDGE = Border(
+    left=Side(style="medium", color="FFFFFF"), right=Side(style="medium", color="FFFFFF")
+)
+# Figures where a fall is the good news.
+LOWER_IS_BETTER = {"recruitment_tat", "time_to_hire"}
+# Overview geometry: two charts per band, nine tiles of two columns across the same width.
+GRID_COLUMNS = 18
+CHART_WIDTH, CHART_HEIGHT = 18.5, 7.5  # cm
+BAND_ROWS = 16
+
+
+def hex_color(color: str) -> str:
+    return color.lstrip("#").upper()
+
+
+def value_labels() -> DataLabelList:
+    """Just the number on each bar or slice. Excel treats every flag left unset as on,
+    which would print the series and category names next to the value."""
+    return DataLabelList(
+        showVal=True,
+        showSerName=False,
+        showCatName=False,
+        showLegendKey=False,
+        showPercent=False,
+        showBubbleSize=False,
+        showLeaderLines=False,
+    )
+
+
+def finish(chart: BarChart | LineChart | DoughnutChart, title: str) -> None:
+    """Title and legend in their own space rather than drawn over the plot."""
+    chart.title = title
+    chart.title.overlay = False
+    chart.width, chart.height = CHART_WIDTH, CHART_HEIGHT
+    if chart.legend is not None:
+        chart.legend.position = "b"
+        chart.legend.overlay = False
+
+
+def write_table(sheet: Worksheet, table: Table) -> int:
+    """The note, a bold frozen header row and the rows; returns the header row number."""
+    if table.note:
+        sheet.append([table.note])
+        sheet["A1"].font = Font(italic=True, color="666666")
+    sheet.append(table.columns)
+    header = sheet.max_row
+    for cell in sheet[header]:
+        cell.font = Font(bold=True)
+        cell.fill = HEADER_FILL
+    for row in table.rows:
+        sheet.append(row)
+        for cell in sheet[sheet.max_row]:
+            if isinstance(cell.value, datetime):
+                cell.number_format = "ddd, d mmm yyyy hh:mm"
+            elif isinstance(cell.value, date):
+                cell.number_format = "ddd, d mmm yyyy"
+    sheet.freeze_panes = sheet.cell(row=header + 1, column=1)
+    for index, column in enumerate(table.columns, start=1):
+        longest = max([len(column), *(len(cell_text(row[index - 1])) for row in table.rows)])
+        sheet.column_dimensions[get_column_letter(index)].width = min(longest, 60) + 3
+    return header
+
+
+def build_chart(
+    sheet: Worksheet, table: Table, header: int
+) -> BarChart | LineChart | DoughnutChart | None:
+    """A native chart over the table's cells on `sheet`; None when there is nothing to plot."""
+    spec = table.chart
+    if spec is None:
+        return None
+    start, stop = spec.rows
+    stop = len(table.rows) if stop is None else min(stop, len(table.rows))
+    if stop <= start:
+        return None
+    first, last = header + 1 + start, header + stop
+
+    chart: BarChart | LineChart | DoughnutChart
+    if spec.kind == "line":
+        chart = LineChart()
+    elif spec.kind == "doughnut":
+        chart = DoughnutChart()
+        chart.holeSize = 55
+    else:
+        chart = BarChart()
+        chart.type = "bar" if spec.kind in ("bar", "stacked-bar") else "col"
+        chart.gapWidth = 60
+        if spec.kind == "stacked-bar":
+            chart.grouping = "stacked"
+            chart.overlap = 100
+    if spec.kind == "doughnut" or len(spec.values) == 1:
+        chart.dataLabels = value_labels()
+    if spec.kind != "doughnut" and len(spec.values) == 1:
+        chart.legend = None
+    finish(chart, spec.title or table.title)
+    for column in spec.values:
+        chart.add_data(
+            Reference(sheet, min_col=column, min_row=header, max_row=last), titles_from_data=True
+        )
+    chart.set_categories(Reference(sheet, min_col=1, min_row=first, max_row=last))
+
+    if spec.by_point:
+        series = chart.series[0]
+        for index, color in enumerate(spec.colors[: stop - start]):
+            point = DataPoint(idx=index)
+            point.graphicalProperties.solidFill = hex_color(color)
+            series.dPt.append(point)
+    else:
+        for series, color in zip(chart.series, spec.colors, strict=False):
+            if spec.kind == "line":
+                series.graphicalProperties.line.solidFill = hex_color(color)
+                series.graphicalProperties.line.width = 22000
+                series.marker.symbol = "none"
+                series.smooth = False
+            else:
+                series.graphicalProperties.solidFill = hex_color(color)
+
+    if spec.kind != "doughnut":
+        # Newer Excel hides axes that are not explicitly kept.
+        chart.x_axis.delete = False
+        chart.y_axis.delete = False
+        if spec.kind == "line":
+            chart.x_axis.number_format = "d mmm"
+            chart.x_axis.tickLblSkip = max(1, (stop - start) // 8)
+        if spec.kind in ("bar", "stacked-bar"):
+            # First row at the top, as the table reads; the value axis stays along the bottom.
+            chart.x_axis.scaling.orientation = "maxMin"
+            chart.y_axis.crosses = "max"
+    return chart
+
+
+def write_heatmap(sheet: Worksheet, table: Table, header: int) -> int:
+    """Colour the hour-by-weekday grid quiet to busy and add a totals row (its number returned)."""
+    grid_first, grid_last = header + 1, header + len(table.rows)
+    sheet.conditional_formatting.add(
+        f"B{grid_first}:H{grid_last}",
+        ColorScaleRule(
+            start_type="num",
+            start_value=0,
+            start_color=hex_color(SURFACE),
+            mid_type="percentile",
+            mid_value=60,
+            mid_color=hex_color(HEAT[2]),
+            end_type="max",
+            end_color=hex_color(HEAT[4]),
+        ),
+    )
+    for row in sheet.iter_rows(min_row=grid_first, max_row=grid_last, min_col=2, max_col=8):
+        for cell in row:
+            cell.alignment = Alignment(horizontal="center")
+    sheet.append(["Total", *(sum(row[day] for row in table.rows) for day in range(1, 8))])
+    total = sheet.max_row
+    for cell in sheet[total]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center")
+    sheet["A" + str(total)].alignment = Alignment(horizontal="left")
+    return total
+
+
+def weekday_chart(sheet: Worksheet, header: int, total: int) -> BarChart:
+    chart = BarChart()
+    chart.type = "col"
+    chart.gapWidth = 60
+    chart.legend = None
+    chart.dataLabels = value_labels()
+    finish(chart, "Actions by weekday")
+    chart.add_data(
+        Reference(sheet, min_col=1, max_col=8, min_row=total), from_rows=True, titles_from_data=True
+    )
+    chart.set_categories(Reference(sheet, min_col=2, max_col=8, min_row=header))
+    chart.series[0].graphicalProperties.solidFill = hex_color(SERIES[0])
+    chart.x_axis.delete = False
+    chart.y_axis.delete = False
+    return chart
+
+
+def write_tiles(sheet: Worksheet, snap: Snapshot, top: int) -> None:
+    """The headline figures as a row of tiles: label, value, change and what it covers."""
+    sheet.row_dimensions[top + 1].height = 30
+    for index, (key, label, covers) in enumerate(HEADLINE_FIGURES):
+        metric = snap.summary[key]
+        left = 1 + index * 2
+        for offset in range(4):
+            sheet.merge_cells(
+                start_row=top + offset, start_column=left, end_row=top + offset, end_column=left + 1
+            )
+            for column in (left, left + 1):
+                cell = sheet.cell(row=top + offset, column=column)
+                cell.fill = TILE_FILL
+                cell.border = TILE_EDGE
+        sheet.cell(row=top, column=left, value=label.upper()).font = Font(
+            size=8, bold=True, color=hex_color(SUBTLE)
+        )
+        sheet.cell(row=top + 1, column=left, value=figure(metric)).font = Font(size=16, bold=True)
+        change = change_label(metric)
+        delta = metric["delta"]
+        tone = (
+            SUBTLE
+            if not change or delta == 0
+            else SUCCESS
+            if (delta > 0) == (key not in LOWER_IS_BETTER)
+            else DANGER
+        )
+        sheet.cell(row=top + 2, column=left, value=change or None).font = Font(
+            size=9, bold=True, color=hex_color(tone)
+        )
+        detail = metric["detail"] or (
+            f"vs last {snap.scope.span} days" if change else "Right now" if covers == "now" else ""
+        )
+        sheet.cell(row=top + 3, column=left, value=detail).font = Font(
+            size=8, color=hex_color(SUBTLE)
+        )
+        for offset in range(4):
+            sheet.cell(row=top + offset, column=left).alignment = Alignment(
+                horizontal="left", vertical="center", indent=1
+            )
 
 
 def to_xlsx(snap: Snapshot) -> bytes:
-    """One sheet per table, a bold frozen header row and dates as real dates."""
+    """A Dashboard sheet of KPI tiles and every chart, then one sheet per table with
+    the table beside its own native chart; the heatmap is a colour scale over its grid."""
     book = Workbook()
-    about = book.active
-    about.title = "About"
-    about.append(["Dashboard"])
-    about["A1"].font = Font(bold=True, size=14)
-    for line in snap.lines:
-        about.append([line])
-    about.column_dimensions["A"].width = 80
+    overview = book.active
+    overview.title = "Dashboard"
+    overview.sheet_view.showGridLines = False
+    for column in range(1, GRID_COLUMNS + 1):
+        overview.column_dimensions[get_column_letter(column)].width = 11
+    overview["A1"] = "Dashboard"
+    overview["A1"].font = Font(bold=True, size=18)
+    for index, line in enumerate(snap.lines, start=2):
+        overview.cell(row=index, column=1, value=line).font = Font(
+            size=10, color=hex_color(SUBTLE if index > 2 else INK)
+        )
+    tiles_top = len(snap.lines) + 3
+    write_tiles(overview, snap, tiles_top)
 
+    charts = []
     for table in tables(snap):
         sheet = book.create_sheet(table.title)
-        if table.note:
-            sheet.append([table.note])
-            sheet["A1"].font = Font(italic=True, color="666666")
-        sheet.append(table.columns)
-        header = sheet.max_row
-        for cell in sheet[header]:
-            cell.font = Font(bold=True)
-            cell.fill = HEADER_FILL
-        for row in table.rows:
-            sheet.append(row)
-            for cell in sheet[sheet.max_row]:
-                if isinstance(cell.value, datetime):
-                    cell.number_format = "ddd, d mmm yyyy hh:mm"
-                elif isinstance(cell.value, date):
-                    cell.number_format = "ddd, d mmm yyyy"
-        sheet.freeze_panes = sheet.cell(row=header + 1, column=1)
-        for index, column in enumerate(table.columns, start=1):
-            longest = max([len(column), *(len(cell_text(row[index - 1])) for row in table.rows)])
-            sheet.column_dimensions[get_column_letter(index)].width = min(longest, 60) + 3
+        header = write_table(sheet, table)
+        beside = f"{get_column_letter(len(table.columns) + 2)}{header}"
+        if table.title == "When the team works":
+            total = write_heatmap(sheet, table, header)
+            sheet.add_chart(weekday_chart(sheet, header, total), beside)
+            charts.append(
+                lambda sheet=sheet, header=header, total=total: weekday_chart(sheet, header, total)
+            )
+        elif build_chart(sheet, table, header) is not None:
+            sheet.add_chart(build_chart(sheet, table, header), beside)
+            charts.append(
+                lambda sheet=sheet, table=table, header=header: build_chart(sheet, table, header)
+            )
+
+    # The overview shows every chart in two columns, in the page's order.
+    for index, make in enumerate(charts):
+        row = tiles_top + 5 + (index // 2) * BAND_ROWS
+        column = get_column_letter(1 + (index % 2) * (GRID_COLUMNS // 2))
+        overview.add_chart(make(), f"{column}{row}")
 
     buffer = io.BytesIO()
     book.save(buffer)

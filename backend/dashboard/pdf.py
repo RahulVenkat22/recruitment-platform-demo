@@ -1,5 +1,5 @@
 """The dashboard as a designed PDF: A4 pages drawn straight with PyMuPDF in the
-app's own palette (frontend/src/index.css and charts/theme.ts). A title band,
+app's own palette (shared with the workbook in ``dashboard.exports``). A title band,
 eight KPI tiles with deltas and sparklines, then every widget as a card: bar
 rows, stacked bars, a trend line, a donut, a heatmap and tables."""
 
@@ -13,49 +13,34 @@ from typing import Any
 import pymupdf
 
 from dashboard import exports
-from dashboard.exports import ATTENTION_ITEMS, ROLE_STAGES, WEEKDAYS, Snapshot
-
-# ------------------------------------------------------------------ palette
-
-INK = "#0a0a0a"
-MUTED = "#4a4d48"
-SUBTLE = "#5d615c"
-LINE = "#e1e1db"
-LINE_STRONG = "#b7b7ae"
-SURFACE = "#ffffff"
-SURFACE_2 = "#f0f0ec"
-ACCENT = "#c4d600"
-ON_DARK = "#c9cbc3"
-SUCCESS, SUCCESS_SOFT = "#1f7a4d", "#e3f3ea"
-WARNING, WARNING_SOFT = "#8f5d12", "#fbf1dc"
-DANGER, DANGER_SOFT = "#d50032", "#fce7ec"
-SERIES = ("#6b7500", "#3f3fb5", "#b7791f", "#1d4ed8", "#b42318")
-ORDINAL = ("#abac0c", "#949507", "#7e7f03", "#696900", "#545400", "#404005")
-STAGE = {
-    "found": ORDINAL[0],
-    "awaiting": ORDINAL[0],
-    "shortlisted": ORDINAL[1],
-    "contacted": ORDINAL[2],
-    "interviewed": ORDINAL[3],
-    "selected": ORDINAL[4],
-    "onboarded": ORDINAL[5],
-}
-OUTCOME = {
-    "strong_proceed": "#1f7a4d",
-    "proceed": "#4c9d6f",
-    "hold": "#b7b7ae",
-    "reject": "#d50032",
-}
-OFFER = {
-    "draft": "#b7b7ae",
-    "sent": "#1d4ed8",
-    "negotiating": "#b7791f",
-    "accepted": "#1f7a4d",
-    "declined": "#d50032",
-    "withdrawn": "#5d615c",
-    "expired": "#5d615c",
-}
-HEAT = ("#f3f7d2", "#dde48a", "#c4d600", "#8fa000", "#6b7500")
+from dashboard.exports import (
+    ACCENT,
+    ATTENTION_ITEMS,
+    DANGER,
+    DANGER_SOFT,
+    HEAT,
+    INK,
+    LINE,
+    LINE_STRONG,
+    MUTED,
+    OFFER,
+    ON_DARK,
+    ORDINAL,
+    OUTCOME,
+    ROLE_LIMIT,
+    ROLE_STAGES,
+    SERIES,
+    STAGE,
+    SUBTLE,
+    SUCCESS,
+    SUCCESS_SOFT,
+    SURFACE,
+    SURFACE_2,
+    WARNING,
+    WARNING_SOFT,
+    WEEKDAYS,
+    Snapshot,
+)
 
 # ------------------------------------------------------------------ geometry, in points
 
@@ -71,7 +56,6 @@ ROW = 16.0
 LEGEND_ROW = 12.0
 TILE_H = 78.0
 PLOT_H = 146.0
-ROLE_LIMIT = 12
 
 REGULAR = pymupdf.Font("helv")
 BOLD = pymupdf.Font("hebo")
@@ -576,7 +560,7 @@ TILES = (
     ("offers_pending", "Offers pending", "now", "up"),
     ("hires", "Hires", "window", "up"),
     ("offer_acceptance", "Offer acceptance", "window", "up"),
-    ("time_to_hire", "Time to hire", "window", "down"),
+    ("recruitment_tat", "Recruitment TAT", "window", "down"),
 )
 TONES = {"good": (SUCCESS_SOFT, SUCCESS), "bad": (DANGER_SOFT, DANGER), "flat": (SURFACE_2, SUBTLE)}
 
@@ -711,6 +695,49 @@ def pipeline_panel(snap: Snapshot) -> Panel:
         "Right now, who is where and for how long",
         bars,
         "Nobody in the pipeline",
+    )
+
+
+def tat_panel(snap: Snapshot) -> Panel:
+    tat = snap.insights["tat"]
+    columns = [
+        Column("Stage", 0.5),
+        Column("Average days per hire", 0.25, "right"),
+        Column("Hires visiting stage", 0.25, "right"),
+    ]
+    rows = [
+        [stage["label"], count(stage["avg_days"]), count(stage["hires"])] for stage in tat["stages"]
+    ]
+    note = (
+        "Calendar days include holds and repeat visits. "
+        f"{tat['incomplete_histories']} incomplete histories excluded from stage averages."
+    )
+
+    def body_height(width):
+        return table_height(width, columns, rows) if rows else ROW
+
+    def draw(sheet, x, y, width):
+        sheet.text(
+            x,
+            y + 10,
+            f"Candidate TAT: {exports.figure(snap.summary['time_to_hire'])} "
+            "· Candidate added to completed onboarding",
+            size=8.5,
+        )
+        if rows:
+            draw_table(sheet, x, y + 26, width, columns, rows)
+        else:
+            sheet.note(x, y + 26, "No complete stage histories for hires in this period")
+        for index, line in enumerate(wrap_text(note, width, 7.5)):
+            sheet.text(
+                x, y + 26 + body_height(width) + 14 + index * 10, line, size=7.5, color=SUBTLE
+            )
+
+    return Panel(
+        "Stage turnaround time (TAT)",
+        f"{snap.short_window} · {tat['hires']} completed hires",
+        lambda width: 40 + body_height(width) + len(wrap_text(note, width, 7.5)) * 10,
+        draw,
     )
 
 
@@ -1150,6 +1177,7 @@ class Document:
 def render(snap: Snapshot) -> bytes:
     document = Document(snap)
     document.row((kpi_panel(snap), 1.0))
+    document.row((tat_panel(snap), 1.0))
     document.row((trend_panel(snap), 0.6), (attention_panel(snap), 0.4))
     document.row((pipeline_panel(snap), 0.5), (funnel_panel(snap), 0.5))
     document.row((roles_panel(snap), 1.0))

@@ -218,6 +218,7 @@ export function useApplication(id: string | undefined) {
     queryKey: qk.applications.detail(id ?? ''),
     queryFn: () => fetchApplication(id as string),
     enabled: Boolean(id),
+    refetchInterval: (query) => (query.state.data?.tat?.finished_at === null ? 60_000 : false),
   })
 }
 
