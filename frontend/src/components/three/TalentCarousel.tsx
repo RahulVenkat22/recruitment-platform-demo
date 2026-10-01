@@ -1,7 +1,7 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Color, type DirectionalLight, type Group, MathUtils, type MeshBasicMaterial } from 'three'
-import { CAROUSEL_ITEMS, wrapCarouselIndex } from '@/features/auth/carousel-items'
+import { CAROUSEL_ITEMS, wrapCarouselIndex } from '@/components/three/carousel-items'
 import { CandidateModel, InterviewModel, OpportunityModel, ResumeModel } from './RecruitmentModels'
 
 interface TalentCarouselProps {
@@ -14,6 +14,9 @@ interface TalentCarouselProps {
 
 const MODELS = [ResumeModel, CandidateModel, OpportunityModel, InterviewModel]
 const STEP = (Math.PI * 2) / MODELS.length
+/** The ellipse the models travel on; the floor rings and dots sit on the same path. */
+const RADIUS_X = 2.7
+const RADIUS_Z = 1.75
 
 function CarouselScene({ position, playing, dragging, reduced, active }: TalentCarouselProps) {
   const groups = useRef<(Group | null)[]>([])
@@ -38,8 +41,9 @@ function CarouselScene({ position, playing, dragging, reduced, active }: TalentC
   const size = useThree((state) => state.size)
 
   useEffect(() => {
-    camera.position.set(0, 2.4, Math.max(7.4, 13.2 / (size.width / size.height)))
-    camera.lookAt(0, 0.15, 0)
+    // Close enough that the front model fills most of the height; wide stages keep every model in frame.
+    camera.position.set(0, 2, Math.max(7.1, 14.5 / (size.width / size.height)))
+    camera.lookAt(0, -0.05, 0)
     invalidate()
   }, [camera, size.width, size.height, invalidate])
 
@@ -82,16 +86,16 @@ function CarouselScene({ position, playing, dragging, reduced, active }: TalentC
       const depth = Math.cos(angle)
       const front = (depth + 1) / 2
       group.position.set(
-        Math.sin(angle) * 2.43,
-        (1 - depth) * 0.55 + Math.sin(time.current * 0.85 + index) * 0.055,
-        depth * 1.78,
+        Math.sin(angle) * RADIUS_X,
+        (1 - depth) * 0.5 + Math.sin(time.current * 0.85 + index) * 0.055,
+        depth * RADIUS_Z,
       )
       group.rotation.set(
         0.015,
         Math.sin(angle) * -0.32,
         Math.sin(time.current * 0.5 + index) * 0.025,
       )
-      group.scale.setScalar(0.78 + front * 0.4)
+      group.scale.setScalar(0.96 + front * 0.48)
     })
     // Demand rendering stops entirely when idle; navigation still animates while autoplay is paused.
     if (!reduced && (playing || Math.abs(target - rotation.current) > 0.0005 || tintPending))
@@ -100,7 +104,7 @@ function CarouselScene({ position, playing, dragging, reduced, active }: TalentC
 
   return (
     <>
-      <fog attach="fog" args={[CAROUSEL_ITEMS[0].theme.background, 8.5, 17]} />
+      <fog attach="fog" args={[CAROUSEL_ITEMS[0].theme.background, 8, 16]} />
       <ambientLight intensity={1.8} />
       <directionalLight position={[-3, 6, 5]} intensity={3.2} color="#fff6e5" />
       <directionalLight ref={rimLight} position={[5, 3, -2]} intensity={2.8} color="#cceec4" />
@@ -116,12 +120,12 @@ function CarouselScene({ position, playing, dragging, reduced, active }: TalentC
           <Model />
         </group>
       ))}
-      {[2.43, 2.68].map((radius, index) => (
+      {[RADIUS_X, RADIUS_X + 0.25].map((radius, index) => (
         <mesh
           key={radius}
-          position={[0, -1.25, 0]}
+          position={[0, -1.3, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
-          scale={[1, 0.73, 1]}
+          scale={[1, RADIUS_Z / RADIUS_X, 1]}
         >
           <torusGeometry args={[radius, index === 0 ? 0.012 : 0.005, 8, 128]} />
           <meshBasicMaterial
@@ -135,7 +139,10 @@ function CarouselScene({ position, playing, dragging, reduced, active }: TalentC
       {Array.from({ length: 16 }, (_, index) => {
         const angle = (index / 16) * Math.PI * 2
         return (
-          <mesh key={index} position={[Math.sin(angle) * 2.43, -1.25, Math.cos(angle) * 1.78]}>
+          <mesh
+            key={index}
+            position={[Math.sin(angle) * RADIUS_X, -1.3, Math.cos(angle) * RADIUS_Z]}
+          >
             <sphereGeometry args={[index % 4 === 0 ? 0.035 : 0.015, 10, 8]} />
             <meshBasicMaterial
               ref={(material) => {

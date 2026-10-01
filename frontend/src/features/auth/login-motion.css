@@ -366,7 +366,7 @@
   container-type: size;
   width: calc(100% + 32px);
   /* Leave room for the header, introduction, controls and footer on short screens. */
-  height: clamp(180px, calc(100dvh - 660px), 360px);
+  height: clamp(180px, calc(100dvh - 600px), 420px);
   margin: 0 -16px;
   border-radius: 18px;
   cursor: grab;
@@ -590,7 +590,7 @@
     max-width: 500px;
   }
   .talent-carousel__stage {
-    height: clamp(180px, calc(100dvh - 660px), 410px);
+    height: clamp(180px, calc(100dvh - 600px), 480px);
   }
 }
 @media (max-width: 1100px) and (min-width: 960px) {

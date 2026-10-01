@@ -348,6 +348,42 @@
   box-shadow: 0 0 0 8px #f4f8f6;
   margin-bottom: 8px;
 }
+/* A recruitment model from the login journey, floating inside the application. */
+.scene-object {
+  position: relative;
+  width: var(--scene-size);
+  height: var(--scene-size);
+  flex-shrink: 0;
+}
+.scene-object[data-tone='light']::before {
+  content: '';
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #e4f0eb, transparent);
+}
+.scene-object[data-tone='dark']::before {
+  content: '';
+  position: absolute;
+  inset: -10%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(196 214 0 / 0.14), transparent);
+}
+.scene-object__fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.scene-object:has(canvas) .scene-object__fallback {
+  opacity: 0;
+}
+.scene-object__canvas {
+  position: absolute !important;
+  inset: 0;
+  pointer-events: none;
+}
+
 [data-slot='kanban-card']:hover {
   border-color: #a9c9c1;
   box-shadow: var(--shadow-card-hover);

@@ -13,11 +13,11 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react'
-import { CAROUSEL_ITEMS, wrapCarouselIndex } from '@/features/auth/carousel-items'
+import { CAROUSEL_ITEMS, wrapCarouselIndex } from '@/components/three/carousel-items'
 import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import './login-motion.css'
 
-const TalentCarousel = lazy(() => import('@/features/auth/scene/TalentCarousel'))
+const TalentCarousel = lazy(() => import('@/components/three/TalentCarousel'))
 
 class SceneBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false }

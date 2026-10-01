@@ -521,6 +521,7 @@ export default function SearchCandidatesPage() {
         <div className="rounded-card border border-dashed border-line-strong bg-surface">
           <EmptyState
             icon={UserSearchIcon}
+            model="resumes"
             title="Find the right candidates"
             description="Enter a Job Description and let the system search for matching candidates. Every profile is ranked by how well it fits the role."
           />

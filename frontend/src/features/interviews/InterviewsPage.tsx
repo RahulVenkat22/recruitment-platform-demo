@@ -369,6 +369,7 @@ export default function InterviewsPage() {
                       <TableCell colSpan={8} className="p-0 whitespace-normal">
                         <EmptyState
                           icon={CalendarXIcon}
+                          model="interviews"
                           title={
                             filtered ? 'No interviews match these filters' : 'No interviews here'
                           }

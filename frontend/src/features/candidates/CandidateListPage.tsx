@@ -415,6 +415,7 @@ export default function CandidateListPage() {
             ) : (
               <EmptyState
                 icon={UsersIcon}
+                model="candidates"
                 title="No candidates yet"
                 description="Run a search on a job description or add someone by hand."
               />

@@ -99,6 +99,8 @@ export const CAROUSEL_ITEMS = [
   },
 ] as const
 
+export type StageId = (typeof CAROUSEL_ITEMS)[number]['id']
+
 export function wrapCarouselIndex(position: number) {
   return (
     ((Math.round(position) % CAROUSEL_ITEMS.length) + CAROUSEL_ITEMS.length) % CAROUSEL_ITEMS.length
