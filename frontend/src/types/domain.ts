@@ -252,6 +252,12 @@ export type SearchChatScope = Schemas['SearchChatScope']
 export type SearchChatMessage = Schemas['SearchChatMessage']
 /** A candidate an answer is grounded in; rendered as a chip that links to them. */
 export type SearchChatCitation = Schemas['SearchChatCitation']
+/** The TalentOS assistant: the user's conversation, one turn, one step of a turn. */
+export type AssistantThread = Schemas['AssistantThread']
+export type AssistantScope = Schemas['AssistantScope']
+export type AssistantMessage = Schemas['AssistantMessage']
+export type AssistantStep = Schemas['AssistantStep']
+export type AssistantStepResult = Schemas['AssistantStepResult']
 export type JobRef = Schemas['JobRef']
 export type CandidateSkillRef = Schemas['CandidateSkillRef']
 export type CandidateSummary = Schemas['CandidateSummary']

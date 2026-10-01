@@ -53,7 +53,7 @@ The **PDF itself is sent** to the model, which returns the whole structured prof
 
 **Contacting candidates.** On the search results and a job's Candidates tab, **Contact Candidates** offers Email, WhatsApp and Phone (the last two are listed as coming soon). Choosing Email turns on the row tick boxes; the recruiter ticks candidates and presses Send. The same compose dialog opens from a row's "Email candidate…" action and from a candidate's Communications tab. In it HR staff can start from a template (managed on the **Email Templates** page, seeded with an introduction) or let the AI draft one from a purpose, tone, role and free instructions, edit the text with placeholders, preview it as any recipient, optionally save it as a new template, and send. Each candidate gets the text filled in with their own details. Every send is logged as an outbound email in the contact log and on the timeline, and moves a New / AI Shortlisted candidate to Contact Pending. Mail goes out through SMTP when `EMAIL_HOST` is set (Zoho, Gmail, SES all work); with it empty the mail is printed in the server log. While `EMAIL_SAFE_RECIPIENT` is set every mail is redirected to that inbox with the intended recipient in the subject, so the flow can be tested against real resumes without writing to anyone.
 
-**AI phone calls.** Contact Candidates also offers **Phone call (AI)**. The recruiter picks the purpose, a friendly **knowledge test** (their own questions first, then questions drawn from the job description, one follow-up whenever an answer is vague) or **sharing information** ("your interview is today at 5 pm"), types the questions or the message, and sets a maximum length. The script and the assessment run on the project LLM; a **simulated call** runs the same interview as a chat in the browser so it can be tested with no telephony account, and a real call goes through a voice provider (`VOICE_PROVIDER=vapi` with a Vapi key, number id and a public `PUBLIC_BASE_URL` for its webhooks; `VOICE_SAFE_NUMBER` redirects every real call to one number until go-live). Every call is logged as a phone contact with the transcript, a summary and per-question scores, and a completed knowledge test moves the candidate to Phone Screening. The **AI Calls** tab on the candidate page shows them.
+**AI phone calls.** Contact Candidates also offers **Phone call (AI)**. The recruiter picks the purpose: **schedule an interview** (three time slots to offer, prefilled with the next working days, plus the round, interviewer, duration and mode) or **sharing information** ("your interview is today at 5 pm"). On a scheduling call the AI offers the slots, the candidate picks one, and the interview is booked at that time when the call ends, which moves the candidate to Interview Scheduled. Whatever the purpose, the candidate can ask about the company or the role and the AI answers crisply from `COMPANY_PROFILE` and the job description. The script and the end-of-call reading of the transcript run on the project LLM; a **simulated call** runs the same conversation as a chat in the browser so it can be tested with no telephony account, and a real call goes through a voice provider (`VOICE_PROVIDER=vapi` with a Vapi key, number id and a public `PUBLIC_BASE_URL` for its webhooks; `VOICE_SAFE_NUMBER` redirects every real call to one number until go-live). Every call is logged as a phone contact with the transcript and a summary. The **AI Calls** tab on the candidate page shows them.
 
 HR staff can also upload PDFs from the browser: **Candidates → Upload resumes** (`POST /api/v1/resumes/uploads/`, any number of files) validates and de-duplicates them, queues them through the same pipeline on a server worker thread, and shows each file's live status. Every PDF becomes a candidate (or refreshes an existing one, matched by email or phone), its text lands on the profile, and its sections are embedded into pgvector -- and when the PDF is a scan, that text is rebuilt from the model's structured answer, so the candidate is searchable like any other instead of sitting in the library with no vectors. On the Search page these candidates belong to the **Internal Database** source, the company's own talent pool: the job description is analysed by the LLM, the ingested resumes are searched semantically, filtered by the structured requirements, and the top candidates are reviewed by the LLM with a grounded explanation. Runs execute in the background and the page shows live progress. Ingestion is one model call per PDF plus the embeddings; a search runs a few LLM reviews (`SEMANTIC_RERANK_LIMIT`) on top of the vector query.
 
@@ -100,6 +100,35 @@ The sidebar groups Homepage and Dashboard (HR admins and HR only) under Main, th
 8. **Candidate detail**: profile, **AI Match Analysis** (five weighted components, strengths, gaps, skill coverage), the stage stepper timeline, interviews and communications. **John Doe** carries the complete journey that ends onboarded. Every status change confirms the current and new status and requires a reason.
 9. **Kanban tab**: drag a card forward. Interview, Offer and Onboarding columns open their dialog first; every other drop opens the status confirmation. Every move lands on the timeline.
 10. **Interviews**, **Notifications** (bell with unread count), **Settings** (profile, security, preferences; users list for admins). The **Back** control on every detail page returns to the page you came from.
+
+## Recruitment turnaround time (TAT)
+
+The **dashboard** shows average **Recruitment TAT** (job publication to completed
+onboarding) and **Candidate TAT** (candidate added to that job to completed onboarding).
+Both use hires completed in the selected date window, follow the people filter,
+and compare with the previous window. Click either figure to see its hires and
+open their candidate timelines. The **Stage turnaround time** chart averages
+each hire's total time in each visited stage, including repeat visits. Hires with
+incomplete stage history are excluded from stage averages and counted in a notice;
+their overall TAT remains included. Missing publication dates are excluded from
+Recruitment TAT. CSV, Excel and PDF exports include these measures.
+
+The **job Overview** shows elapsed recruitment time, time to the first hire,
+average time per hire, and completed hires against the current number of openings.
+TAT starts at publication and a hire means **completed onboarding**. The job clock
+stops when all current openings are filled or recruitment closes; closing without
+a hire does not count as a hire. Reopened jobs retain their original publication date.
+
+The **candidate Timeline** shows total time on that job, time since the job opened,
+recorded time on hold, and each stage visit with entry/exit timestamps and duration.
+Revisited stages appear separately. Rejected and withdrawn candidates stop accruing
+time until reopened; completed onboarding stops the clock permanently.
+
+All durations use **calendar time**, including holds, weekends and holidays.
+Active detail views refresh every minute. Missing historical stage intervals are
+marked **Unrecorded stage**, and absent milestones show a dash. Existing activity
+history supplies these calculations; no database migration is required. No SLA
+targets or overdue thresholds are assumed.
 
 ## Ports
 

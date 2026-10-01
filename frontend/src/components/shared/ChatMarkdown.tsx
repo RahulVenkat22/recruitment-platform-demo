@@ -16,9 +16,27 @@ type Block =
 const BULLET = /^\s*(?:[-*•]|(\d+)[.)])\s+/
 const HEADING = /^#{1,4}\s+(.*)$/
 const RULE = /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/
-/** `**bold**`, `` `code` ``, `*italic*` and `_italic_`, never inside a word. */
+/** `[label](href)`, `**bold**`, `` `code` ``, `*italic*` and `_italic_`, never inside a word. */
 const INLINE =
-  /(\*\*[^*\n]+\*\*|`[^`\n]+`|(?<![\w*])\*(?!\s)[^*\n]+?(?<!\s)\*(?![\w*])|(?<!\w)_(?!\s)[^_\n]+?(?<!\s)_(?!\w))/g
+  /(\[[^\]\n]+\]\([^)\s]+\)|\*\*[^*\n]+\*\*|`[^`\n]+`|(?<![\w*])\*(?!\s)[^*\n]+?(?<!\s)\*(?![\w*])|(?<!\w)_(?!\s)[^_\n]+?(?<!\s)_(?!\w))/g
+const LINK_CLASS =
+  'font-medium text-primary underline decoration-primary/40 decoration-[1.5px] underline-offset-2 transition-colors duration-150 ease-brand hover:decoration-primary'
+
+/** An in-app route stays a client-side navigation; anything else opens in a new tab. */
+function MarkdownLink({ href, children }: { href: string; children: ReactNode }) {
+  if (href.startsWith('/')) {
+    return (
+      <Link to={href} className={LINK_CLASS}>
+        {children}
+      </Link>
+    )
+  }
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className={LINK_CLASS}>
+      {children}
+    </a>
+  )
+}
 
 /** The markdown habits a model answer has, read leniently so a half-streamed answer still renders. */
 function parseBlocks(text: string): Block[] {
@@ -88,11 +106,7 @@ function linkNames(text: string, links: NameLink[] | undefined, key: string): Re
     if (start > last) nodes.push(text.slice(last, start))
     const link = names.find((l) => l.name.toLowerCase() === match[0].toLowerCase())
     nodes.push(
-      <Link
-        key={`${key}-${count++}`}
-        to={link?.href ?? '#'}
-        className="font-medium text-primary underline decoration-primary/40 decoration-[1.5px] underline-offset-2 transition-colors duration-150 ease-brand hover:decoration-primary"
-      >
+      <Link key={`${key}-${count++}`} to={link?.href ?? '#'} className={LINK_CLASS}>
         {match[0]}
       </Link>,
     )
@@ -111,10 +125,17 @@ function renderInline(text: string, links: NameLink[] | undefined, key: string):
     if (start > last) nodes.push(...linkNames(text.slice(last, start), links, `${key}-t${count}`))
     const token = match[0]
     const inner = `${key}-i${count}`
-    if (token.startsWith('**')) {
+    if (token.startsWith('[')) {
+      const close = token.indexOf('](')
+      nodes.push(
+        <MarkdownLink key={inner} href={token.slice(close + 2, -1)}>
+          {token.slice(1, close)}
+        </MarkdownLink>,
+      )
+    } else if (token.startsWith('**')) {
       nodes.push(
         <strong key={inner} className="font-semibold text-ink">
-          {linkNames(token.slice(2, -2), links, inner)}
+          {renderInline(token.slice(2, -2), links, inner)}
         </strong>,
       )
     } else if (token.startsWith('`')) {
@@ -124,7 +145,7 @@ function renderInline(text: string, links: NameLink[] | undefined, key: string):
         </code>,
       )
     } else {
-      nodes.push(<em key={inner}>{linkNames(token.slice(1, -1), links, inner)}</em>)
+      nodes.push(<em key={inner}>{renderInline(token.slice(1, -1), links, inner)}</em>)
     }
     last = start + token.length
     count += 1
@@ -159,8 +180,8 @@ export interface ChatMarkdownProps {
 
 /**
  * Renders an assistant answer: paragraphs, headings, bullet and numbered lists,
- * bold, italic and inline code, with every cited candidate's name linked to
- * their page. Tolerant of unfinished markdown, so it re-renders on every
+ * bold, italic, inline code and markdown links (in-app routes navigate in place),
+ * with every cited candidate's name linked to their page. Tolerant of unfinished markdown, so it re-renders on every
  * streamed piece without flicker.
  */
 export function ChatMarkdown({ text, links, trailing, className }: ChatMarkdownProps) {

@@ -1,4 +1,4 @@
-import { BriefcaseIcon, PlusIcon, UserRoundIcon, UserSearchIcon } from 'lucide-react'
+import { BriefcaseIcon, PlusIcon, SparklesIcon, UserRoundIcon, UserSearchIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Avatar } from '@/components/shared/Avatar'
@@ -18,6 +18,7 @@ import { candidateRowHref } from '@/features/candidates/candidate-utils'
 import { useJobList } from '@/features/jobs/api'
 import { useAuthStore } from '@/lib/auth-store'
 import { useDebounce } from '@/lib/hooks'
+import { useUiStore } from '@/lib/ui-store'
 
 export interface CommandPaletteProps {
   open: boolean
@@ -28,6 +29,7 @@ export interface CommandPaletteProps {
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useNavigate()
   const role = useAuthStore((state) => state.user?.role)
+  const openAssistant = useUiStore((state) => state.openAssistant)
   const [query, setQuery] = useState('')
   const debounced = useDebounce(query, 200)
   const jobs = useJobList({ search: debounced, page_size: 6, ordering: '-updated_at' })
@@ -94,6 +96,17 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             </CommandGroup>
           )}
           <CommandGroup heading="Quick actions">
+            <CommandItem
+              value="action-assistant"
+              onSelect={() => {
+                onOpenChange(false)
+                openAssistant(debounced)
+              }}
+            >
+              <SparklesIcon aria-hidden="true" className="text-primary" />
+              Ask TalentOS AI{debounced ? `: “${debounced}”` : ''}
+              <CommandShortcut>⌘/</CommandShortcut>
+            </CommandItem>
             {hr && (
               <CommandItem value="action-new-jd" onSelect={() => go('/jobs/new')}>
                 <PlusIcon aria-hidden="true" className="text-ink-subtle" />

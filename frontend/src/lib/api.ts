@@ -79,6 +79,9 @@ export const endpoints = {
   ticketsSummary: `${API_PREFIX}/support/tickets/summary/`,
   ticket: (id: string) => `${API_PREFIX}/support/tickets/${id}/`,
   ticketAction: (id: string, action: string) => `${API_PREFIX}/support/tickets/${id}/${action}/`,
+  assistantChat: `${API_PREFIX}/assistant/chat/`,
+  assistantAction: (stepId: string, decision: 'confirm' | 'cancel') =>
+    `${API_PREFIX}/assistant/actions/${stepId}/${decision}/`,
 } as const
 
 /** Shape of `POST /auth/refresh`: the rotated access token plus the profile. */

@@ -1,12 +1,13 @@
 # AI phone calls: what you need to provide
 
-TalentOS can phone a candidate with an AI recruiter that either runs a short
-knowledge screening or delivers a message such as an interview time. The
-interview script, the follow-up questions and the scoring already run on the
-project's Gemini key. **Placing a real call needs a voice platform account and a
+TalentOS can phone a candidate with an AI recruiter that either fixes an
+interview time (it offers your slots, the candidate picks one, the interview is
+booked) or delivers a message such as an interview time, and answers questions
+about the company and the role along the way. The call script and the reading
+of the transcript already run on the project's LLM key. **Placing a real call needs a voice platform account and a
 few settings that only you can create.** Until they exist, the "Place phone
-call" button stays disabled and the same interview runs as a simulated chat in
-the browser.
+call" button stays disabled and the same conversation runs as a simulated chat
+in the browser.
 
 This page lists exactly what to provide, in order.
 
@@ -21,15 +22,19 @@ at <https://vapi.ai>.
 | --- | --- | --- |
 | **API key** | Vapi dashboard → API Keys → create a key | `VAPI_API_KEY` |
 | **Phone Number ID** | Vapi dashboard → Phone Numbers → the number's id | `VAPI_PHONE_NUMBER_ID` |
-| **Webhook secret** | Any long random string you invent (20+ characters) | `VAPI_WEBHOOK_SECRET` |
+| **Webhook secret** | Any long random string you invent (20+ characters). Leave empty for the first test: the app sends the server URL inline with each call, and Vapi's docs say the secret may not be attached in that case. Set it once calls work and check the `X-Vapi-Secret` header arrives; if not, configure the server URL and secret on the phone number in the Vapi dashboard instead. | `VAPI_WEBHOOK_SECRET` |
 
 **Phone number choice**
 
-- **Free Vapi US number**: instant, fine for testing and can call Indian mobiles.
-  Candidates see a US caller ID.
-- **Your own Twilio number imported into Vapi**: your caller ID and your carrier
-  bill. Twilio does not sell Indian numbers to most accounts, and commercial
-  calls into India fall under TRAI rules. Start with the free number.
+- **Free Vapi US number**: inbound only and US only, so it cannot place the
+  outbound calls this feature makes. Skip it.
+- **A Twilio number imported into Vapi**: the only route for outbound calls to
+  India. Create a Twilio account, add credit and upgrade it (a trial account
+  can only dial numbers you have verified), buy a US voice number (Twilio does
+  not sell Indian numbers to most accounts), enable India under Voice Geo
+  Permissions, then in Vapi go to Phone Numbers → Import and enter the number,
+  your Twilio Account SID and Auth Token. Candidates see the US caller ID.
+  Commercial calls into India fall under TRAI rules.
 
 Set a **monthly spending limit** in the Vapi dashboard on day one.
 
@@ -89,32 +94,32 @@ VAPI_VOICE_PROVIDER=vapi
 VAPI_VOICE_ID=Elliot
 VAPI_MODEL_PROVIDER=openai
 VAPI_MODEL=gpt-4o-mini
-VOICE_MODEL=            # the Gemini model used for the simulated chat and the scoring; empty = the search model
+VOICE_MODEL=            # the model used for the simulated chat and the transcript reading; empty = the search model
 ```
 
 ## 6. What happens after you provide them
 
 1. I place one call to your safe number and confirm the webhook delivers the
-   transcript and the assessment. The Vapi adapter was written against their
+   transcript and books the chosen slot. The Vapi adapter was written against their
    published API but has never run against a live account, so this first call is
    its real test and may need a field name adjusted.
-2. You listen to a knowledge test and an information call and tell me what to
-   change in the script: tone, opening line, how hard the follow-ups push.
+2. You listen to a scheduling call and an information call and tell me what to
+   change in the script: tone, opening line, how it answers company questions.
 3. When you are satisfied, remove `VOICE_SAFE_NUMBER` and calls go to
    candidates.
 
 ## What it costs, roughly
 
 At about ₹85 to the dollar: **₹10 to ₹17 per minute** of a real call, about
-₹60 to ₹100 for a six minute screening, ₹15 to ₹35 for a short information
-call, and around ₹100 a month for a Twilio number if you use one. Both Twilio
+₹30 to ₹50 for a three minute scheduling call, ₹15 to ₹35 for a short
+information call, and around ₹100 a month for a Twilio number if you use one. Both Twilio
 and Vapi give free starting credit that covers your first tests on your own
-phone. Simulated calls, the scoring and the AI email drafts run on your
-existing Gemini key and cost a fraction of a rupee each.
+phone. Simulated calls, the transcript reading and the AI email drafts run on
+your existing LLM key and cost a fraction of a rupee each.
 
 ## Where to test before anything is set up
 
 Open a candidate → **Contact Candidates** → **Phone call (AI)** → tick a row →
-**Run simulated call**. You type what the candidate would say; the AI asks the
-next question. The transcript, the scores and the contact log entry are the same
-as for a real call.
+**Run simulated call**. You type what the candidate would say; the AI says its
+next line. The transcript, the booked interview and the contact log entry are
+the same as for a real call.

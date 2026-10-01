@@ -4,6 +4,7 @@ import {
   LogOutIcon,
   SearchIcon,
   SettingsIcon,
+  SparklesIcon,
 } from 'lucide-react'
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
@@ -31,7 +32,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useSignOut } from '@/features/auth/use-sign-out'
 import { useAuthStore } from '@/lib/auth-store'
-import { isPaletteShortcut } from '@/lib/keyboard'
+import { isAssistantShortcut, isPaletteShortcut } from '@/lib/keyboard'
 import { useUiStore } from '@/lib/ui-store'
 import { cn } from '@/lib/utils'
 
@@ -116,16 +117,22 @@ function AccountMenu() {
 
 export function TopBar() {
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const assistantOpen = useUiStore((state) => state.assistantOpen)
+  const toggleAssistant = useUiStore((state) => state.toggleAssistant)
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (!isPaletteShortcut(event)) return
-      event.preventDefault()
-      setPaletteOpen((value) => !value)
+      if (isPaletteShortcut(event)) {
+        event.preventDefault()
+        setPaletteOpen((value) => !value)
+      } else if (isAssistantShortcut(event)) {
+        event.preventDefault()
+        toggleAssistant()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [toggleAssistant])
 
   return (
     <header className="relative z-30 flex h-[72px] shrink-0 items-center justify-between gap-4 border-b border-line bg-surface/90 px-6 backdrop-blur-xl max-md:gap-2 max-md:px-3">
@@ -147,6 +154,20 @@ export function TopBar() {
             year: 'numeric',
           }).format(new Date())}
         </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          data-slot="assistant-launcher"
+          aria-label="Ask TalentOS AI (Ctrl or ⌘ /)"
+          aria-expanded={assistantOpen}
+          aria-haspopup="dialog"
+          className="h-9 gap-2 rounded-xl border-primary/20 bg-primary-soft text-primary hover:bg-primary-soft hover:text-primary aria-expanded:bg-primary aria-expanded:text-white max-md:size-9 max-md:px-0"
+          onClick={toggleAssistant}
+        >
+          <SparklesIcon aria-hidden="true" className="size-3.5" />
+          <span className="max-md:hidden">Ask AI</span>
+        </Button>
         <Button
           type="button"
           variant="outline"

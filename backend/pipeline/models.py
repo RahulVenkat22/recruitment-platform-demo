@@ -369,7 +369,7 @@ class MessageTemplate(UUIDTimestampedModel):
 
 
 class PhoneCall(UUIDTimestampedModel):
-    """An AI phone call to the candidate: a knowledge screening or a message delivered by voice."""
+    """An AI phone call to the candidate: fixing an interview time or delivering a message."""
 
     application = models.ForeignKey(
         Application, on_delete=models.CASCADE, related_name="phone_calls"
@@ -383,9 +383,28 @@ class PhoneCall(UUIDTimestampedModel):
     provider = models.CharField(max_length=20, blank=True)
     provider_call_id = models.CharField(max_length=120, blank=True)
     to_number = models.CharField(max_length=32, blank=True)
-    # What the recruiter asked for: questions for a knowledge test, the message for
-    # an information call, extra instructions for either.
-    questions = models.JSONField(default=list, blank=True)
+    # What the recruiter asked for: the interview to fix (the slots offered as ISO
+    # datetimes, who runs it, how long, how) or the message to deliver; extra
+    # instructions for either.
+    slots = models.JSONField(default=list, blank=True)
+    interview_round = models.CharField(
+        max_length=20, choices=enums.InterviewRound.choices, blank=True
+    )
+    interviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    interview_duration_minutes = models.PositiveSmallIntegerField(default=60)
+    interview_mode = models.CharField(
+        max_length=10, choices=enums.InterviewMode.choices, default=enums.InterviewMode.VIDEO
+    )
+    # The interview booked at the slot the candidate chose on the call.
+    interview = models.ForeignKey(
+        Interview, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
     information = models.TextField(blank=True)
     instructions = models.TextField(blank=True)
     max_minutes = models.PositiveSmallIntegerField(default=10)

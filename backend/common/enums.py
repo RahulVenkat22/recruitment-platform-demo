@@ -274,7 +274,7 @@ class CommunicationChannel(models.TextChoices):
 
 
 class CallPurpose(models.TextChoices):
-    KNOWLEDGE_TEST = "knowledge_test", "Knowledge test"
+    SCHEDULE_INTERVIEW = "schedule_interview", "Schedule interview"
     INFORMATION = "information", "Share information"
 
 

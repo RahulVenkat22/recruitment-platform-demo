@@ -113,6 +113,10 @@ export const qk = {
     summary: (filters?: QueryFilters) => ['support', 'summary', withFilters(filters)] as const,
     detail: (id: string) => ['support', 'detail', id] as const,
   },
+  assistant: {
+    all: ['assistant'] as const,
+    thread: () => ['assistant', 'thread'] as const,
+  },
   dashboard: {
     all: ['dashboard'] as const,
     summary: (scope: QueryFilters) => ['dashboard', 'summary', scope] as const,

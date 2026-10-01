@@ -70,6 +70,7 @@ LOCAL_APPS = [
     "audit",
     "dashboard",
     "support",
+    "assistant",
     "seed",
 ]
 
@@ -485,10 +486,24 @@ EMAIL_REPLY_TO = env.str("EMAIL_REPLY_TO", default="").strip() or EMAIL_HOST_USE
 EMAIL_SAFE_RECIPIENT = env.str("EMAIL_SAFE_RECIPIENT", default="").strip()
 # The organisation the outreach speaks for: `{company}` in the templates.
 EMAIL_COMPANY_NAME = env.str("EMAIL_COMPANY_NAME", default="").strip() or "Aimious"
+# What the AI recruiter may say about the organisation when a candidate asks on a
+# call ("what does the company do?", "where is the office?"). One paragraph.
+COMPANY_PROFILE = env.str("COMPANY_PROFILE", default="").strip() or (
+    f"{EMAIL_COMPANY_NAME} is an AI technology company founded in 2021 and headquartered in "
+    "Chennai, India, with a second office in Bengaluru and around 120 people. It builds "
+    "TalentOS, an AI-driven hiring platform, and delivers applied AI solutions such as LLM "
+    "applications, computer vision and data platforms for enterprise clients in healthcare, "
+    "finance and retail. Teams work hybrid, three days a week in the office, with flexible "
+    "hours. Benefits include health insurance for the employee and their family, an annual "
+    "learning budget and a laptop of choice. The hiring process is usually a phone screen, a "
+    "technical round, a managerial round and a TA round, and takes two to three weeks."
+)
 
 # --------------------------------------------------------------- AI phone calls
-# The interview script and the assessment run on the project LLM (VOICE_MODEL,
-# default: the search model). Placing a REAL call needs a voice platform:
+# The call script (fix an interview time from offered slots, or deliver a
+# message; answer questions about the company and the role) and the end-of-call
+# reading of the transcript run on the project LLM (VOICE_MODEL, default: the
+# search model). Placing a REAL call needs a voice platform:
 # VOICE_PROVIDER=vapi with VAPI_API_KEY, VAPI_PHONE_NUMBER_ID and a public
 # PUBLIC_BASE_URL for its webhooks. Without them calls run as a simulated text
 # chat in the browser. VOICE_SAFE_NUMBER redirects every real call to one number
@@ -498,6 +513,10 @@ VOICE_MODEL = env.str("VOICE_MODEL", default="").strip() or LLM_SEARCH_MODEL
 # The assistant that answers questions about a search's results (streamed to the
 # browser as server-sent events) runs on SEARCH_CHAT_MODEL, default: the search model.
 SEARCH_CHAT_MODEL = env.str("SEARCH_CHAT_MODEL", default="").strip() or LLM_SEARCH_MODEL
+# The TalentOS assistant (the agent that works the application from chat) runs on
+# ASSISTANT_MODEL, default: the main model, since it writes job descriptions and
+# decides which tools to call.
+ASSISTANT_MODEL = env.str("ASSISTANT_MODEL", default="").strip() or LLM_MODEL
 VOICE_SAFE_NUMBER = env.str("VOICE_SAFE_NUMBER", default="").strip()
 VOICE_DEFAULT_REGION = env.str("VOICE_DEFAULT_REGION", default="").strip().upper() or "IN"
 PUBLIC_BASE_URL = env.str("PUBLIC_BASE_URL", default="").strip()

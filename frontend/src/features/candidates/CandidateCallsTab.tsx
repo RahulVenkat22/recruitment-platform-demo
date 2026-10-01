@@ -9,7 +9,7 @@ import { useCalls } from '@/features/calls/api'
 import { CallCard } from '@/features/calls/CallCard'
 import type { ApplicationDetail } from '@/types/domain'
 
-/** AI Calls tab: every AI phone call (real or simulated) with its summary, assessment and transcript. */
+/** AI Calls tab: every AI phone call (real or simulated) with its outcome and transcript. */
 export function CandidateCallsTab({
   application,
   actions,
@@ -49,7 +49,7 @@ export function CandidateCallsTab({
         <EmptyState
           icon={PhoneOffIcon}
           title="No AI calls yet"
-          description="Run a knowledge screening or deliver a message by phone; the transcript and assessment appear here."
+          description="Fix an interview time or deliver a message by phone; the transcript and outcome appear here."
           action={
             canCall ? (
               <Button type="button" onClick={() => actions.callCandidate(toTarget(application))}>

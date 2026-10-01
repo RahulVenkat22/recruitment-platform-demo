@@ -1285,6 +1285,8 @@ class PhoneCallViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
             "application__owner",
             "application__job_description__created_by",
             "created_by",
+            "interviewer",
+            "interview__interviewer",
         )
 
     def _writable(self, request: Request) -> PhoneCall:

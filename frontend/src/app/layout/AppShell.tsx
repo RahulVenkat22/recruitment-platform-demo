@@ -5,6 +5,7 @@ import { Outlet, useLocation } from 'react-router'
 import { RouteErrorBoundary } from '@/app/RouteErrorBoundary'
 import { Sidebar } from '@/app/layout/Sidebar'
 import { TopBar } from '@/app/layout/TopBar'
+import { AssistantPanel } from '@/features/assistant/AssistantPanel'
 import { JobUploadStatus } from '@/features/jobs/JobUploadStatus'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLoadEnums } from '@/lib/enums'
@@ -83,6 +84,7 @@ export function AppShell() {
           </PageTransition>
         </main>
       </div>
+      <AssistantPanel />
     </div>
   )
 }

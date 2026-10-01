@@ -1,22 +1,24 @@
 """``CallService``: the AI phone call to a candidate, real or simulated.
 
-Two purposes (``CallPurpose``): a friendly **knowledge test** that asks the
-HR's questions first, then questions drawn from the job description, and
-probes each answer with one follow-up; and **information** delivery ("you have
-an interview today at 5 pm"), which confirms the candidate understood and
-answers simple logistics questions.
+Two purposes (``CallPurpose``): **schedule an interview**, where the agent
+offers the slots the recruiter picked, the candidate chooses one and the
+interview is booked when the call ends; and **information** delivery ("you
+have an interview today at 5 pm"), which confirms the candidate understood.
+Either way the candidate may ask about the company or the role, and the agent
+answers from ``COMPANY_PROFILE`` and the job description.
 
 The script (``build_agent_prompt``) is the same whether a voice platform
 speaks it (``pipeline.services.voice``) or the browser runs it as a text chat
 (``mode="simulated"``: ``reply`` asks the project's LLM for the next turn). When
-the call ends, ``finish`` writes the assessment, logs a phone Communication
-(Connected moves an early candidate to Contacted) and, for a completed
-knowledge test, moves the candidate to Phone Screening.
+the call ends, ``finish`` reads the transcript (``assess``), logs a phone
+Communication (Connected moves an early candidate to Contacted) and books the
+slot the candidate agreed to.
 """
 
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from django.conf import settings
@@ -26,16 +28,17 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from common.enums import (
-    ApplicationStatus,
     CallPurpose,
     CallStatus,
     CommunicationChannel,
     CommunicationOutcome,
+    InterviewMode,
 )
 from pipeline.exceptions import InvalidTransition
 from pipeline.models import Application, PhoneCall
-from pipeline.services._common import advance, require_active
+from pipeline.services._common import require_active
 from pipeline.services.communications import CommunicationService
+from pipeline.services.interviews import InterviewService
 from pipeline.services.voice import CallEvent, get_voice_provider, normalize_number, voice_config
 from resumes.engines.llm import LLMError, invoke_structured
 from resumes.engines.planner import jd_text
@@ -43,8 +46,18 @@ from resumes.engines.planner import jd_text
 logger = logging.getLogger(__name__)
 
 TURN_TOKENS = 400
-ASSESSMENT_TOKENS = 1500
+ASSESSMENT_TOKENS = 800
 MAX_TURNS = 40
+
+
+def slot_text(value: str) -> str:
+    """``"2026-10-01T05:30:00+00:00"`` -> ``"Thursday 1 October, 11:00 AM IST"``."""
+    local = timezone.localtime(datetime.fromisoformat(value))
+    return f"{local.strftime('%A %-d %B, %-I:%M %p')} {local.tzname()}"
+
+
+def _offered(call: PhoneCall) -> str:
+    return "\n".join(f"{i}. {slot_text(slot)}" for i, slot in enumerate(call.slots, start=1))
 
 
 # ------------------------------------------------------------------ the script
@@ -68,28 +81,27 @@ def build_agent_prompt(call: PhoneCall) -> str:
         "If you reach voicemail or nobody answers, leave a brief polite message with the "
         f"purpose of the call and that {company} will follow up, then end the call.",
         f"Keep the whole call under {minutes} minutes.",
-        "Never invent facts about the company, the salary or the process. If asked something "
-        "you do not know, say a recruiter will follow up by email.",
+        "The candidate may ask about the company or the role at any point. Answer from the "
+        "COMPANY and ROLE sections below in one or two crisp, friendly sentences, then return "
+        "to the purpose of the call. Never invent anything beyond those sections, salary "
+        "included: if the answer is not there, say a recruiter will follow up by email.",
     ]
-    if call.purpose == CallPurpose.KNOWLEDGE_TEST:
-        questions = [q for q in (call.questions or []) if str(q).strip()]
-        numbered = "\n".join(f"{i}. {q}" for i, q in enumerate(questions, start=1))
+    if call.purpose == CallPurpose.SCHEDULE_INTERVIEW:
+        interviewer = call.interviewer.full_name if call.interviewer else "the hiring team"
         purpose = [
-            "PURPOSE: a short, friendly screening conversation to understand the candidate's "
-            "real hands-on knowledge for this role. It is a conversation, not an exam.",
-            "Open by introducing yourself, saying the call takes a few minutes, and asking if "
-            "now is a good time. Then ask the HR questions below in order, one at a time.",
-            f"HR QUESTIONS:\n{numbered}" if numbered else "HR QUESTIONS: none; rely on the role.",
-            "After the HR questions, ask two to four further questions drawn from the ROLE below "
-            "(its required skills, responsibilities and experience level).",
-            "After EACH answer, decide: if it was vague, generic or very short, ask exactly one "
-            "follow-up that probes for a concrete example, a decision they made or a detail "
-            "only someone who did the work would know. If the answer was specific, acknowledge "
-            "it briefly and move on. Never ask more than one follow-up per question.",
-            "Do not tell the candidate whether an answer was right or wrong, and do not teach. "
-            "Stay warm and encouraging regardless of the answer quality.",
-            "Close by thanking them, saying the team will review and be in touch by email, and "
-            "asking if they have one quick question for you. Then end the call.",
+            f"PURPOSE: fix a time for the candidate's {call.get_interview_round_display()} "
+            f"interview: {call.interview_duration_minutes} minutes over "
+            f"{call.get_interview_mode_display().lower()} with {interviewer}.",
+            "Open by introducing yourself and confirming you are speaking with the candidate. "
+            "Say the team would like to invite them to the interview.",
+            f"AVAILABLE SLOTS:\n{_offered(call)}",
+            "Offer the slots in natural speech, in order, and ask which one works. Never offer "
+            "a time outside this list. When the candidate picks one, repeat the full day and "
+            "time back and get a clear yes before moving on.",
+            "If none of the slots works, ask which days and times would suit them, note the "
+            "answer, and say a recruiter will confirm a new time by email.",
+            "Close by saying an invitation with the details will follow by email, thank them "
+            "and wish them well. Then end the call.",
         ]
     else:
         purpose = [
@@ -107,6 +119,7 @@ def build_agent_prompt(call: PhoneCall) -> str:
     parts = ["\n".join(common), "\n".join(purpose)]
     if extra:
         parts.append(f"EXTRA INSTRUCTIONS FROM THE RECRUITER:\n{extra}")
+    parts.append(f"COMPANY:\n{settings.COMPANY_PROFILE}")
     parts.append(f"ROLE:\n{jd_text(jd)[:2500]}")
     return "\n\n".join(parts)
 
@@ -116,11 +129,6 @@ def first_message(call: PhoneCall) -> str:
     first_name = (candidate.full_name or "there").split(" ")[0]
     company = settings.EMAIL_COMPANY_NAME
     title = call.application.job_description.title
-    if call.purpose == CallPurpose.KNOWLEDGE_TEST:
-        return (
-            f"Hi {first_name}, this is the recruiting assistant from {company} calling about the "
-            f"{title} role you were considered for. Is now a good time for a quick few-minute chat?"
-        )
     return (
         f"Hi {first_name}, this is the recruiting assistant from {company} calling about the "
         f"{title} role. Am I speaking with {candidate.full_name}?"
@@ -149,7 +157,7 @@ def next_turn(call: PhoneCall) -> AgentTurn:
         content=build_agent_prompt(call)
         + "\n\nYou are producing ONE turn of the conversation as JSON: `say` is what you say next "
         "(one to three sentences, plain speech, no lists), and `end_call` is true only when you "
-        "have said your goodbye. Follow the purpose and the follow-up rule exactly."
+        "have said your goodbye. Follow the purpose exactly."
     )
     human = HumanMessage(
         content=f"Conversation so far:\n{_history_text(call.transcript)}\n\nYour next turn:"
@@ -164,38 +172,27 @@ def next_turn(call: PhoneCall) -> AgentTurn:
     return turn
 
 
-# ------------------------------------------------------------ the assessment
-
-
-class QuestionAssessment(BaseModel):
-    question: str = ""
-    answer_summary: str = ""
-    score: int = Field(default=0, ge=0, le=10)
-    notes: str = ""
+# ------------------------------------------------------------ the outcome
 
 
 class CallAssessment(BaseModel):
     summary: str = ""
-    overall_score: int = Field(default=0, ge=0, le=100)
-    questions: list[QuestionAssessment] = Field(default_factory=list)
-    strengths: list[str] = Field(default_factory=list)
-    concerns: list[str] = Field(default_factory=list)
-    recommendation: str = ""  # proceed | hold | reject | n/a
+    # 1-based number of the offered slot the candidate agreed to; 0 when none.
+    chosen_slot: int = Field(default=0, ge=0)
+    preferred_time: str = ""
     information_acknowledged: bool = False
     candidate_questions: list[str] = Field(default_factory=list)
 
 
 _ASSESS_SYSTEM = SystemMessage(
     content=(
-        "You are a senior recruiter reviewing the transcript of a screening phone call. Return "
-        "JSON. `summary`: 2-3 factual sentences on how the call went. For a knowledge test: one "
-        "entry in `questions` per question the agent asked, with a one-sentence `answer_summary`, "
-        "a `score` 0-10 for depth and correctness of the answer (0 if unanswered) and short "
-        "`notes`; `overall_score` 0-100; `strengths` and `concerns` as short phrases; "
-        "`recommendation` one of proceed, hold, reject. For an information call: "
-        "`information_acknowledged` true if the candidate confirmed the message, "
-        "`candidate_questions` they asked, and recommendation n/a. Use only what is in the "
-        "transcript; never guess."
+        "You are a senior recruiter reviewing the transcript of a phone call. Return JSON. "
+        "`summary`: 2-3 factual sentences on how the call went. For an interview scheduling "
+        "call: `chosen_slot` is the number of the offered slot the candidate clearly agreed to "
+        "(0 if they agreed to none) and `preferred_time` is what they said would suit them when "
+        "no slot worked (else empty). For an information call: `information_acknowledged` is "
+        "true if the candidate confirmed the message. `candidate_questions`: the questions they "
+        "asked about the company or the role. Use only what is in the transcript; never guess."
     )
 )
 
@@ -205,7 +202,7 @@ def assess(call: PhoneCall) -> CallAssessment:
         content=(
             f"Purpose: {call.get_purpose_display()}.\n"
             f"Role: {call.application.job_description.title}.\n"
-            f"HR questions: {call.questions or []}\n"
+            f"Offered slots:\n{_offered(call) or '-'}\n"
             f"Message to deliver: {call.information or '-'}\n\n"
             f"Transcript:\n{_history_text(call.transcript)}"
         )
@@ -232,7 +229,11 @@ class CallService:
         *,
         purpose: str,
         actor: Any,
-        questions: list[str] | None = None,
+        slots: list[datetime] | None = None,
+        interview_round: str = "",
+        interviewer: Any = None,
+        interview_duration_minutes: int = 60,
+        interview_mode: str = InterviewMode.VIDEO,
         information: str = "",
         instructions: str = "",
         max_minutes: int = 10,
@@ -245,7 +246,11 @@ class CallService:
             purpose=purpose,
             mode=mode,
             status=CallStatus.QUEUED,
-            questions=[str(q).strip() for q in (questions or []) if str(q).strip()][:20],
+            slots=[slot.isoformat() for slot in slots or []],
+            interview_round=interview_round,
+            interviewer=interviewer,
+            interview_duration_minutes=interview_duration_minutes,
+            interview_mode=interview_mode,
             information=(information or "").strip(),
             instructions=(instructions or "").strip(),
             max_minutes=max(2, min(30, int(max_minutes or 10))),
@@ -314,10 +319,11 @@ class CallService:
     @staticmethod
     @transaction.atomic
     def finish(call: PhoneCall, *, actor: Any, reason: str = "") -> PhoneCall:
-        """Close the call: assess, log the contact, move the candidate on."""
+        """Close the call: read the transcript, log the contact, book the chosen slot."""
         if call.status in {CallStatus.COMPLETED, CallStatus.NO_ANSWER, CallStatus.FAILED}:
             return call
         now = timezone.now()
+        actor = actor or call.created_by
         answered = _candidate_turns(call) > 0
         call.ended_at = now
         if call.started_at and not call.duration_seconds:
@@ -325,11 +331,13 @@ class CallService:
         call.status = CallStatus.COMPLETED if answered else CallStatus.NO_ANSWER
         if reason:
             call.error = reason[:500]
+        chosen = 0
         if answered:
             try:
                 result = assess(call)
                 call.assessment = result.model_dump()
                 call.summary = result.summary or call.summary
+                chosen = result.chosen_slot
             except LLMError as exc:
                 logger.warning("assessment failed for call %s: %s", call.pk, exc)
                 call.summary = call.summary or "Assessment unavailable; see the transcript."
@@ -349,11 +357,20 @@ class CallService:
             outcome=outcome,
             summary=f"AI call, {label.lower()}: {call.summary}"[:300],
             notes=notes,
-            actor=actor or call.created_by,
+            actor=actor,
         )
-        if answered and call.purpose == CallPurpose.KNOWLEDGE_TEST:
+        if call.purpose == CallPurpose.SCHEDULE_INTERVIEW and 0 < chosen <= len(call.slots):
             application.refresh_from_db()
-            advance(application, ApplicationStatus.PHONE_SCREENING, actor or call.created_by)
+            call.interview = InterviewService.schedule(
+                application,
+                round=call.interview_round,
+                interviewer=call.interviewer,
+                scheduled_at=datetime.fromisoformat(call.slots[chosen - 1]),
+                actor=actor,
+                duration_minutes=call.interview_duration_minutes,
+                mode=call.interview_mode,
+            )
+            call.save(update_fields=["interview", "updated_at"])
         return call
 
     @staticmethod
