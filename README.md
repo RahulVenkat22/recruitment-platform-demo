@@ -6,6 +6,7 @@ Django + Django REST Framework serve a JSON API under `/api/v1/`; a Vite + React
 
 - [plan.md](plan.md): the full specification (decisions, data model, API, page designs, seed data, build phases).
 - [ARCHITECTURE.md](ARCHITECTURE.md): how the code is layered, the request flows, and where to plug in real integrations.
+- [AWS production deployment guide](docs/AWS_PRODUCTION_DEPLOYMENT.md): application readiness findings, recommended AWS architecture, configuration, deployment, monitoring, backups, and rollback.
 
 ## Screenshots
 
