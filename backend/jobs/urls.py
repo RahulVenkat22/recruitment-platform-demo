@@ -3,10 +3,11 @@
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 
-from jobs.views import JobDescriptionViewSet, SkillSuggestionView
+from jobs.views import JobDescriptionViewSet, JobUploadViewSet, SkillSuggestionView
 
 router = SimpleRouter()
 router.register("job-descriptions", JobDescriptionViewSet, basename="job-description")
+router.register("job-description-uploads", JobUploadViewSet, basename="job-description-upload")
 
 urlpatterns = [
     path("skills/", SkillSuggestionView.as_view(), name="skills"),

@@ -5,9 +5,10 @@ import {
   ShieldAlertIcon,
   TriangleAlertIcon,
 } from 'lucide-react'
-import { useId, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { SegmentedControl } from '@/components/shared/SegmentedControl'
+import { UserSelect } from '@/components/shared/UserSelect'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,6 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -29,16 +31,30 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import type { PipelineTarget } from '@/features/applications/pipeline-target'
 import { useBulkCall, useStartCall, useVoiceConfig } from '@/features/calls/api'
+import { DURATION_OPTIONS, MODE_OPTIONS } from '@/features/interviews/interview-utils'
+import { useJob } from '@/features/jobs/api'
+import { useAuthStore } from '@/lib/auth-store'
+import { fromDateTimeLocal, nextWorkingSlot, toDateTimeLocal } from '@/lib/datetime'
+import { useEnumOptions } from '@/lib/enums'
 import { describeError } from '@/lib/errors'
-import type { PhoneCall, VoiceConfig } from '@/types/domain'
+import { useUsersDirectory } from '@/lib/users'
+import type { PhoneCall, PhoneCallCreateRequest, UserRow, VoiceConfig } from '@/types/domain'
 
-type Purpose = 'knowledge_test' | 'information'
+type Purpose = 'schedule_interview' | 'information'
 
 const PURPOSES = [
-  { key: 'knowledge_test', label: 'Knowledge test' },
+  { key: 'schedule_interview', label: 'Schedule interview' },
   { key: 'information', label: 'Share information' },
 ] as const
 const MINUTES = ['5', '10', '15', '20'] as const
+
+/** Three slots to offer by default: the next working day morning and afternoon, then the day after. */
+function defaultSlots(): string[] {
+  const first = nextWorkingSlot()
+  const afternoon = new Date(first)
+  afternoon.setHours(15, 0, 0, 0)
+  return [first, afternoon, nextWorkingSlot(first)].map(toDateTimeLocal)
+}
 
 function VoiceNotice({ config }: { config: VoiceConfig | undefined }) {
   if (!config) return null
@@ -48,7 +64,7 @@ function VoiceNotice({ config }: { config: VoiceConfig | undefined }) {
         <TriangleAlertIcon aria-hidden="true" />
         <AlertDescription>
           No voice provider is connected, so real phone calls are off. A simulated call runs the
-          same AI interview as a chat here, so you can test the script and the assessment.
+          same AI conversation as a chat here, so you can test the script and the outcome.
         </AlertDescription>
       </Alert>
     )
@@ -76,8 +92,9 @@ export interface PlanCallDialogProps {
 }
 
 /**
- * Plan an AI phone call: what it is for, what to ask or say, how long. One
- * candidate can also get a simulated call, which runs the interview as a chat.
+ * Plan an AI phone call: fix an interview time from slots you offer, or deliver
+ * a message. One candidate can also get a simulated call, which runs the
+ * conversation as a chat.
  */
 export function PlanCallDialog({
   targets,
@@ -152,13 +169,7 @@ export function PlanCallDialog({
   )
 }
 
-interface PlanBody {
-  purpose: Purpose
-  questions: string[]
-  information: string
-  instructions: string
-  max_minutes: number
-}
+type PlanBody = Omit<PhoneCallCreateRequest, 'mode'>
 
 function PlanForm({
   targets,
@@ -173,24 +184,57 @@ function PlanForm({
   onSimulate: (body: PlanBody) => Promise<void>
   onPhone: (body: PlanBody) => Promise<void>
 }) {
-  const ids = { questions: useId(), info: useId(), notes: useId(), minutes: useId() }
+  const ids = {
+    slots: useId(),
+    round: useId(),
+    interviewer: useId(),
+    duration: useId(),
+    info: useId(),
+    notes: useId(),
+    minutes: useId(),
+  }
   const config = useVoiceConfig()
-  const [purpose, setPurpose] = useState<Purpose>('knowledge_test')
-  const [questions, setQuestions] = useState('')
+  const rounds = useEnumOptions('interview_round')
+  const job = useJob(targets[0].job_description)
+  const directory = useUsersDirectory()
+  const me = useAuthStore((state) => state.user?.id ?? '')
+  const [purpose, setPurpose] = useState<Purpose>('schedule_interview')
+  const [slots, setSlots] = useState<string[]>(defaultSlots)
+  const [round, setRound] = useState('technical')
+  const [interviewer, setInterviewer] = useState(me)
+  const [duration, setDuration] = useState('60')
+  const [mode, setMode] = useState<'video' | 'phone' | 'onsite'>('video')
   const [information, setInformation] = useState('')
   const [instructions, setInstructions] = useState('')
   const [minutes, setMinutes] = useState<(typeof MINUTES)[number]>('10')
   const single = targets.length === 1
   const names = targets.map((target) => target.candidate.full_name)
-  const questionList = questions
-    .split('\n')
-    .map((line) => line.replace(/^\s*\d+[.)]\s*/, '').trim())
-    .filter(Boolean)
-  const valid = purpose === 'knowledge_test' || information.trim().length > 0
+
+  const interviewers = useMemo<UserRow[]>(() => {
+    const people = new Map<string, UserRow>()
+    for (const participant of job.data?.participants ?? []) {
+      people.set(participant.user.id, participant.user)
+    }
+    for (const user of directory.data ?? []) {
+      if (user.role === 'interviewer' || user.role === 'hr_admin' || user.role === 'hr') {
+        people.set(user.id, user)
+      }
+    }
+    return [...people.values()]
+  }, [job.data, directory.data])
+
+  const scheduling = purpose === 'schedule_interview'
+  const valid = scheduling
+    ? slots.every(Boolean) && Boolean(interviewer)
+    : information.trim().length > 0
   const body: PlanBody = {
     purpose,
-    questions: purpose === 'knowledge_test' ? questionList : [],
-    information: purpose === 'information' ? information.trim() : '',
+    slots: scheduling ? slots.map(fromDateTimeLocal) : [],
+    interview_round: scheduling ? (round as PlanBody['interview_round']) : '',
+    interviewer: scheduling ? interviewer : null,
+    interview_duration_minutes: Number(duration),
+    interview_mode: mode,
+    information: scheduling ? '' : information.trim(),
     instructions: instructions.trim(),
     max_minutes: Number(minutes),
   }
@@ -204,7 +248,7 @@ function PlanForm({
         </DialogTitle>
         <DialogDescription>
           {single
-            ? 'The AI speaks with the candidate, follows up on their answers and logs a summary.'
+            ? 'The AI speaks with the candidate, answers their questions about the company and the role, and logs a summary.'
             : `${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''} each get the same call, one at a time.`}
         </DialogDescription>
       </DialogHeader>
@@ -219,30 +263,85 @@ function PlanForm({
             onChange={setPurpose}
           />
           <FieldDescription>
-            {purpose === 'knowledge_test'
-              ? 'A friendly screening: your questions first, then questions from the job description, with one follow-up whenever an answer is vague.'
+            {scheduling
+              ? 'The AI offers your time slots, the candidate picks one, and the interview is booked at that time when the call ends.'
               : 'The AI delivers your message, confirms the candidate understood it and answers simple logistics questions.'}
           </FieldDescription>
         </Field>
-        {purpose === 'knowledge_test' ? (
-          <Field>
-            <FieldLabel htmlFor={ids.questions}>Questions to ask</FieldLabel>
-            <Textarea
-              id={ids.questions}
-              rows={5}
-              maxLength={4000}
-              value={questions}
-              onChange={(event) => setQuestions(event.target.value)}
-              placeholder={
-                'One per line, for example:\nHow do you design a CI/CD pipeline for microservices?\nWhat is the difference between a Docker image and a container?'
-              }
-            />
-            <FieldDescription>
-              {questionList.length
-                ? `${questionList.length} ${questionList.length === 1 ? 'question' : 'questions'}; the AI adds two to four more from the role.`
-                : 'Leave empty and the AI asks only about the role.'}
-            </FieldDescription>
-          </Field>
+        {scheduling ? (
+          <>
+            <Field>
+              <FieldLabel htmlFor={ids.slots}>Time slots to offer</FieldLabel>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {slots.map((slot, index) => (
+                  <Input
+                    key={index}
+                    id={index === 0 ? ids.slots : undefined}
+                    aria-label={`Slot ${index + 1}`}
+                    type="datetime-local"
+                    value={slot}
+                    onChange={(event) =>
+                      setSlots((prev) => prev.map((s, i) => (i === index ? event.target.value : s)))
+                    }
+                  />
+                ))}
+              </div>
+              <FieldDescription>Offered in this order; the candidate chooses one.</FieldDescription>
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor={ids.round}>Round</FieldLabel>
+                <Select value={round} onValueChange={setRound}>
+                  <SelectTrigger id={ids.round} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rounds.map((option) => (
+                      <SelectItem key={option.key} value={option.key}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor={ids.interviewer}>Interviewer</FieldLabel>
+                <UserSelect
+                  id={ids.interviewer}
+                  value={interviewer}
+                  onChange={setInterviewer}
+                  options={interviewers}
+                  placeholder={
+                    job.isPending || directory.isPending ? 'Loading…' : 'Choose an interviewer'
+                  }
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor={ids.duration}>Duration</FieldLabel>
+                <Select value={duration} onValueChange={setDuration}>
+                  <SelectTrigger id={ids.duration} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DURATION_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={String(option)}>
+                        {option} minutes
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field>
+                <FieldLabel>Mode</FieldLabel>
+                <SegmentedControl
+                  aria-label="Interview mode"
+                  options={MODE_OPTIONS}
+                  value={mode}
+                  onChange={setMode}
+                />
+              </Field>
+            </div>
+          </>
         ) : (
           <Field>
             <FieldLabel htmlFor={ids.info}>What to tell the candidate *</FieldLabel>

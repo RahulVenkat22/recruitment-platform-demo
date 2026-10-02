@@ -45,6 +45,7 @@ export const qk = {
     byJob: (jobId: string) => ['searches', 'byJob', jobId] as const,
     live: () => ['searches', 'live'] as const,
     detail: (id: string) => ['searches', 'detail', id] as const,
+    chat: (id: string) => ['searches', 'chat', id] as const,
   },
   candidates: {
     all: ['candidates'] as const,
@@ -111,6 +112,10 @@ export const qk = {
     list: (filters?: QueryFilters) => ['support', 'list', withFilters(filters)] as const,
     summary: (filters?: QueryFilters) => ['support', 'summary', withFilters(filters)] as const,
     detail: (id: string) => ['support', 'detail', id] as const,
+  },
+  assistant: {
+    all: ['assistant'] as const,
+    thread: () => ['assistant', 'thread'] as const,
   },
   dashboard: {
     all: ['dashboard'] as const,

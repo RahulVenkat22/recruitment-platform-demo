@@ -32,12 +32,18 @@ from common.enums import EmploymentType, JDStatus, WorkMode
 from common.permissions import (
     JobDescriptionAccess,
     can_comment_job,
+    can_create_job,
     can_force_close_job,
     can_manage_participants,
 )
 from jobs.engines import extract_job_description
 from jobs.filters import JobDescriptionFilter
-from jobs.models import JobDescription, JobDescriptionVersion, RecruitmentParticipant
+from jobs.models import (
+    JobDescription,
+    JobDescriptionUpload,
+    JobDescriptionVersion,
+    RecruitmentParticipant,
+)
 from jobs.serializers import (
     ForceCloseSerializer,
     JobCommentSerializer,
@@ -48,6 +54,8 @@ from jobs.serializers import (
     JobExtractionSerializer,
     JobExtractRequestSerializer,
     JobFacetsSerializer,
+    JobUploadRequestSerializer,
+    JobUploadSerializer,
     MetricsSerializer,
     ParticipantInputSerializer,
     ParticipantRoleSerializer,
@@ -57,7 +65,7 @@ from jobs.serializers import (
     VersionDetailSerializer,
     VersionRowSerializer,
 )
-from jobs.services import SKILL_SUGGESTION_LIMIT, JobService, search_skills
+from jobs.services import SKILL_SUGGESTION_LIMIT, JobService, JobUploadService, search_skills
 from pipeline.serializers import KanbanBoardSerializer
 from pipeline.services import KanbanService
 
@@ -607,6 +615,61 @@ class JobDescriptionViewSet(viewsets.ModelViewSet):
             raise ValidationError({"file": ["Attach a PDF or Word (.docx) file."]})
         payload = {"file_name": upload.name, "fields": extract_job_description(upload)}
         return Response(JobExtractionSerializer(payload).data)
+
+
+class JobUploadViewSet(viewsets.ViewSet):
+    """Uploads belong to their uploader, including cancellation and extracted content."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = JobUploadSerializer
+    queryset = JobDescriptionUpload.objects.none()
+    lookup_value_regex = "[0-9a-f-]{36}"
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        _require(can_create_job(request.user), "Only HR staff can upload job descriptions.")
+
+    @extend_schema(responses=JobUploadSerializer(many=True), tags=["jobs"])
+    def list(self, request):
+        return Response(JobUploadSerializer(JobUploadService.recent(request.user), many=True).data)
+
+    @extend_schema(
+        request=JobUploadRequestSerializer, responses={201: JobUploadSerializer}, tags=["jobs"]
+    )
+    def create(self, request):
+        serializer = JobUploadRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        upload = JobUploadService.reserve(request.user, serializer.validated_data["file_name"])
+        return Response(JobUploadSerializer(upload).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(responses=JobUploadSerializer, tags=["jobs"])
+    def retrieve(self, request, pk=None):
+        return Response(JobUploadSerializer(JobUploadService.get(request.user, pk)).data)
+
+    @extend_schema(
+        request={"multipart/form-data": JobExtractRequestSerializer},
+        responses={202: JobUploadSerializer},
+        tags=["jobs"],
+    )
+    @action(detail=True, methods=["post"], parser_classes=[MultiPartParser, FormParser])
+    def file(self, request, pk=None):
+        upload = JobUploadService.get(request.user, pk)
+        serializer = JobExtractRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        upload = JobUploadService.receive(upload, serializer.validated_data["file"])
+        return Response(JobUploadSerializer(upload).data, status=status.HTTP_202_ACCEPTED)
+
+    @extend_schema(request=None, responses=JobUploadSerializer, tags=["jobs"])
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        upload = JobUploadService.cancel(JobUploadService.get(request.user, pk))
+        return Response(JobUploadSerializer(upload).data)
+
+    @extend_schema(request=None, responses={204: None}, tags=["jobs"])
+    @action(detail=True, methods=["post"])
+    def dismiss(self, request, pk=None):
+        JobUploadService.dismiss(JobUploadService.get(request.user, pk))
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class SkillSuggestionView(APIView):

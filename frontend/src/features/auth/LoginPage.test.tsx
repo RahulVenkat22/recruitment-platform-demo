@@ -48,6 +48,28 @@ describe('LoginPage', () => {
     expect(screen.getByLabelText('Remember me')).not.toBeChecked()
   })
 
+  it('syncs the page theme and copy with automatic and manual carousel changes without resetting the form', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const ui = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderLogin()
+    await ui.type(screen.getByLabelText('Email or username'), 'preview@example.com')
+    await ui.type(screen.getByLabelText('Password'), 'kept-while-rotating')
+    expect(screen.getByRole('main')).toHaveAttribute('data-carousel-theme', 'resumes')
+
+    await act(() => vi.advanceTimersByTimeAsync(2000))
+    expect(screen.getByRole('main')).toHaveAttribute('data-carousel-theme', 'candidates')
+    expect(screen.getByRole('heading', { name: /People\. Potential\./ })).toBeInTheDocument()
+    expect(screen.getByText('PEOPLE. STRENGTHS. CONNECTIONS.')).toBeInTheDocument()
+
+    await ui.click(screen.getByRole('button', { name: 'Show interviews' }))
+    expect(screen.getByRole('main')).toHaveAttribute('data-carousel-theme', 'interviews')
+    expect(screen.getByText('CONVERSATIONS. CONNECTIONS. GROWTH.')).toBeInTheDocument()
+    await act(() => vi.advanceTimersByTimeAsync(2000))
+    expect(screen.getByRole('main')).toHaveAttribute('data-carousel-theme', 'resumes')
+    expect(screen.getByLabelText('Email or username')).toHaveValue('preview@example.com')
+    expect(screen.getByLabelText('Password')).toHaveValue('kept-while-rotating')
+  })
+
   it('validates required fields before calling the API', async () => {
     const ui = userEvent.setup()
     const post = vi.spyOn(api, 'post')
@@ -131,10 +153,13 @@ describe('LoginPage', () => {
     await ui.click(screen.getByLabelText('Remember me'))
     await fillAndSubmit(ui, 'rahul@aimious.demo', 'Demo@1234')
 
-    // The welcome loader holds for five seconds before the app opens.
+    // Keep the welcome loader visible for five seconds before returning to the requested route.
     expect(await screen.findByRole('status', { name: 'Signing you in' })).toBeInTheDocument()
     expect(screen.queryByText('Job detail page')).not.toBeInTheDocument()
-    await act(() => vi.advanceTimersByTimeAsync(5000))
+    await act(() => vi.advanceTimersByTimeAsync(4000))
+    expect(screen.getByRole('status', { name: 'Signing you in' })).toBeInTheDocument()
+    expect(screen.queryByText('Job detail page')).not.toBeInTheDocument()
+    await act(() => vi.advanceTimersByTimeAsync(1000))
 
     expect(await screen.findByText('Job detail page')).toBeInTheDocument()
     expect(post).toHaveBeenCalledWith(endpoints.authLogin, {

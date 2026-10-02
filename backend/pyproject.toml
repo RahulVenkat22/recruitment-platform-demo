@@ -24,6 +24,7 @@ known-first-party = [
   "audit",
   "dashboard",
   "support",
+  "assistant",
   "seed",
   "tests",
 ]
@@ -49,6 +50,7 @@ source = [
   "audit",
   "dashboard",
   "support",
+  "assistant",
   "seed",
 ]
 omit = ["*/migrations/*", "*/apps.py"]
@@ -87,6 +89,7 @@ root_packages = [
   "audit",
   "dashboard",
   "support",
+  "assistant",
   "seed",
 ]
 include_external_packages = false
@@ -107,6 +110,7 @@ containers = [
   "audit",
   "dashboard",
   "support",
+  "assistant",
   "seed",
 ]
 layers = [
@@ -132,6 +136,7 @@ source_modules = [
   "audit",
   "dashboard",
   "support",
+  "assistant",
   "seed",
 ]
 forbidden_modules = ["config"]

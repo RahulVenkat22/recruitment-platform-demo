@@ -42,6 +42,7 @@ import { OffersMix } from '@/features/dashboard/OffersMix'
 import { OpenRoles } from '@/features/dashboard/OpenRoles'
 import { Outreach } from '@/features/dashboard/Outreach'
 import { PipelineHealth } from '@/features/dashboard/PipelineHealth'
+import { RecruitmentTat } from '@/features/dashboard/RecruitmentTat'
 import { ScopePicker } from '@/features/dashboard/ScopePicker'
 import { SearchStats } from '@/features/dashboard/SearchStats'
 import { SkillsDemand } from '@/features/dashboard/SkillsDemand'
@@ -104,15 +105,15 @@ const TILES: readonly {
   { key: 'hires', label: 'Hires', icon: RocketIcon, covers: 'window' },
   { key: 'offer_acceptance', label: 'Offer acceptance', icon: HandshakeIcon, covers: 'window' },
   {
-    key: 'time_to_hire',
-    label: 'Time to hire',
+    key: 'recruitment_tat',
+    label: 'Recruitment TAT',
     icon: TimerIcon,
     covers: 'window',
     goodDirection: 'down',
   },
 ]
 
-/** What the drawer is titled when a tile opens; the acceptance and time tiles list the same offers and hires. */
+/** Titles for the headline and candidate TAT drawers. */
 const TILE_TITLES: Record<MetricKey, string> = {
   open_roles: 'Open roles',
   in_pipeline: 'Candidates in the pipeline',
@@ -121,7 +122,8 @@ const TILE_TITLES: Record<MetricKey, string> = {
   offers_pending: 'Offers pending',
   hires: 'Hires',
   offer_acceptance: 'Offers answered',
-  time_to_hire: 'Hires and how long they took',
+  time_to_hire: 'Candidate TAT · completed hires',
+  recruitment_tat: 'Recruitment TAT · completed hires',
 }
 
 /** "Priya Nair's", "Priya Nair and Arun Kumar's", "Priya Nair and 2 others'". */
@@ -227,7 +229,9 @@ export default function DashboardPage() {
     summary.isSuccess &&
     summary.data.open_roles.value === 0 &&
     summary.data.in_pipeline.value === 0 &&
-    summary.data.new_candidates.value === 0
+    summary.data.new_candidates.value === 0 &&
+    summary.data.time_to_hire.value === null &&
+    summary.data.recruitment_tat.value === null
 
   // Navigations commit as transitions, so a second pick made before the first
   // has landed would read a stale URL; the handlers work from the last selection
@@ -302,6 +306,7 @@ export default function DashboardPage() {
       {empty ? (
         <EmptyState
           icon={SparklesIcon}
+          model="opportunities"
           title="Create your first Job Description"
           description="Once a role is open you can search candidates, shortlist them and track every step here."
           action={
@@ -348,6 +353,50 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
+
+          <ChartCard
+            title="Stage turnaround time (TAT)"
+            subtitle={`${windowLabel} · candidates who completed onboarding`}
+            busy={busy(insights) || busy(summary)}
+            table={
+              insights.data && (
+                <>
+                  <DataList
+                    caption="Stage TAT for completed hires"
+                    columns={['Stage', 'Average days per hire', 'Hires visiting stage']}
+                    rows={insights.data.tat.stages.map((stage) => [
+                      stage.label,
+                      stage.avg_days,
+                      stage.hires,
+                    ])}
+                  />
+                  <p className="mt-3 text-caption text-ink-subtle">
+                    Calendar days, including repeat visits and holds.{' '}
+                    {insights.data.tat.incomplete_histories} incomplete histories excluded.
+                  </p>
+                </>
+              )
+            }
+          >
+            <Loaded query={insights} title="Couldn't load turnaround time" lines={6}>
+              {(data) => (
+                <RecruitmentTat
+                  tat={data.tat}
+                  candidateMetric={summary.data?.time_to_hire}
+                  rangeDays={span}
+                  active={detail?.metric === 'time_to_hire'}
+                  loading={summary.isPending}
+                  onCandidates={() =>
+                    setDetail({
+                      metric: 'time_to_hire',
+                      title: TILE_TITLES.time_to_hire,
+                      subtitle: windowLabel,
+                    })
+                  }
+                />
+              )}
+            </Loaded>
+          </ChartCard>
 
           <div className="grid gap-6 xl:grid-cols-[3fr_2fr]">
             <ChartCard

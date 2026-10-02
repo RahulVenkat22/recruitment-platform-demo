@@ -3,13 +3,14 @@
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
 @import '@fontsource-variable/manrope';
+@import './experience.css';
 
 /* Light only for the MVP. A future dark theme populates the same tokens under [data-theme="dark"]. */
 @custom-variant dark (&:is(.dark *));
 
 /* ------------------------------------------------------------------ */
-/* Buro Happold brand tokens (Enhancement.md 1, 7): black, white and    */
-/* the signature lime on warm stone neutrals. Utilities such as         */
+/* TalentOS experience: navy, teal and the Buro Happold lime accent.   */
+/* Shared tokens keep every feature and control visually consistent.  */
 /* bg-surface, text-ink-muted, border-line, bg-accent, rounded-card,    */
 /* shadow-card, ease-brand and text-h1 come from this block.            */
 /* ------------------------------------------------------------------ */
@@ -18,34 +19,34 @@
   /* Display face for headings and numbers; the body stays on the grotesque for density. */
   --font-heading: 'Manrope Variable', 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
 
-  /* Surfaces and lines: warm stone neutrals from the Buro Happold site */
-  --color-bg: #f4f4f1;
+  /* Cool neutral canvas with crisp, elevated surfaces. */
+  --color-bg: #f5f7fa;
   --color-surface: #ffffff;
-  --color-surface-2: #f0f0ec;
-  --color-surface-3: #e4e4de;
-  --color-line: #e1e1db;
-  --color-line-strong: #b7b7ae;
+  --color-surface-2: #f0f4f7;
+  --color-surface-3: #e5ecf1;
+  --color-line: #e2e8ee;
+  --color-line-strong: #a5b4c2;
 
   /* Text */
-  --color-ink: #0a0a0a;
-  --color-ink-muted: #4a4d48;
-  --color-ink-subtle: #5d615c;
+  --color-ink: #172b40;
+  --color-ink-muted: #536579;
+  --color-ink-subtle: #5f7184;
 
-  /* Primary: Buro Happold black. Buttons, links, focus and the active state on light surfaces. */
-  --color-primary: #0a0a0a;
-  --color-primary-hover: #2b2b2b;
-  --color-primary-soft: #eef3c9;
+  /* Teal actions, links, focus and selected states on light surfaces. */
+  --color-primary: #11796c;
+  --color-primary-hover: #0b6258;
+  --color-primary-soft: #e5f4f0;
 
   /* Signature lime (#C4D600). Fills with black text and indicators on dark surfaces; it never
      carries small text on white (1.6:1), so accent-ink is the darkest lime that passes AA there. */
   --color-accent: #c4d600;
-  --color-accent-soft: #f3f7d2;
-  --color-accent-strong: #8fa000;
-  --color-accent-ink: #6b7500;
+  --color-accent-soft: #f2f7dc;
+  --color-accent-strong: #6f8b23;
+  --color-accent-ink: #526c1c;
 
-  /* Graphite: the login panel and the mobile header band */
-  --color-graphite: #0a0a0a;
-  --color-graphite-2: #171717;
+  /* Deep navy for navigation and the welcome experience. */
+  --color-graphite: #102332;
+  --color-graphite-2: #183847;
 
   /* Avatar initials fallback: 8 muted hues hashed from the name (plan.md 8.4 Avatar) */
   --color-avatar-slate: #5b6472;
@@ -69,16 +70,16 @@
   --color-info: #1d4ed8;
   --color-info-soft: #e4ecfb;
 
-  /* Radii: architectural, close to square */
-  --radius-card: 8px;
-  --radius-control: 4px;
+  /* Consistent rounded panels and comfortably sized controls. */
+  --radius-card: 18px;
+  --radius-control: 10px;
   --radius-pill: 999px;
 
   /* Elevation */
-  --shadow-card: 0 1px 2px rgb(10 10 10 / 0.04), 0 8px 24px -16px rgb(10 10 10 / 0.12);
+  --shadow-card: 0 2px 4px rgb(18 43 64 / 0.02), 0 8px 28px -16px rgb(18 43 64 / 0.12);
   --shadow-card-hover:
     0 1px 2px rgb(10 10 10 / 0.04), 0 8px 24px -16px rgb(10 10 10 / 0.12),
-    0 16px 32px -20px rgb(10 10 10 / 0.18);
+    0 18px 40px -16px rgb(18 43 64 / 0.2);
   --shadow-popover: 0 12px 32px -12px rgb(10 10 10 / 0.24);
 
   /* Motion */
@@ -163,9 +164,9 @@
   --text-display--line-height: 34px;
   --text-display--font-weight: 600;
   --text-display--letter-spacing: -0.02em;
-  --text-h1: 24px;
-  --text-h1--line-height: 30px;
-  --text-h1--font-weight: 600;
+  --text-h1: 28px;
+  --text-h1--line-height: 36px;
+  --text-h1--font-weight: 750;
   --text-h1--letter-spacing: -0.02em;
   --text-h2: 20px;
   --text-h2--line-height: 28px;
@@ -185,8 +186,8 @@
   --text-caption--line-height: 16px;
   --text-caption--font-weight: 450;
   --text-caption--letter-spacing: 0.01em;
-  --text-metric: 30px;
-  --text-metric--line-height: 36px;
+  --text-metric: 34px;
+  --text-metric--line-height: 42px;
   --text-metric--font-weight: 600;
   --text-metric--letter-spacing: -0.02em;
 }
@@ -214,13 +215,13 @@
   --border: var(--color-line);
   --input: var(--color-line);
   --ring: var(--color-primary);
-  --chart-1: var(--color-primary);
-  --chart-2: #4f5a00;
-  --chart-3: #8fa000;
-  --chart-4: #c4d600;
-  --chart-5: #e6ec9a;
+  --chart-1: #11796c;
+  --chart-2: #6475c8;
+  --chart-3: #bc7d23;
+  --chart-4: #3988b1;
+  --chart-5: #b65779;
   /* Control radius; cards use --radius-xl below. */
-  --radius: 4px;
+  --radius: 10px;
   --sidebar: var(--color-graphite);
   --sidebar-foreground: #ffffff;
   --sidebar-primary: var(--color-accent);
@@ -231,9 +232,9 @@
   --sidebar-ring: var(--color-accent);
 
   /* Durations (plan.md 8.3) */
-  --duration-hover: 150ms;
-  --duration-dialog: 250ms;
-  --duration-page: 400ms;
+  --duration-hover: 200ms;
+  --duration-dialog: 280ms;
+  --duration-page: 450ms;
 }
 
 /*
@@ -243,27 +244,27 @@
  * Portaled layers (menus, tooltips) render on body and stay light.
  */
 [data-surface='dark'] {
-  --color-bg: #0a0a0a;
-  --color-surface: #0a0a0a;
-  --color-surface-2: #1c1c1c;
-  --color-surface-3: #282828;
-  --color-line: #262626;
-  --color-line-strong: #3d3d3d;
+  --color-bg: #102332;
+  --color-surface: #102332;
+  --color-surface-2: #1a3444;
+  --color-surface-3: #294555;
+  --color-line: #2c4351;
+  --color-line-strong: #4d6574;
   --color-ink: #ffffff;
-  --color-ink-muted: #b8b8b0;
-  --color-ink-subtle: #8f8f88;
+  --color-ink-muted: #b7c8d2;
+  --color-ink-subtle: #9aafbe;
   --color-primary: #c4d600;
   --color-primary-hover: #d7e63c;
   --color-primary-soft: rgb(196 214 0 / 0.14);
-  --color-graphite: #0a0a0a;
-  --background: #0a0a0a;
+  --color-graphite: #102332;
+  --background: #102332;
   --foreground: #ffffff;
-  --muted: #1c1c1c;
-  --muted-foreground: #b8b8b0;
-  --accent: #1c1c1c;
+  --muted: #1a3444;
+  --muted-foreground: #b7c8d2;
+  --accent: #1a3444;
   --accent-foreground: #ffffff;
-  --border: #262626;
-  --input: #262626;
+  --border: #2c4351;
+  --input: #2c4351;
   --ring: #c4d600;
   --primary: #c4d600;
   --primary-foreground: #0a0a0a;
@@ -301,9 +302,9 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  /* shadcn radius scale: controls (rounded-lg) 4px, cards and dialogs (rounded-xl) 8px. */
-  --radius-sm: 3px;
-  --radius-md: 4px;
+  /* shadcn radius scale follows the shared control and panel tokens. */
+  --radius-sm: 6px;
+  --radius-md: 8px;
   --radius-lg: var(--radius);
   --radius-xl: var(--radius-card);
   --radius-2xl: 12px;
@@ -367,27 +368,27 @@
 
 /* Light islands inside a dark surface (the preview cards on the login panel). */
 [data-surface='light'] {
-  --color-bg: #f4f4f1;
+  --color-bg: #f5f7fa;
   --color-surface: #ffffff;
-  --color-surface-2: #f0f0ec;
-  --color-surface-3: #e4e4de;
-  --color-line: #e1e1db;
-  --color-line-strong: #b7b7ae;
-  --color-ink: #0a0a0a;
-  --color-ink-muted: #4a4d48;
-  --color-ink-subtle: #5d615c;
-  --color-primary: #0a0a0a;
-  --color-primary-hover: #2b2b2b;
-  --color-primary-soft: #eef3c9;
+  --color-surface-2: #f0f4f7;
+  --color-surface-3: #e5ecf1;
+  --color-line: #e2e8ee;
+  --color-line-strong: #a5b4c2;
+  --color-ink: #172b40;
+  --color-ink-muted: #536579;
+  --color-ink-subtle: #5f7184;
+  --color-primary: #11796c;
+  --color-primary-hover: #0b6258;
+  --color-primary-soft: #e5f4f0;
   --background: #ffffff;
-  --foreground: #0a0a0a;
-  --muted: #f0f0ec;
-  --muted-foreground: #4a4d48;
-  --accent: #f0f0ec;
+  --foreground: #172b40;
+  --muted: #f0f4f7;
+  --muted-foreground: #536579;
+  --accent: #f0f4f7;
   --accent-foreground: #0a0a0a;
-  --border: #e1e1db;
-  --input: #e1e1db;
-  --ring: #0a0a0a;
-  --primary: #0a0a0a;
+  --border: #e2e8ee;
+  --input: #e2e8ee;
+  --ring: #11796c;
+  --primary: #11796c;
   --primary-foreground: #ffffff;
 }

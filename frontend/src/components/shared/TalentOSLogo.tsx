@@ -12,25 +12,29 @@ export interface TalentOSLogoProps {
 
 const SIZES = { sm: 24, md: 32, lg: 40 } as const
 
-/**
- * The TalentOS mark from the supplied artwork (docs/brand/talentos-logo-source.png):
- * three people over a lime node network on a graphite tile, the counterpart to the
- * lime Buro Happold "B" tile.
- */
-export function TalentOSMark({ size = 32, className }: { size?: number; className?: string }) {
+/** A folded T ribbon: a single connection, with a shaded fold for depth. */
+export function TalentOSMark({
+  size = 32,
+  on = 'dark',
+  className,
+}: {
+  size?: number
+  on?: 'light' | 'dark'
+  className?: string
+}) {
   return (
     <img
-      src="/brand/talentos-mark.png"
+      src={on === 'dark' ? '/brand/talentos-mark.svg' : '/brand/talentos-mark-light.svg'}
       alt=""
       aria-hidden="true"
       width={size}
       height={size}
-      className={cn('shrink-0', className)}
+      className={cn('shrink-0 object-contain', className)}
     />
   )
 }
 
-/** Mark plus the "TalentOS" wordmark, the "OS" in brand lime. */
+/** Shared lockup with surface-aware artwork and a quieter sage OS accent. */
 export function TalentOSLogo({
   on = 'dark',
   size = 'md',
@@ -42,17 +46,19 @@ export function TalentOSLogo({
     <span
       role="img"
       aria-label="TalentOS"
-      className={cn('inline-flex items-center gap-2.5', className)}
+      className={cn('inline-flex items-center gap-2', className)}
     >
-      <TalentOSMark size={px} />
+      <TalentOSMark size={px} on={on} />
       {wordmark && (
         <span
           aria-hidden="true"
-          className="font-heading leading-none font-bold tracking-[-0.03em]"
-          style={{ fontSize: Math.round(px * 0.66) }}
+          className="font-heading leading-none font-semibold tracking-[-0.045em]"
+          style={{ fontSize: Math.round(px * 0.7) }}
         >
-          <span className={on === 'dark' ? 'text-white' : 'text-ink'}>Talent</span>
-          <span className={on === 'dark' ? 'text-accent' : 'text-accent-ink'}>OS</span>
+          <span className={on === 'dark' ? 'text-[#f2f5ec]' : 'text-[#20382c]'}>Talent</span>
+          <span className={cn('font-normal', on === 'dark' ? 'text-[#d6eb8b]' : 'text-[#526c36]')}>
+            OS
+          </span>
         </span>
       )}
     </span>

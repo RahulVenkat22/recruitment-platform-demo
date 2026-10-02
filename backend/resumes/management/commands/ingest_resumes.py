@@ -77,7 +77,7 @@ class Command(BaseCommand):
             )
         embeddings = embedding_status()
         if not embeddings["available"]:
-            raise CommandError(f"Embeddings ({settings.LLM_PROVIDER}): {embeddings['error']}")
+            raise CommandError(f"Embeddings ({settings.EMBEDDING_PROVIDER}): {embeddings['error']}")
 
         s3 = "configured" if settings.RESUME_S3_BUCKET and settings.AWS_ACCESS_KEY_ID else "off"
         self.stdout.write(

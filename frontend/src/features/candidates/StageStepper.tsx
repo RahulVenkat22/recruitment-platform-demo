@@ -17,7 +17,12 @@ export function StageStepper({ status, previousStatus, className }: StageStepper
   const previous = useEnumMeta('status', previousStatus ?? '')
 
   return (
-    <div className={cn('space-y-3', className)}>
+    <div
+      className={cn(
+        'space-y-3 rounded-card border border-line bg-surface p-5 shadow-card',
+        className,
+      )}
+    >
       {parked && (
         <p
           className="inline-flex items-center gap-2 rounded-control px-2.5 py-1 text-small"
@@ -50,7 +55,7 @@ export function StageStepper({ status, previousStatus, className }: StageStepper
                 />
                 <span
                   className={cn(
-                    'inline-flex size-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-medium tabular-nums',
+                    'inline-flex size-8 shrink-0 transition-[background-color,box-shadow,border-color] duration-300 items-center justify-center rounded-full border text-[10px] font-medium tabular-nums',
                     done && 'border-success bg-success text-white',
                     active && 'border-primary bg-primary text-white ring-4 ring-primary-soft',
                     !done && !active && 'border-line-strong bg-surface text-ink-subtle',
@@ -72,7 +77,7 @@ export function StageStepper({ status, previousStatus, className }: StageStepper
               </div>
               <span
                 className={cn(
-                  'mt-1.5 px-1 text-[11px] leading-tight',
+                  'mt-3 px-1 text-[11px] leading-tight',
                   active ? 'font-medium text-primary' : done ? 'text-ink' : 'text-ink-subtle',
                 )}
               >

@@ -10,7 +10,9 @@ const ROW_CLASS = 'items-start justify-between gap-6 max-sm:flex-col max-sm:item
 
 /** Workspace preferences kept in localStorage through the persisted UI store. */
 export function PreferencesPanel() {
-  const ids = { sidebar: useId(), pageSize: useId() }
+  const ids = { sidebar: useId(), pageSize: useId(), motion: useId() }
+  const motionEffects = useUiStore((state) => state.motionEffects)
+  const setMotionEffects = useUiStore((state) => state.setMotionEffects)
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed)
   const setSidebarCollapsed = useUiStore((state) => state.setSidebarCollapsed)
   const pageSize = useUiStore((state) => state.pageSize)
@@ -19,6 +21,16 @@ export function PreferencesPanel() {
 
   return (
     <div className="space-y-6">
+      <Field orientation="horizontal" className={ROW_CLASS}>
+        <FieldContent>
+          <FieldLabel htmlFor={ids.motion}>Interface animations</FieldLabel>
+          <FieldDescription>
+            Smooth page transitions, animated insights and ambient effects. Your device's
+            reduced-motion setting is always respected.
+          </FieldDescription>
+        </FieldContent>
+        <Switch id={ids.motion} checked={motionEffects} onCheckedChange={setMotionEffects} />
+      </Field>
       <Field orientation="horizontal" className={ROW_CLASS}>
         <FieldContent>
           <FieldLabel htmlFor={ids.sidebar}>Start with the sidebar collapsed</FieldLabel>

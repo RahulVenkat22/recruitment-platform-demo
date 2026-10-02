@@ -9,6 +9,7 @@ from pipeline.models import (
     Offer,
     Onboarding,
     PhoneCall,
+    SearchChatMessage,
     SearchRun,
 )
 
@@ -178,3 +179,11 @@ class PhoneCallAdmin(admin.ModelAdmin):
     search_fields = ["application__candidate__full_name", "summary", "provider_call_id"]
     autocomplete_fields = ["application", "created_by"]
     readonly_fields = ["created_at", "updated_at", "system_prompt", "transcript", "assessment"]
+
+
+@admin.register(SearchChatMessage)
+class SearchChatMessageAdmin(admin.ModelAdmin):
+    list_display = ["search_run", "user", "role", "content", "model", "created_at"]
+    list_filter = ["role"]
+    search_fields = ["content", "user__email", "search_run__job_description__title"]
+    readonly_fields = ["created_at", "updated_at"]

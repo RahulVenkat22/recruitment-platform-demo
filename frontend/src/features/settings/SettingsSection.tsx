@@ -14,13 +14,16 @@ export function SettingsSection({ title, description, children, className }: Set
   return (
     <section
       aria-labelledby={headingId}
-      className={cn('max-w-[720px] rounded-card bg-surface p-5 shadow-card', className)}
+      className={cn(
+        'section-reveal max-w-[880px] rounded-card border border-line bg-surface p-6 shadow-card sm:p-8',
+        className,
+      )}
     >
       <h2 id={headingId} className="text-h2 text-ink">
         {title}
       </h2>
       {description && <p className="mt-1 text-ink-muted">{description}</p>}
-      <div className="mt-5">{children}</div>
+      <div className="mt-6 border-t border-line pt-6">{children}</div>
     </section>
   )
 }

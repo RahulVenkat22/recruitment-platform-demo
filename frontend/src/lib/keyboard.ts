@@ -3,6 +3,11 @@ export function isPaletteShortcut(event: KeyboardEvent): boolean {
   return (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k'
 }
 
+/** True when ⌘/ (Mac) or Ctrl+/ should toggle the TalentOS assistant panel. */
+export function isAssistantShortcut(event: KeyboardEvent): boolean {
+  return (event.metaKey || event.ctrlKey) && event.key === '/'
+}
+
 /**
  * Roving tabindex for a custom radio group or tab strip (WAI-ARIA APG): the
  * index the arrow / Home / End key moves to, wrapping at both ends, or `null`

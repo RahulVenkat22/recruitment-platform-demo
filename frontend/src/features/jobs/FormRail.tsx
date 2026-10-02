@@ -25,7 +25,7 @@ export function FormRail({
     <nav
       aria-label="Form sections"
       className={cn(
-        'rounded-card border border-line bg-surface p-3 shadow-card',
+        'rounded-card border border-line bg-surface p-4 shadow-card',
         'max-lg:flex max-lg:items-center max-lg:gap-3 max-lg:overflow-x-auto',
         className,
       )}
@@ -41,7 +41,7 @@ export function FormRail({
                 aria-current={current ? 'step' : undefined}
                 onClick={() => onSelect(section.id)}
                 className={cn(
-                  'flex w-full items-center gap-2.5 rounded-control px-2.5 py-2 text-left text-small transition-colors duration-150 ease-brand',
+                  'flex w-full items-center gap-3 rounded-control px-3 py-3 text-left text-small transition-colors duration-150 ease-brand',
                   current
                     ? 'bg-primary-soft font-medium text-primary'
                     : 'text-ink-muted hover:bg-surface-2 hover:text-ink',
@@ -50,7 +50,7 @@ export function FormRail({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    'inline-flex size-5 shrink-0 items-center justify-center rounded-full border text-[11px] tabular-nums',
+                    'inline-flex size-7 shrink-0 transition-[background-color,border-color] duration-300 items-center justify-center rounded-full border text-[11px] tabular-nums',
                     done
                       ? 'border-success bg-success text-white'
                       : current

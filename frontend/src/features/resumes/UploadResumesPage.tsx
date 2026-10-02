@@ -1,3 +1,4 @@
+import { WorkflowGuide } from '@/components/shared/WorkflowGuide'
 import {
   CheckCircle2Icon,
   CircleAlertIcon,
@@ -212,7 +213,7 @@ function BatchProgress({ batch }: { batch: UploadBatch }) {
             {batch.running
               ? `Processing ${batch.done + 1} of ${batch.total}…`
               : batch.stalled
-                ? `${batch.total - batch.done} file(s) waiting for the ingestion worker`
+                ? `${batch.total - batch.done} file(s) waiting for processing to resume`
                 : `${batch.done} of ${batch.total} processed`}
           </span>
           <span className="text-ink-muted tabular-nums">
@@ -223,9 +224,11 @@ function BatchProgress({ batch }: { batch: UploadBatch }) {
         <Progress value={pct} aria-label="Upload progress" />
         {batch.stalled && (
           <p className="text-caption text-warning">
-            The server stopped before finishing this batch. Run{' '}
-            <code className="rounded-control bg-surface-2 px-1">manage.py ingest_resumes</code> to
-            complete it — the files are already in the library folder.
+            Your files are saved, but processing was interrupted.{' '}
+            <Link to="/support" className="font-medium underline underline-offset-2">
+              Contact support
+            </Link>{' '}
+            to resume this upload.
           </p>
         )}
         {batch.queue_position > 0 && batch.running === false && (
@@ -414,6 +417,23 @@ export default function UploadResumesPage() {
         subtitle="Drop PDF resumes here. Each one is parsed, becomes a candidate profile and is indexed for semantic search."
         breadcrumbs={[{ label: 'Candidates', to: '/candidates' }, { label: 'Upload resumes' }]}
       />
+      <WorkflowGuide
+        label="From resume to opportunity"
+        steps={[
+          {
+            title: '01 · Bring your resumes',
+            description: 'Drop PDFs or choose files from your device.',
+          },
+          {
+            title: '02 · Discover the details',
+            description: 'AI reads skills, experience and education.',
+          },
+          {
+            title: '03 · Make talent searchable',
+            description: 'Profiles join your internal candidate library.',
+          },
+        ]}
+      />
       <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="space-y-5">
           <Card title="Files">
@@ -527,7 +547,7 @@ export default function UploadResumesPage() {
                 </Button>
               )}
               <span className="text-caption text-ink-subtle">
-                Processing runs on the server; you can leave this page and come back.
+                Your files keep processing if you leave. Return here to follow their progress.
               </span>
             </div>
           </Card>

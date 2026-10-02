@@ -1,7 +1,8 @@
+import { AnimatedNumber } from '@/components/shared/AnimatedNumber'
 import type { ColumnDef } from '@tanstack/react-table'
 import { LifeBuoyIcon, PlusIcon, SearchIcon, SearchXIcon } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { ClearFiltersButton } from '@/components/shared/ClearFiltersButton'
 import { DataTable } from '@/components/shared/DataTable'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -61,12 +62,10 @@ function Assignee({ ticket }: { ticket: TicketRow }) {
 
 /** Phone layout: one card per ticket with the same facts as the table row. */
 function TicketCard({ ticket }: { ticket: TicketRow }) {
-  const navigate = useNavigate()
   return (
     <article
       data-slot="ticket-card"
-      onClick={() => void navigate(ticketHref(ticket.id))}
-      className="flex min-w-0 cursor-pointer flex-col gap-2 rounded-card border border-line bg-surface p-4 shadow-card"
+      className="flex min-w-0 flex-col gap-2 rounded-card border border-line bg-surface p-4 shadow-card"
     >
       <div className="flex items-center justify-between gap-2">
         <span className="font-mono text-caption text-ink-subtle">{ticket.number}</span>
@@ -75,7 +74,14 @@ function TicketCard({ ticket }: { ticket: TicketRow }) {
           <StatusBadge status={ticket.status} kind="ticket_status" dot />
         </span>
       </div>
-      <h3 className="text-[15px] leading-5 font-medium text-ink">{ticket.subject}</h3>
+      <h3 className="text-[15px] leading-5 font-medium text-ink">
+        <Link
+          to={ticketHref(ticket.id)}
+          className="rounded-control hover:text-primary hover:underline"
+        >
+          {ticket.subject}
+        </Link>
+      </h3>
       <p className="text-caption text-ink-subtle">
         {ticket.category_label}
         {ticket.comment_count > 0 &&
@@ -325,8 +331,35 @@ export default function SupportPage() {
           </Button>
         }
       />
+      <section aria-label="Support overview" className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {statusChips.map((status, index) => (
+          <StaggerItem key={status.key} index={index}>
+            <button
+              type="button"
+              onClick={() => setState({ status: [status.key], page: 1 })}
+              aria-pressed={state.status.length === 1 && state.status[0] === status.key}
+              className="quick-link flex w-full items-center justify-between rounded-card border border-line bg-surface p-5 text-left shadow-card aria-pressed:border-primary aria-pressed:bg-primary-soft/40"
+            >
+              <span>
+                <span
+                  className="mb-2 block size-2 rounded-full"
+                  style={{ background: status.color }}
+                />
+                <span className="text-small font-medium text-ink-muted">{status.label}</span>
+              </span>
+              <span className="font-heading text-[30px] font-semibold text-ink">
+                {summary.isPending || summary.isError ? (
+                  '—'
+                ) : (
+                  <AnimatedNumber value={status.count ?? 0} />
+                )}
+              </span>
+            </button>
+          </StaggerItem>
+        ))}
+      </section>
       <div className="space-y-4">
-        {toolbar}
+        <div className="rounded-card border border-line bg-surface/75 p-4">{toolbar}</div>
         {list.isError ? (
           <ErrorState
             title="Couldn't load tickets"

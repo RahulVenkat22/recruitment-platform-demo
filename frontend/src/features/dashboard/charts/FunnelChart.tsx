@@ -1,3 +1,4 @@
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import { useState } from 'react'
 import {
   Bar,
@@ -71,6 +72,7 @@ function ValueLabel(props: {
  * opens the candidates behind a stage.
  */
 export function FunnelChart({ stages, onSelect, className }: FunnelChartProps) {
+  const reduced = useMotionPreference()
   const [hovered, setHovered] = useState<number | null>(null)
   const rows: Row[] = stages.map((stage) => ({
     ...stage,
@@ -101,13 +103,15 @@ export function FunnelChart({ stages, onSelect, className }: FunnelChartProps) {
           <Tooltip
             cursor={{ fill: 'rgba(10, 10, 10, 0.04)' }}
             content={<StageTooltip />}
-            isAnimationActive={false}
+            isAnimationActive={!reduced}
+            animationDuration={700}
           />
           <Bar
             dataKey="value"
             barSize={16}
             radius={[0, 4, 4, 0]}
-            isAnimationActive={false}
+            isAnimationActive={!reduced}
+            animationDuration={700}
             cursor={clickable ? 'pointer' : undefined}
             onMouseEnter={(_data, index) => setHovered(index)}
             onClick={(_data, index) => onSelect?.(rows[index])}

@@ -22,9 +22,16 @@ from common.permissions import (
     can_manage_participants,
     can_work_pipeline,
 )
-from jobs.models import JobDescription, JobDescriptionVersion, RecruitmentParticipant
+from common.serializers import JobTATSerializer
+from jobs.models import (
+    JobDescription,
+    JobDescriptionUpload,
+    JobDescriptionVersion,
+    RecruitmentParticipant,
+)
 from jobs.services import CONTENT_FIELDS, METRIC_KEYS, JobService
 from matching.skills import display_name, normalize_skills
+from pipeline.services.tat import job_tat
 
 PARTICIPANTS_PREVIEW = 4
 EXPERIENCE_MAX_YEARS = 50
@@ -240,11 +247,13 @@ class JobDescriptionDetailSerializer(JobDescriptionRowSerializer):
     participant, the metric row and the caller's permissions."""
 
     participants = ParticipantSerializer(many=True, read_only=True)
+    tat = serializers.SerializerMethodField()
     metrics = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
 
     class Meta(JobDescriptionRowSerializer.Meta):
         fields = JobDescriptionRowSerializer.Meta.fields + [
+            "tat",
             "education_requirements",
             "responsibilities",
             "qualifications",
@@ -255,6 +264,10 @@ class JobDescriptionDetailSerializer(JobDescriptionRowSerializer):
             "permissions",
         ]
         read_only_fields = fields
+
+    @extend_schema_field(JobTATSerializer())
+    def get_tat(self, obj: JobDescription) -> dict:
+        return JobTATSerializer(job_tat(obj)).data
 
     @extend_schema_field(MetricsSerializer())
     def get_metrics(self, obj: JobDescription) -> dict[str, int]:
@@ -375,6 +388,24 @@ class JobExtractedFieldsSerializer(serializers.Serializer):
 class JobExtractionSerializer(serializers.Serializer):
     file_name = serializers.CharField()
     fields = JobExtractedFieldsSerializer()
+
+
+class JobUploadRequestSerializer(serializers.Serializer):
+    file_name = serializers.CharField(max_length=255)
+
+    def validate_file_name(self, value):
+        if value.rsplit(".", 1)[-1].lower() not in ("pdf", "docx"):
+            raise serializers.ValidationError("Upload a PDF or Word (.docx) file.")
+        return value
+
+
+class JobUploadSerializer(serializers.ModelSerializer):
+    fields = JobExtractedFieldsSerializer(read_only=True)
+
+    class Meta:
+        model = JobDescriptionUpload
+        fields = ["id", "file_name", "status", "fields", "error", "created_at", "updated_at"]
+        read_only_fields = fields
 
 
 # -------------------------------------------------------------------- writes

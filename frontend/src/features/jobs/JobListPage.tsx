@@ -189,6 +189,7 @@ export default function JobListPage() {
   ) : (
     <EmptyState
       icon={BriefcaseIcon}
+      model="opportunities"
       title="No job descriptions yet"
       description={
         canCreate

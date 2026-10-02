@@ -9,6 +9,7 @@ import { flattenActivities, useTimeline } from '@/features/activity/api'
 import { isActive, toTarget } from '@/features/applications/pipeline-target'
 import type { ApplicationActionsHandle } from '@/features/applications/useApplicationActions'
 import { StageStepper } from '@/features/candidates/StageStepper'
+import { CandidateTat } from '@/features/candidates/CandidateTat'
 import { OfferCard } from '@/features/offers/OfferCard'
 import { OnboardingCard } from '@/features/onboarding/OnboardingCard'
 import type { ApplicationDetail, CandidateApplication } from '@/types/domain'
@@ -62,6 +63,7 @@ export function CandidateTimelineTab({
           </div>
         )}
       </section>
+      {detail && <CandidateTat application={detail} />}
       {detail?.offer && actions && <OfferCard offer={detail.offer} actions={actions} />}
       {detail?.onboarding && <OnboardingCard onboarding={detail.onboarding} />}
       {feed.isPending ? (

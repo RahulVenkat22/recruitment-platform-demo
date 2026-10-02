@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from common import locations
 from common.enums import EmploymentType, WorkMode
 from jobs.exceptions import InvalidJobFile, JobFileNotRead
-from resumes.engines.llm import LLMBusy, LLMError, invoke_structured, invoke_structured_with_file
+from resumes.engines.llm import LLMError, invoke_structured, invoke_structured_with_file
 
 MAX_MB = 10
 MAX_PAGES = 12
@@ -184,15 +184,9 @@ def _walk(node: ElementTree.Element, parts: list[str], lines: list[str]) -> None
 def _ask(
     messages: list[Any], *, data: bytes | None = None, file_name: str = ""
 ) -> ExtractedJobDescription:
-    """The model's answer; ``LLM_FALLBACK_MODEL`` is tried once when the main model is busy."""
-    model, fallback = settings.LLM_MODEL, settings.LLM_FALLBACK_MODEL
+    """The model's answer, with failover handled by the shared LLM layer."""
     try:
-        try:
-            return _invoke(messages, model, data=data, file_name=file_name)
-        except LLMBusy:
-            if not fallback or fallback == model:
-                raise
-            return _invoke(messages, fallback, data=data, file_name=file_name)
+        return _invoke(messages, settings.LLM_MODEL, data=data, file_name=file_name)
     except LLMError as exc:
         raise JobFileNotRead(f"The AI could not read the file: {exc}") from exc
 

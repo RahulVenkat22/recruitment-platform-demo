@@ -22,6 +22,7 @@ Registration list, in the order of the API table in plan.md 6.10:
                    dashboard/summary|trends|pipeline|funnel|interviews|attention|team|
                    upcoming-interviews
     support        support/tickets/ (+ summary, comments, transition, assign)
+    assistant      assistant/chat/, assistant/actions/{id}/confirm|cancel
 
 To register an app, add ``path("", include("<app>.urls"))`` to ``urlpatterns``.
 """
@@ -39,4 +40,5 @@ urlpatterns = [
     path("", include("notifications.urls")),
     path("", include("dashboard.urls")),
     path("", include("support.urls")),
+    path("", include("assistant.urls")),
 ]

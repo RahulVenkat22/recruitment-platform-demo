@@ -70,6 +70,7 @@ LOCAL_APPS = [
     "audit",
     "dashboard",
     "support",
+    "assistant",
     "seed",
 ]
 
@@ -325,19 +326,19 @@ RESUME_INGEST_ASYNC = env.bool("RESUME_INGEST_ASYNC", default=True)
 # Django's own multipart limits, raised so a whole folder can be dropped at once.
 DATA_UPLOAD_MAX_NUMBER_FILES = RESUME_UPLOAD_MAX_FILES + 10
 
-# Which provider runs resume parsing, JD analysis, candidate evaluation AND the
-# embeddings: "openai" or "gemini". Only the clients change -- the prompts and
+# Initial provider for resume parsing, JD analysis and other chat calls:
+# "openai" or "gemini". Only the clients change -- the prompts and
 # the Pydantic schemas are the same for both (only the structured-output
 # mechanism differs, see resumes/engines/llm.py), so switching providers changes
-# answer quality and nothing else -- except the embedding space, which is why a
-# switch is followed by `ingest_resumes --reprocess` (see EMBEDDING_MODEL).
+# answer quality. Pin EMBEDDING_PROVIDER when switching chat providers so the
+# existing vector space stays usable (see EMBEDDING_MODEL).
 # An unknown value stops the process here rather than degrading silently at the
 # first parse: unlike MATCH_ENGINE, which matching/registry.py validates lazily
 # inside get_engine(), LLM_PROVIDER is read by settings themselves (LLM_MODEL
 # below branches on it), so there is no later moment at which a typo could be
 # caught with the same information.
 LLM_PROVIDERS = ("openai", "gemini")
-LLM_PROVIDER = env.str("LLM_PROVIDER", default="gemini").strip().lower() or "gemini"
+LLM_PROVIDER = env.str("LLM_PROVIDER", default="openai").strip().lower() or "openai"
 if LLM_PROVIDER not in LLM_PROVIDERS:
     raise ImproperlyConfigured(
         f"LLM_PROVIDER={LLM_PROVIDER!r} is not one of {', '.join(LLM_PROVIDERS)}"
@@ -357,7 +358,7 @@ if LLM_PROVIDER not in LLM_PROVIDERS:
 # client as a name with whitespace in it, which fails at the first call instead
 # of falling back to the documented default.
 OPENAI_API_KEY = env.str("OPENAI_API_KEY", default="")
-OPENAI_MODEL = env.str("OPENAI_MODEL", default="").strip() or "gpt-4o-mini"
+OPENAI_MODEL = env.str("OPENAI_MODEL", default="").strip() or "gpt-4.1-mini"
 OPENAI_SEARCH_MODEL = env.str("OPENAI_SEARCH_MODEL", default="").strip() or OPENAI_MODEL
 OPENAI_BASE_URL = env.str("OPENAI_BASE_URL", default="")
 # GEMINI_API_KEY, not GOOGLE_API_KEY: the key is passed to the client explicitly,
@@ -368,11 +369,10 @@ OPENAI_BASE_URL = env.str("OPENAI_BASE_URL", default="")
 GEMINI_API_KEY = env.str("GEMINI_API_KEY", default="")
 GEMINI_MODEL = env.str("GEMINI_MODEL", default="").strip() or "gemini-2.5-flash"
 GEMINI_SEARCH_MODEL = env.str("GEMINI_SEARCH_MODEL", default="").strip() or "gemini-2.5-flash-lite"
-# A second model for the resume parse when the main one is busy -- a 5xx or a
-# rate limit that outlived LLM_MAX_RETRIES. Tried once; the document records
-# which model answered (ResumeDocument.llm_model plus a warning). Empty disables
-# it. The search path does not use it: it already runs on the *_SEARCH_MODEL.
-OPENAI_FALLBACK_MODEL = env.str("OPENAI_FALLBACK_MODEL", default="").strip()
+# Every structured chat call tries the same-provider fallback after an error.
+# OpenAI then falls back to Gemini. An explicit empty value disables the
+# same-provider fallback; duplicate model names are only attempted once.
+OPENAI_FALLBACK_MODEL = env.str("OPENAI_FALLBACK_MODEL", default="gpt-4o-mini").strip()
 GEMINI_FALLBACK_MODEL = env.str("GEMINI_FALLBACK_MODEL", default="").strip()
 
 # Resolved once, here: resumes.engines.llm, the JD planner, sourcing.services and
@@ -402,7 +402,7 @@ except ValueError as exc:
 # env.str then int(), like LLM_TIMEOUT_SECONDS above: an empty
 # `LLM_MAX_RETRIES=` line means "use the default", and env.int("") raises a raw
 # ValueError out of django-environ at import time.
-_llm_max_retries = env.str("LLM_MAX_RETRIES", default="").strip() or "2"
+_llm_max_retries = env.str("LLM_MAX_RETRIES", default="").strip() or "0"
 try:
     LLM_MAX_RETRIES = int(_llm_max_retries)
 except ValueError as exc:
@@ -410,7 +410,7 @@ except ValueError as exc:
         f"LLM_MAX_RETRIES={_llm_max_retries!r} is not a whole number of retries"
     ) from exc
 
-# Embeddings run on the same provider as the chat model and are stored in
+# Embeddings have a fixed provider, independent of chat failover, and are stored in
 # PostgreSQL (pgvector). EMBEDDING_DIMENSIONS is baked into the
 # resumes_resumechunk column, so both defaults are asked for 768-wide vectors
 # (OpenAI's `dimensions`, Gemini's `output_dimensionality` -- both models
@@ -418,8 +418,13 @@ except ValueError as exc:
 # comparable, so changing the provider or the model means `ingest_resumes
 # --reprocess`; changing the WIDTH additionally needs a resumes migration.
 _EMBEDDING_DEFAULTS = {"openai": "text-embedding-3-small", "gemini": "gemini-embedding-001"}
+EMBEDDING_PROVIDER = env.str("EMBEDDING_PROVIDER", default="").strip().lower() or LLM_PROVIDER
+if EMBEDDING_PROVIDER not in LLM_PROVIDERS:
+    raise ImproperlyConfigured(
+        f"EMBEDDING_PROVIDER={EMBEDDING_PROVIDER!r} is not one of {', '.join(LLM_PROVIDERS)}"
+    )
 EMBEDDING_MODEL = (
-    env.str("EMBEDDING_MODEL", default="").strip() or _EMBEDDING_DEFAULTS[LLM_PROVIDER]
+    env.str("EMBEDDING_MODEL", default="").strip() or _EMBEDDING_DEFAULTS[EMBEDDING_PROVIDER]
 )
 EMBEDDING_DIMENSIONS = env.int("EMBEDDING_DIMENSIONS", default=768)
 EMBEDDING_BATCH_SIZE = env.int("EMBEDDING_BATCH_SIZE", default=32)
@@ -481,16 +486,37 @@ EMAIL_REPLY_TO = env.str("EMAIL_REPLY_TO", default="").strip() or EMAIL_HOST_USE
 EMAIL_SAFE_RECIPIENT = env.str("EMAIL_SAFE_RECIPIENT", default="").strip()
 # The organisation the outreach speaks for: `{company}` in the templates.
 EMAIL_COMPANY_NAME = env.str("EMAIL_COMPANY_NAME", default="").strip() or "Aimious"
+# What the AI recruiter may say about the organisation when a candidate asks on a
+# call ("what does the company do?", "where is the office?"). One paragraph.
+COMPANY_PROFILE = env.str("COMPANY_PROFILE", default="").strip() or (
+    f"{EMAIL_COMPANY_NAME} is an AI technology company founded in 2021 and headquartered in "
+    "Chennai, India, with a second office in Bengaluru and around 120 people. It builds "
+    "TalentOS, an AI-driven hiring platform, and delivers applied AI solutions such as LLM "
+    "applications, computer vision and data platforms for enterprise clients in healthcare, "
+    "finance and retail. Teams work hybrid, three days a week in the office, with flexible "
+    "hours. Benefits include health insurance for the employee and their family, an annual "
+    "learning budget and a laptop of choice. The hiring process is usually a phone screen, a "
+    "technical round, a managerial round and a TA round, and takes two to three weeks."
+)
 
 # --------------------------------------------------------------- AI phone calls
-# The interview script and the assessment run on the project LLM (VOICE_MODEL,
-# default: the search model). Placing a REAL call needs a voice platform:
+# The call script (fix an interview time from offered slots, or deliver a
+# message; answer questions about the company and the role) and the end-of-call
+# reading of the transcript run on the project LLM (VOICE_MODEL, default: the
+# search model). Placing a REAL call needs a voice platform:
 # VOICE_PROVIDER=vapi with VAPI_API_KEY, VAPI_PHONE_NUMBER_ID and a public
 # PUBLIC_BASE_URL for its webhooks. Without them calls run as a simulated text
 # chat in the browser. VOICE_SAFE_NUMBER redirects every real call to one number
 # (yours) until go-live. VOICE_DEFAULT_REGION parses national numbers.
 VOICE_PROVIDER = env.str("VOICE_PROVIDER", default="").strip().lower()
 VOICE_MODEL = env.str("VOICE_MODEL", default="").strip() or LLM_SEARCH_MODEL
+# The assistant that answers questions about a search's results (streamed to the
+# browser as server-sent events) runs on SEARCH_CHAT_MODEL, default: the search model.
+SEARCH_CHAT_MODEL = env.str("SEARCH_CHAT_MODEL", default="").strip() or LLM_SEARCH_MODEL
+# The TalentOS assistant (the agent that works the application from chat) runs on
+# ASSISTANT_MODEL, default: the main model, since it writes job descriptions and
+# decides which tools to call.
+ASSISTANT_MODEL = env.str("ASSISTANT_MODEL", default="").strip() or LLM_MODEL
 VOICE_SAFE_NUMBER = env.str("VOICE_SAFE_NUMBER", default="").strip()
 VOICE_DEFAULT_REGION = env.str("VOICE_DEFAULT_REGION", default="").strip().upper() or "IN"
 PUBLIC_BASE_URL = env.str("PUBLIC_BASE_URL", default="").strip()

@@ -1,13 +1,10 @@
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import { ArrowDownRightIcon, ArrowUpRightIcon, MinusIcon, type LucideIcon } from 'lucide-react'
 import { Area, AreaChart } from 'recharts'
 import { Skeleton } from '@/components/ui/skeleton'
+import { AnimatedNumber } from '@/components/shared/AnimatedNumber'
 import { SPARK } from '@/features/dashboard/charts/theme'
-import {
-  deltaTone,
-  formatDelta,
-  formatMetricValue,
-  type DeltaTone,
-} from '@/features/dashboard/dashboard-utils'
+import { deltaTone, formatDelta, type DeltaTone } from '@/features/dashboard/dashboard-utils'
 import { cn } from '@/lib/utils'
 import type { DashboardMetric } from '@/types/domain'
 
@@ -32,6 +29,7 @@ const TONE: Record<DeltaTone, string> = {
 }
 
 function Sparkline({ series }: { series: readonly number[] }) {
+  const reduced = useMotionPreference()
   const data = series.map((value, index) => ({ index, value }))
   const flat = series.every((value) => value === 0)
   return (
@@ -49,7 +47,8 @@ function Sparkline({ series }: { series: readonly number[] }) {
         strokeWidth={1.5}
         fill={SPARK}
         fillOpacity={flat ? 0 : 0.12}
-        isAnimationActive={false}
+        isAnimationActive={!reduced}
+        animationDuration={900}
         dot={false}
         activeDot={false}
       />
@@ -101,7 +100,15 @@ export function StatTile({
           <Skeleton className="h-8 w-20 bg-surface-3" />
         ) : (
           <span className="font-heading text-[28px] leading-8 font-semibold tracking-[-0.02em] text-ink">
-            {formatMetricValue(metric)}
+            {metric.value === null ? (
+              '—'
+            ) : (
+              <AnimatedNumber
+                value={metric.value}
+                decimals={metric.unit === 'count' ? 0 : 1}
+                suffix={metric.unit === 'percent' ? '%' : metric.unit === 'days' ? 'd' : ''}
+              />
+            )}
           </span>
         )}
         {metric?.series && metric.series.length > 1 && (

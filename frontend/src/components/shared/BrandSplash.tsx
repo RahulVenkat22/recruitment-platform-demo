@@ -1,8 +1,9 @@
-import { motion, useReducedMotion } from 'motion/react'
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
+import { motion } from 'motion/react'
 
 /** Full-page hold while the session is being restored; the Buro Happold mark breathes gently. */
 export function BrandSplash({ label = 'Restoring your session' }: { label?: string }) {
-  const reducedMotion = useReducedMotion()
+  const reducedMotion = useMotionPreference()
 
   return (
     <div

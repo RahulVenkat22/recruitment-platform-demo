@@ -24,6 +24,10 @@ export const endpoints = {
   jobs: `${API_PREFIX}/job-descriptions/`,
   jobFacets: `${API_PREFIX}/job-descriptions/facets/`,
   jobExtract: `${API_PREFIX}/job-descriptions/extract/`,
+  jobUploads: `${API_PREFIX}/job-description-uploads/`,
+  jobUpload: (id: string) => `${API_PREFIX}/job-description-uploads/${id}/`,
+  jobUploadAction: (id: string, action: string) =>
+    `${API_PREFIX}/job-description-uploads/${id}/${action}/`,
   job: (id: string) => `${API_PREFIX}/job-descriptions/${id}/`,
   jobAction: (id: string, action: string) => `${API_PREFIX}/job-descriptions/${id}/${action}/`,
   jobVersion: (id: string, version: number) =>
@@ -35,6 +39,7 @@ export const endpoints = {
   sources: `${API_PREFIX}/sources/`,
   searches: `${API_PREFIX}/searches/`,
   search: (id: string) => `${API_PREFIX}/searches/${id}/`,
+  searchChat: (id: string) => `${API_PREFIX}/searches/${id}/chat/`,
   applications: `${API_PREFIX}/applications/`,
   application: (id: string) => `${API_PREFIX}/applications/${id}/`,
   applicationAction: (id: string, action: string) => `${API_PREFIX}/applications/${id}/${action}/`,
@@ -74,6 +79,9 @@ export const endpoints = {
   ticketsSummary: `${API_PREFIX}/support/tickets/summary/`,
   ticket: (id: string) => `${API_PREFIX}/support/tickets/${id}/`,
   ticketAction: (id: string, action: string) => `${API_PREFIX}/support/tickets/${id}/${action}/`,
+  assistantChat: `${API_PREFIX}/assistant/chat/`,
+  assistantAction: (stepId: string, decision: 'confirm' | 'cancel') =>
+    `${API_PREFIX}/assistant/actions/${stepId}/${decision}/`,
 } as const
 
 /** Shape of `POST /auth/refresh`: the rotated access token plus the profile. */

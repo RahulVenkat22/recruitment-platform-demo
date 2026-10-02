@@ -336,6 +336,10 @@ class PipelineService:
                         ],
                         "candidate_ids": [str(app.candidate_id) for app in group],
                         "application_ids": [str(app.pk) for app in group],
+                        "from_by_application": {
+                            str(app.pk): app._bulk_previous
+                            for app in group  # noqa: SLF001
+                        },
                     },
                     occurred_at=occurred_at,
                 )

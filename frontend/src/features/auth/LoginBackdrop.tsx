@@ -1,4 +1,4 @@
-import { useReducedMotion } from 'motion/react'
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import { Suspense, lazy, useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
 
@@ -22,7 +22,7 @@ function supportsWebGL(): boolean {
  * frame, for while the welcome loader covers it.
  */
 export function LoginBackdrop({ paused = false }: { paused?: boolean }) {
-  const reducedMotion = useReducedMotion()
+  const reducedMotion = useMotionPreference()
   const [ready, setReady] = useState(false)
   const webgl = useMemo(() => supportsWebGL(), [])
 

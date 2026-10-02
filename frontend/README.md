@@ -14,14 +14,16 @@ Vite + React 19 + TypeScript 5.9, Tailwind CSS v4 and shadcn/ui (Radix). See `..
 | `npm run format`                  | Prettier                                                        |
 | `npm test` / `npm run test:watch` | Vitest with jsdom and Testing Library                           |
 
+See [UI experience](../docs/ui-experience.md) for the redesigned workspace, animation preferences and browser verification.
+
 ## Layout
 
 - `src/app/` router, providers, `layout/` (AppShell, Sidebar, TopBar)
 - `src/lib/` axios client with refresh interceptor, auth store, query keys, formatters
-- `src/components/ui/` shadcn output (do not hand-edit; re-run `npx shadcn add <name> --overwrite`)
+- `src/components/ui/` Radix/shadcn primitives with workspace control sizing; preserve these customizations when regenerating
 - `src/components/shared/` project components (PageHeader, HealthPill, ...)
 - `src/features/<domain>/` pages
-- `public/brand/` Aimious marks
+- `public/brand/` Buro Happold and TalentOS marks
 
 Copy `.env.example` to `.env` if the API is not on the same origin.
 

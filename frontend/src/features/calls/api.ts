@@ -28,13 +28,12 @@ export interface CallTurn {
   text: string
 }
 
+/** What the model read from the transcript when the call ended. */
 export interface CallAssessment {
   summary?: string
-  overall_score?: number
-  questions?: { question: string; answer_summary: string; score: number; notes: string }[]
-  strengths?: string[]
-  concerns?: string[]
-  recommendation?: string
+  /** 1-based number of the offered slot the candidate agreed to; 0 when none. */
+  chosen_slot?: number
+  preferred_time?: string
   information_acknowledged?: boolean
   candidate_questions?: string[]
 }

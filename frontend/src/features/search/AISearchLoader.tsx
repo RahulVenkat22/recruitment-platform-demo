@@ -1,3 +1,4 @@
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import {
   BotIcon,
   CheckIcon,
@@ -7,7 +8,7 @@ import {
   UsersIcon,
   XIcon,
 } from 'lucide-react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { SEARCH_MESSAGES } from '@/features/search/search-messages'
@@ -102,7 +103,7 @@ export function AISearchLoader({
   cancelling = false,
   className,
 }: AISearchLoaderProps) {
-  const reducedMotion = useReducedMotion()
+  const reducedMotion = useMotionPreference()
   const messageIndex = useTicker(MESSAGE_INTERVAL_MS, SEARCH_MESSAGES.length, true)
   const sourceIndex = useTicker(SOURCE_INTERVAL_MS, sources.length, true)
   const elapsed = useElapsedSeconds(startedAt)

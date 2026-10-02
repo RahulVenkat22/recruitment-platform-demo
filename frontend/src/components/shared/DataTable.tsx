@@ -9,7 +9,7 @@ import {
   type Updater,
 } from '@tanstack/react-table'
 import { XIcon } from 'lucide-react'
-import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
+import type { CSSProperties, KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import { Pagination } from '@/components/shared/Pagination'
 import type { PaginationState } from '@/components/shared/pagination-utils'
 import { SkeletonTableRows } from '@/components/shared/Skeletons'
@@ -216,9 +216,10 @@ export function DataTable<T>({
             <SkeletonTableRows rows={skeletonRows} columns={columns.length} />
           ) : (
             <TableBody>
-              {rows.map((row) => (
+              {rows.map((row, index) => (
                 <TableRow
                   key={row.id}
+                  style={{ '--row-index': index } as CSSProperties}
                   data-state={row.getIsSelected() ? 'selected' : undefined}
                   tabIndex={onRowClick ? 0 : undefined}
                   onClick={(event) => handleRowClick(event, row)}

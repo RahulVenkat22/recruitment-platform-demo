@@ -11,8 +11,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import { assessmentOf, useCallReply, useFinishCall } from '@/features/calls/api'
-import { AssessmentView, Transcript } from '@/features/calls/CallCard'
+import { useCallReply, useFinishCall } from '@/features/calls/api'
+import { CallOutcome, Transcript } from '@/features/calls/CallCard'
 import { describeError } from '@/lib/errors'
 import type { PhoneCall } from '@/types/domain'
 
@@ -21,7 +21,7 @@ export interface SimulatedCallDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-/** The interview as a chat: you type what the candidate would say; the AI asks the next question. */
+/** The call as a chat: you type what the candidate would say; the AI says its next line. */
 export function SimulatedCallDialog({ call, onOpenChange }: SimulatedCallDialogProps) {
   return (
     <Dialog open={call !== null} onOpenChange={onOpenChange}>
@@ -66,7 +66,6 @@ function Conversation({ initial, onClose }: { initial: PhoneCall; onClose: () =>
     }
   }
 
-  const assessment = assessmentOf(call)
   return (
     <>
       <DialogHeader>
@@ -75,7 +74,7 @@ function Conversation({ initial, onClose }: { initial: PhoneCall; onClose: () =>
         </DialogTitle>
         <DialogDescription>
           {live
-            ? 'You are playing the candidate. Type what they would say; the AI recruiter answers with its next question. Press Enter to send.'
+            ? 'You are playing the candidate. Type what they would say; the AI recruiter answers with its next line. Press Enter to send.'
             : 'The call has ended and is logged in the contact log.'}
         </DialogDescription>
       </DialogHeader>
@@ -87,10 +86,10 @@ function Conversation({ initial, onClose }: { initial: PhoneCall; onClose: () =>
             AI recruiter is thinking…
           </p>
         )}
-        {!live && assessment && (
+        {!live && (
           <div className="mt-4 border-t border-line pt-4">
-            <p className="mb-2 text-small font-medium text-ink">Assessment</p>
-            <AssessmentView assessment={assessment} />
+            <p className="mb-2 text-small font-medium text-ink">Outcome</p>
+            <CallOutcome call={call} />
           </div>
         )}
         <div ref={bottom} />

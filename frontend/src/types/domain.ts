@@ -140,6 +140,7 @@ export type FacetOption = Schemas['FacetOption']
 /** `POST /job-descriptions/extract/`: the fields the AI read from an uploaded JD file. */
 export type JobExtraction = Schemas['JobExtraction']
 export type JobExtractedFields = Schemas['JobExtractedFields']
+export type JobUpload = Schemas['JobUpload']
 export type SkillSuggestion = Schemas['SkillSuggestion']
 
 export type JobVersion = Schemas['VersionRow']
@@ -244,6 +245,19 @@ export interface SemanticDetails {
   summary_model?: string
 }
 export type SearchResponse = Schemas['SearchResponse']
+
+/** `GET /searches/{id}/chat/`: the conversation about one search's results (plan: results chat). */
+export type SearchChatThread = Schemas['SearchChatThread']
+export type SearchChatScope = Schemas['SearchChatScope']
+export type SearchChatMessage = Schemas['SearchChatMessage']
+/** A candidate an answer is grounded in; rendered as a chip that links to them. */
+export type SearchChatCitation = Schemas['SearchChatCitation']
+/** The TalentOS assistant: the user's conversation, one turn, one step of a turn. */
+export type AssistantThread = Schemas['AssistantThread']
+export type AssistantScope = Schemas['AssistantScope']
+export type AssistantMessage = Schemas['AssistantMessage']
+export type AssistantStep = Schemas['AssistantStep']
+export type AssistantStepResult = Schemas['AssistantStepResult']
 export type JobRef = Schemas['JobRef']
 export type CandidateSkillRef = Schemas['CandidateSkillRef']
 export type CandidateSummary = Schemas['CandidateSummary']

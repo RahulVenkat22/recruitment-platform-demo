@@ -1,3 +1,4 @@
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import { useMemo, useState } from 'react'
 import {
   CartesianGrid,
@@ -61,6 +62,7 @@ export function TrendChart({
   points: readonly TrendPoint[]
   className?: string
 }) {
+  const reduced = useMotionPreference()
   const [hidden, setHidden] = useState<Set<TrendKey>>(() => new Set())
   const [mode, setMode] = useState<Mode>('daily')
 
@@ -154,7 +156,8 @@ export function TrendChart({
             <Tooltip
               content={<TrendTooltip />}
               cursor={{ stroke: CHART_INK.baseline, strokeWidth: 1 }}
-              isAnimationActive={false}
+              isAnimationActive={!reduced}
+              animationDuration={700}
             />
             {TREND_SERIES.map((series) => (
               <Line
@@ -169,7 +172,8 @@ export function TrendChart({
                 strokeLinejoin="round"
                 dot={false}
                 activeDot={{ r: 4, strokeWidth: 2, stroke: CHART_INK.surface, fill: series.color }}
-                isAnimationActive={false}
+                isAnimationActive={!reduced}
+                animationDuration={700}
               />
             ))}
           </LineChart>

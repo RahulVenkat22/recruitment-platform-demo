@@ -1,6 +1,7 @@
 import { ArrowLeftIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
+import { pageIdentity } from '@/app/layout/page-identity'
 import { useBackNavigation } from '@/lib/hooks/useBackNavigation'
 import { useUiStore, type Crumb } from '@/lib/ui-store'
 import { cn } from '@/lib/utils'
@@ -79,6 +80,12 @@ export function PageHeader({
   const [stuck, setStuck] = useState(false)
   const titleText = typeof title === 'string' ? title : undefined
   const back = backCrumb(breadcrumbs)
+  const identity = pageIdentity(useLocation().pathname)
+  const Icon = identity.icon
+
+  useEffect(() => {
+    document.title = `${titleText ?? breadcrumbs?.at(-1)?.label ?? 'Workspace'} · TalentOS`
+  }, [titleText, breadcrumbs])
 
   useEffect(() => {
     setBreadcrumbs(breadcrumbs ?? [{ label: titleText ?? '' }])
@@ -102,7 +109,7 @@ export function PageHeader({
         data-slot="page-header"
         data-stuck={stuck || undefined}
         className={cn(
-          'sticky top-0 z-10 -mx-6 bg-bg/95 px-6 pt-5 pb-4 backdrop-blur-sm max-md:-mx-4 max-md:px-4',
+          'sticky top-0 z-10 -mx-6 bg-bg/90 px-6 pt-7 pb-6 backdrop-blur-xl max-md:static max-md:-mx-4 max-md:px-4 max-md:pt-5',
           'border-b border-transparent transition-colors duration-150 ease-brand',
           stuck && 'border-line',
           className,
@@ -110,18 +117,26 @@ export function PageHeader({
       >
         {back?.to && <BackLink fallback={back.to} fallbackLabel={back.label} />}
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1 basis-64">
+            <p className="mb-2 flex items-center gap-2 text-[10px] font-semibold tracking-[0.12em] text-primary uppercase">
+              <Icon aria-hidden="true" className="size-3.5" />
+              {identity.label}
+            </p>
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               <h1 className="min-w-0 text-h1 text-ink">{title}</h1>
               {titleAddon && (
                 <span className="inline-flex shrink-0 items-center">{titleAddon}</span>
               )}
             </div>
-            {subtitle && <div className="mt-1 text-ink-muted">{subtitle}</div>}
+            {subtitle && (
+              <div className="mt-2 max-w-3xl text-[13px]/[21px] text-ink-muted">{subtitle}</div>
+            )}
             {meta && <div className="mt-1.5 text-small text-ink-subtle">{meta}</div>}
           </div>
           {actions && (
-            <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">{actions}</div>
+            <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2 self-center">
+              {actions}
+            </div>
           )}
         </div>
         {tabs && <div className="mt-4">{tabs}</div>}

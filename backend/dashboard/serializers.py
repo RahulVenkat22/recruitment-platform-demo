@@ -102,6 +102,7 @@ class DashboardSummarySerializer(serializers.Serializer):
     hires = DashboardMetricSerializer()
     offer_acceptance = DashboardMetricSerializer()
     time_to_hire = DashboardMetricSerializer()
+    recruitment_tat = DashboardMetricSerializer()
 
 
 class TrendPointSerializer(serializers.Serializer):
@@ -279,7 +280,21 @@ class SearchStatsSerializer(serializers.Serializer):
     avg_duration_ms = serializers.IntegerField(allow_null=True)
 
 
+class StageTATSerializer(serializers.Serializer):
+    key = serializers.CharField()
+    label = serializers.CharField()
+    hires = serializers.IntegerField()
+    avg_days = serializers.FloatField()
+
+
+class RecruitmentStageTATSerializer(serializers.Serializer):
+    hires = serializers.IntegerField()
+    incomplete_histories = serializers.IntegerField()
+    stages = StageTATSerializer(many=True)
+
+
 class DashboardInsightsSerializer(serializers.Serializer):
+    tat = RecruitmentStageTATSerializer()
     range_days = serializers.IntegerField()
     stages = InsightStageSerializer(many=True)
     match = MatchInsightSerializer()

@@ -51,6 +51,7 @@ from matching.skills import display_name
 from pipeline.models import Application, Communication, Interview, Offer, Onboarding, SearchRun
 from pipeline.services.interviews import OPEN_STATUSES as OPEN_INTERVIEW_STATUSES
 from pipeline.services.offers import format_ctc
+from pipeline.services.tat import application_tats
 
 
 def build_enum_catalogue() -> dict:
@@ -311,7 +312,7 @@ TEAM_GROUPS: dict[str, tuple[str, ...]] = {
 
 
 def summary(scope: Scope) -> dict[str, Any]:
-    """The eight headline figures, each with its change against the previous
+    """Headline figures and candidate TAT, with changes against the previous
     window and, where it is a flow, its daily series for a sparkline."""
     now = scope.now
     jds = scope.job_descriptions()
@@ -337,11 +338,9 @@ def summary(scope: Scope) -> dict[str, Any]:
     responded = offers.filter(status__in=(OfferStatus.ACCEPTED, OfferStatus.DECLINED))
     acceptance_now = _acceptance(_between(responded, "responded_at", scope.window))
     acceptance_before = _acceptance(_between(responded, "responded_at", scope.previous))
-    completed = Onboarding.objects.filter(
-        application__job_description_id__in=scope.jd_ids(), completed_at__isnull=False
-    )
-    time_now = _time_to_hire(_between(completed, "completed_at", scope.window))
-    time_before = _time_to_hire(_between(completed, "completed_at", scope.previous))
+    completed = _tat_applications(scope)
+    tat_now = _tat_averages(_between(completed, "tat_completed_at", scope.window))
+    tat_before = _tat_averages(_between(completed, "tat_completed_at", scope.previous))
 
     return {
         "range_days": scope.span,
@@ -384,10 +383,16 @@ def summary(scope: Scope) -> dict[str, Any]:
             detail=f"{_between(responded, 'responded_at', scope.window).count()} responses",
         ),
         "time_to_hire": _metric(
-            time_now,
-            _diff(time_now, time_before),
+            tat_now["candidate_days"],
+            _diff(tat_now["candidate_days"], tat_before["candidate_days"]),
             unit="days",
-            detail=_plural(_between(completed, "completed_at", scope.window).count(), "hire"),
+            detail=f"Candidate added → onboarding · {_plural(tat_now['hires'], 'hire')}",
+        ),
+        "recruitment_tat": _metric(
+            tat_now["job_days"],
+            _diff(tat_now["job_days"], tat_before["job_days"]),
+            unit="days",
+            detail=f"Job opening → onboarding · {_plural(tat_now['job_hires'], 'hire')}",
         ),
     }
 
@@ -399,13 +404,78 @@ def _acceptance(responded: QuerySet[Offer]) -> float | None:
     return _percent(row["accepted"], row["total"])
 
 
-def _time_to_hire(completed: QuerySet[Onboarding]) -> float | None:
-    """Average days from the candidate being found to onboarding completed."""
-    spans = [
-        (done - found).total_seconds() / 86400
-        for done, found in completed.values_list("completed_at", "application__created_at")
-    ]
-    return round(sum(spans) / len(spans), 1) if spans else None
+def _tat_applications(scope: Scope) -> QuerySet[Application]:
+    """The same completion milestone used by the job and candidate TAT views."""
+    return (
+        scope.applications()
+        .filter(status=ApplicationStatus.ONBOARDED)
+        .annotate(tat_completed_at=Coalesce("onboarding__completed_at", "stage_entered_at"))
+        .filter(tat_completed_at__gte=F("created_at"), tat_completed_at__lte=scope.now)
+    )
+
+
+def _tat_averages(completed: QuerySet[Application]) -> dict:
+    valid_job = Q(job_description__published_at__lte=F("tat_completed_at"))
+    values = completed.aggregate(
+        candidate_avg=Avg(
+            ExpressionWrapper(F("tat_completed_at") - F("created_at"), output_field=DurationField())
+        ),
+        job_avg=Avg(
+            ExpressionWrapper(
+                F("tat_completed_at") - F("job_description__published_at"),
+                output_field=DurationField(),
+            ),
+            filter=valid_job,
+        ),
+        hires=Count("pk"),
+        job_hires=Count("pk", filter=valid_job),
+    )
+    return {
+        "candidate_days": _days(values["candidate_avg"]),
+        "job_days": _days(values["job_avg"]),
+        "hires": values["hires"],
+        "job_hires": values["job_hires"],
+    }
+
+
+def recruitment_stage_tat(scope: Scope) -> dict:
+    """Average cumulative time per visited stage, among hires in the window.
+
+    Repeated visits are summed per hire before averaging. Incomplete histories
+    are excluded from stage averages, but still contribute to total TAT.
+    """
+    apps = list(
+        _between(_tat_applications(scope), "tat_completed_at", scope.window).select_related(
+            "job_description", "onboarding"
+        )
+    )
+    seconds, counts = Counter(), Counter()
+    incomplete = 0
+    for tat in application_tats(apps, now=scope.now):
+        if not tat["history_complete"]:
+            incomplete += 1
+            continue
+        totals = Counter()
+        for stage in tat["stages"]:
+            if stage["status"] != ApplicationStatus.ONBOARDED:
+                totals[stage["status"]] += stage["elapsed_seconds"]
+        for status, duration in totals.items():
+            seconds[status] += duration
+            counts[status] += 1
+    return {
+        "hires": len(apps),
+        "incomplete_histories": incomplete,
+        "stages": [
+            {
+                "key": status.value,
+                "label": status.label,
+                "hires": counts[status],
+                "avg_days": round(seconds[status] / counts[status] / 86400, 1),
+            }
+            for status in ApplicationStatus
+            if counts[status]
+        ],
+    }
 
 
 def _diff(current: float | None, before: float | None) -> float | None:
@@ -823,6 +893,7 @@ def insights(scope: Scope) -> dict[str, Any]:
     return {
         "range_days": scope.span,
         "stages": stages,
+        "tat": recruitment_stage_tat(scope),
         "match": {
             "avg_pct": _rounded(bands["avg"]),
             "scored": scored.count(),
@@ -1105,6 +1176,29 @@ def _hires(scope: Scope, _query: DetailQuery) -> Details:
     return rows.count(), [_hire_item(row) for row in rows.order_by("-completed_at")[:DETAILS_LIMIT]]
 
 
+def _tat_hires(scope: Scope, query: DetailQuery) -> Details:
+    rows = _between(_tat_applications(scope), "tat_completed_at", scope.window)
+    recruitment = query.metric == "recruitment_tat"
+    if recruitment:
+        rows = rows.filter(job_description__published_at__lte=F("tat_completed_at"))
+    items = []
+    for app in rows.select_related("candidate", "job_description", "match").order_by(
+        "-tat_completed_at", "pk"
+    )[:DETAILS_LIMIT]:
+        start = app.job_description.published_at if recruitment else app.created_at
+        days = (app.tat_completed_at - start).total_seconds() / 86400
+        item = _application_item(
+            app,
+            at=app.tat_completed_at,
+            at_label="Onboarded",
+            value=f"{days:.1f} days · "
+            f"{'Job opening' if recruitment else 'Candidate added'} → onboarding",
+        )
+        item["href"] = f"/candidates/{app.candidate_id}?jd={app.job_description_id}&tab=timeline"
+        items.append(item)
+    return rows.count(), items
+
+
 def _overdue_follow_ups(scope: Scope, _query: DetailQuery) -> Details:
     in_contact = scope.applications().filter(status__in=STAGE_PARTITION["contacted"])
     comms = (
@@ -1230,7 +1324,8 @@ DETAIL_BUILDERS: dict[str, Callable[[Scope, DetailQuery], Details]] = {
         scope.offers().filter(status__in=PENDING_OFFER_STATUSES).order_by("expires_at")
     ),
     "hires": _hires,
-    "time_to_hire": _hires,
+    "time_to_hire": _tat_hires,
+    "recruitment_tat": _tat_hires,
     "offer_acceptance": lambda scope, _q: _offers(
         _between(
             scope.offers().filter(status__in=(OfferStatus.ACCEPTED, OfferStatus.DECLINED)),

@@ -34,6 +34,7 @@ from common.permissions import (
     can_submit_feedback,
     can_transition_application,
 )
+from common.serializers import ApplicationTATSerializer
 from jobs.models import JobDescription
 from matching.skills import display_name
 from pipeline.models import (
@@ -45,9 +46,11 @@ from pipeline.models import (
     Offer,
     Onboarding,
     PhoneCall,
+    SearchChatMessage,
     SearchRun,
 )
 from pipeline.services import PURPOSES, TONES, checklist_progress, format_ctc
+from pipeline.services.tat import application_tat
 
 
 class ProviderHealthSerializer(serializers.Serializer):
@@ -327,6 +330,62 @@ class SearchResponseSerializer(serializers.Serializer):
     run = SearchRunSerializer()
     results = ApplicationRowSerializer(many=True)
     errors = serializers.DictField(child=serializers.CharField())
+
+
+# ------------------------------------------------------------- results chat
+
+
+class SearchChatCitationSerializer(serializers.Serializer):
+    """A candidate an answer is grounded in: enough to draw a chip that links to them."""
+
+    id = serializers.CharField()
+    name = serializers.CharField()
+    avatar_url = serializers.CharField(allow_null=True, required=False)
+    match_pct = serializers.FloatField()
+    status = serializers.CharField()
+    status_label = serializers.CharField()
+
+
+class SearchChatMessageSerializer(serializers.ModelSerializer):
+    role = serializers.CharField(read_only=True)
+    citations = SearchChatCitationSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = SearchChatMessage
+        fields = ["id", "role", "content", "citations", "model", "created_at"]
+        read_only_fields = fields
+
+
+class SearchChatScopeSerializer(serializers.Serializer):
+    """What the conversation is about, for the panel header."""
+
+    run_id = serializers.CharField()
+    job_id = serializers.CharField()
+    job_title = serializers.CharField()
+    status = serializers.CharField()
+    total_found = serializers.IntegerField()
+    shortlisted = serializers.IntegerField()
+    new_candidates = serializers.IntegerField()
+    ranked = serializers.IntegerField()
+    started_at = serializers.DateTimeField()
+    finished_at = serializers.DateTimeField(allow_null=True)
+    requested_by = UserSummarySerializer(allow_null=True)
+    sources = serializers.ListField(child=serializers.CharField())
+    model = serializers.CharField()
+
+
+class SearchChatThreadSerializer(serializers.Serializer):
+    """``GET /searches/{id}/chat/``: the scope, the user's turns so far and opening questions."""
+
+    scope = SearchChatScopeSerializer()
+    messages = SearchChatMessageSerializer(many=True)
+    suggestions = serializers.ListField(child=serializers.CharField())
+
+
+class SearchChatAskSerializer(serializers.Serializer):
+    """``POST /searches/{id}/chat/``: one question; the answer streams back."""
+
+    message = serializers.CharField(max_length=2000)
 
 
 # ------------------------------------------------------ interviews, comms, offers, onboardings
@@ -692,6 +751,7 @@ class OnboardingUpdateSerializer(serializers.Serializer):
 
 
 class ApplicationDetailSerializer(ApplicationRowSerializer):
+    tat = serializers.SerializerMethodField()
     interview_count = serializers.SerializerMethodField()
     communication_count = serializers.SerializerMethodField()
     offer = serializers.SerializerMethodField()
@@ -699,6 +759,7 @@ class ApplicationDetailSerializer(ApplicationRowSerializer):
 
     class Meta(ApplicationRowSerializer.Meta):
         fields = ApplicationRowSerializer.Meta.fields + [
+            "tat",
             "notes",
             "rejection_reason",
             "hold_reason",
@@ -708,6 +769,10 @@ class ApplicationDetailSerializer(ApplicationRowSerializer):
             "onboarding",
         ]
         read_only_fields = fields
+
+    @extend_schema_field(ApplicationTATSerializer())
+    def get_tat(self, obj: Application) -> dict:
+        return ApplicationTATSerializer(application_tat(obj)).data
 
     @extend_schema_field(OfferSerializer(allow_null=True))
     def get_offer(self, obj: Application) -> dict[str, Any] | None:
@@ -887,9 +952,32 @@ class EmailDraftSerializer(serializers.Serializer):
     model = serializers.CharField()
 
 
+class InterviewRefSerializer(serializers.ModelSerializer):
+    """The interview an AI call booked: enough for the call card's chip."""
+
+    interviewer = UserSummarySerializer(read_only=True)
+    round_label = serializers.CharField(source="get_round_display", read_only=True)
+
+    class Meta:
+        model = Interview
+        fields = [
+            "id",
+            "round",
+            "round_label",
+            "scheduled_at",
+            "duration_minutes",
+            "mode",
+            "status",
+            "interviewer",
+        ]
+        read_only_fields = fields
+
+
 class PhoneCallSerializer(serializers.ModelSerializer):
     application = ApplicationRefSerializer(read_only=True)
     created_by = UserSummarySerializer(read_only=True, allow_null=True)
+    interviewer = UserSummarySerializer(read_only=True, allow_null=True)
+    interview = InterviewRefSerializer(read_only=True, allow_null=True)
     purpose_label = serializers.CharField(source="get_purpose_display", read_only=True)
     status_label = serializers.CharField(source="get_status_display", read_only=True)
     to_number = serializers.SerializerMethodField()
@@ -905,7 +993,12 @@ class PhoneCallSerializer(serializers.ModelSerializer):
             "status",
             "status_label",
             "to_number",
-            "questions",
+            "slots",
+            "interview_round",
+            "interviewer",
+            "interview_duration_minutes",
+            "interview_mode",
+            "interview",
             "information",
             "instructions",
             "max_minutes",
@@ -931,9 +1024,21 @@ class PhoneCallSerializer(serializers.ModelSerializer):
 
 class PhoneCallCreateSerializer(serializers.Serializer):
     purpose = serializers.ChoiceField(choices=CallPurpose.choices)
-    questions = serializers.ListField(
-        child=serializers.CharField(max_length=500), required=False, default=list, max_length=20
+    # Schedule interview: the slots the AI offers, and the interview to book.
+    slots = serializers.ListField(
+        child=serializers.DateTimeField(), required=False, default=list, max_length=5
     )
+    interview_round = serializers.ChoiceField(
+        choices=InterviewRound.choices, required=False, allow_blank=True, default=""
+    )
+    interviewer = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(is_active=True), required=False, allow_null=True, default=None
+    )
+    interview_duration_minutes = serializers.IntegerField(min_value=15, max_value=240, default=60)
+    interview_mode = serializers.ChoiceField(
+        choices=InterviewMode.choices, default=InterviewMode.VIDEO
+    )
+    # Share information: the message.
     information = serializers.CharField(
         required=False, allow_blank=True, max_length=3000, default=""
     )
@@ -950,6 +1055,15 @@ class PhoneCallCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"information": "Say what the call should tell the candidate."}
             )
+        if attrs["purpose"] == CallPurpose.SCHEDULE_INTERVIEW:
+            needed = {
+                "slots": "Offer at least one time slot.",
+                "interview_round": "Choose the interview round.",
+                "interviewer": "Choose who runs the interview.",
+            }
+            missing = {key: text for key, text in needed.items() if not attrs.get(key)}
+            if missing:
+                raise serializers.ValidationError(missing)
         return attrs
 
 

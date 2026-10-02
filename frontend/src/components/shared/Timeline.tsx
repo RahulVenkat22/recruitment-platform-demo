@@ -1,5 +1,6 @@
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 import { CpuIcon, Loader2Icon } from 'lucide-react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import type { ReactNode } from 'react'
 import { Avatar } from '@/components/shared/Avatar'
 import { TimelineChanges, TimelineItemDetails } from '@/components/shared/TimelineItemDetails'
@@ -46,7 +47,11 @@ function TimelineEntry({
       : ''
 
   return (
-    <div data-slot="timeline-item" data-category={item.category} className="relative pl-8">
+    <div
+      data-slot="timeline-item"
+      data-category={item.category}
+      className="relative rounded-xl py-2 pl-8 transition-colors hover:bg-surface-2/60"
+    >
       <span
         aria-hidden="true"
         className="absolute top-1.5 left-[10px] size-3 rounded-full ring-2 ring-surface"
@@ -115,7 +120,7 @@ export function Timeline({
   renderExtra,
   className,
 }: TimelineProps) {
-  const reducedMotion = useReducedMotion()
+  const reducedMotion = useMotionPreference()
   const days = grouped ? groupByDay(items) : [{ key: 'all', label: '', items: [...items] }]
   const motionProps = reducedMotion
     ? {}

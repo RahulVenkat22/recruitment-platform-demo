@@ -1,9 +1,13 @@
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
+import type { StageId } from '@/components/three/carousel-items'
+import { SceneObject } from '@/components/three/SceneObject'
 import { cn } from '@/lib/utils'
 
 export interface EmptyStateProps {
   icon?: LucideIcon
+  /** A recruitment model from the hiring journey floats in place of the icon; the icon stays as the fallback. */
+  model?: StageId
   title: string
   description?: ReactNode
   /** A primary or secondary button; the caller decides the verb ("Create job description"). */
@@ -20,6 +24,7 @@ export interface EmptyStateProps {
  */
 export function EmptyState({
   icon: Icon,
+  model,
   title,
   description,
   action,
@@ -27,6 +32,18 @@ export function EmptyState({
   className,
 }: EmptyStateProps) {
   const compact = size === 'sm'
+  const icon = Icon && (
+    <span
+      data-testid="empty-state-icon"
+      aria-hidden="true"
+      className={cn(
+        'inline-flex items-center justify-center rounded-full bg-surface-2 text-ink-subtle',
+        compact ? 'size-10 [&_svg]:size-5' : 'size-16 [&_svg]:size-7',
+      )}
+    >
+      <Icon strokeWidth={1.75} />
+    </span>
+  )
 
   return (
     <div
@@ -39,17 +56,15 @@ export function EmptyState({
         className,
       )}
     >
-      {Icon && (
-        <span
-          data-testid="empty-state-icon"
-          aria-hidden="true"
-          className={cn(
-            'inline-flex items-center justify-center rounded-full bg-surface-2 text-ink-subtle',
-            compact ? 'size-10 [&_svg]:size-5' : 'size-16 [&_svg]:size-7',
-          )}
-        >
-          <Icon strokeWidth={1.75} />
-        </span>
+      {model ? (
+        <SceneObject
+          model={model}
+          size={compact ? 112 : 196}
+          className={compact ? '-my-3' : '-mt-5 -mb-4'}
+          fallback={icon}
+        />
+      ) : (
+        icon
       )}
       <h3 className={cn('text-ink', compact ? 'text-[15px] font-medium' : 'text-h3')}>{title}</h3>
       {description && (

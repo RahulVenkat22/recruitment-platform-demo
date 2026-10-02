@@ -33,12 +33,12 @@ export function KanbanColumn({
       data-column={column.key}
       aria-label={`${column.label} column`}
       className={cn(
-        'flex w-[280px] shrink-0 snap-start flex-col rounded-card border bg-surface-2/60 max-md:w-[85vw]',
+        'flex w-[280px] shrink-0 snap-start flex-col rounded-card border bg-surface-2/80 transition-colors duration-200 max-md:w-[85vw]',
         isOver ? 'border-primary bg-primary-soft/40' : 'border-line',
         className,
       )}
     >
-      <header className="flex items-center gap-2 px-3 py-2.5">
+      <header className="flex items-center gap-2 border-b border-line/70 px-4 py-4">
         <h3 className="min-w-0 truncate text-small font-medium text-ink">{column.label}</h3>
         <span
           data-slot="column-count"
@@ -59,7 +59,7 @@ export function KanbanColumn({
           </Button>
         )}
       </header>
-      <div ref={setNodeRef} className="flex min-h-40 flex-1 flex-col gap-2 px-2 pb-2">
+      <div ref={setNodeRef} className="flex min-h-40 flex-1 flex-col gap-3 p-3">
         {column.cards.length === 0 ? (
           <div
             className={cn(

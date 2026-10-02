@@ -20,15 +20,16 @@ import { exportDashboard, type DashboardScope, type ExportKind } from '@/feature
 import { describeError } from '@/lib/errors'
 
 const KINDS: readonly { kind: ExportKind; label: string; icon: LucideIcon }[] = [
-  { kind: 'xlsx', label: 'Excel workbook', icon: FileSpreadsheetIcon },
+  { kind: 'xlsx', label: 'Excel workbook with charts', icon: FileSpreadsheetIcon },
   { kind: 'csv', label: 'CSV', icon: FileTextIcon },
   { kind: 'pdf', label: 'PDF', icon: FileTypeIcon },
 ]
 
 /**
  * Downloads every figure and table on the dashboard, for the window and people
- * on screen, as one file: a workbook with a sheet per widget, a single CSV with
- * a block per widget, or a printable PDF.
+ * on screen, as one file: a workbook with a Dashboard sheet of KPI tiles and
+ * charts plus a sheet per widget, a single CSV with a block per widget, or a
+ * printable PDF.
  */
 export function ExportMenu({ scope, jobId }: { scope: DashboardScope; jobId?: string }) {
   const [busy, setBusy] = useState<ExportKind | null>(null)

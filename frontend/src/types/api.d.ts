@@ -574,6 +574,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/job-description-uploads/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Uploads belong to their uploader, including cancellation and extracted content. */
+        get: operations["job_description_uploads_list"];
+        put?: never;
+        /** @description Uploads belong to their uploader, including cancellation and extracted content. */
+        post: operations["job_description_uploads_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-description-uploads/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Uploads belong to their uploader, including cancellation and extracted content. */
+        get: operations["job_description_uploads_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-description-uploads/{id}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Uploads belong to their uploader, including cancellation and extracted content. */
+        post: operations["job_description_uploads_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-description-uploads/{id}/dismiss/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Uploads belong to their uploader, including cancellation and extracted content. */
+        post: operations["job_description_uploads_dismiss_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-description-uploads/{id}/file/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Uploads belong to their uploader, including cancellation and extracted content. */
+        post: operations["job_description_uploads_file_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/activities/": {
         parameters: {
             query?: never;
@@ -629,6 +715,38 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/searches/{id}/chat/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The conversation about this search's results
+         * @description ``/searches/{id}/chat/``: a conversation about one search's results, private to the
+         *     user asking. ``GET`` the thread, ``POST`` a question (the answer streams back as
+         *     server-sent events), ``DELETE`` to start over.
+         */
+        get: operations["searches_chat_retrieve"];
+        put?: never;
+        /**
+         * Ask about the results; the answer streams back
+         * @description Answers only from this search's results. The response is `text/event-stream`: `context` (the candidates the answer is grounded in), `token` events carrying the text as it is written, then `done` with the stored question and answer, or `error` with a message. A question that fails is not kept.
+         */
+        post: operations["searches_chat_ask"];
+        /**
+         * Forget this conversation
+         * @description ``/searches/{id}/chat/``: a conversation about one search's results, private to the
+         *     user asking. ``GET`` the thread, ``POST`` a question (the answer streams back as
+         *     server-sent events), ``DELETE`` to start over.
+         */
+        delete: operations["searches_chat_clear"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1734,7 +1852,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Every dashboard figure and table as a CSV, an Excel workbook or a PDF
+         * Every dashboard figure and table as a CSV, an Excel workbook or a PDF report
          * @description HR admins and HR only: the dashboard is the recruiting team's view (plan.md 6.9).
          */
         get: operations["dashboard_export"];
@@ -1896,6 +2014,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assistant/chat/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The conversation with the assistant
+         * @description The user's conversation with the assistant: ``GET`` the thread, ``POST`` an
+         *     instruction (the turn streams back as server-sent events), ``DELETE`` to start over.
+         */
+        get: operations["assistant_chat_retrieve"];
+        put?: never;
+        /**
+         * Give the assistant an instruction; the turn streams back
+         * @description The response is `text/event-stream`: `token` events carry the text as it is written, `step` events announce each action (running, then done, failed or pending), then `done` with the stored question and answer, or `error` with a message. A `pending` action waits for `POST /assistant/actions/{id}/confirm/`.
+         */
+        post: operations["assistant_chat_ask"];
+        /**
+         * Forget the conversation
+         * @description The user's conversation with the assistant: ``GET`` the thread, ``POST`` an
+         *     instruction (the turn streams back as server-sent events), ``DELETE`` to start over.
+         */
+        delete: operations["assistant_chat_clear"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/actions/{step_id}/{decision}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run (confirm) or drop (cancel) a pending action
+         * @description Confirm or cancel an action the assistant left pending.
+         */
+        post: operations["assistant_action_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1976,6 +2144,7 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
             readonly permissions: components["schemas"]["ApplicationPermissions"];
+            readonly tat: components["schemas"]["ApplicationTAT"];
             readonly notes: string;
             readonly rejection_reason: string | null;
             readonly hold_reason: string | null;
@@ -2050,6 +2219,95 @@ export interface components {
          * @enum {string}
          */
         ApplicationStatusEnum: "new" | "ai_shortlisted" | "hr_review" | "contact_pending" | "contacted" | "phone_screening" | "interview_scheduled" | "technical_interview" | "hr_interview" | "final_interview" | "selected" | "offer_sent" | "offer_accepted" | "onboarding" | "onboarded" | "rejected" | "withdrawn" | "on_hold";
+        ApplicationTAT: {
+            /** Format: date-time */
+            as_of: string;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at: string | null;
+            elapsed_seconds: number | null;
+            job_elapsed_seconds: number | null;
+            on_hold_seconds: number;
+            history_complete: boolean;
+            stages: components["schemas"]["TATStage"][];
+        };
+        /** @description ``POST /assistant/chat/``: one instruction; the turn streams back. */
+        AssistantAskRequest: {
+            message: string;
+        };
+        AssistantMessage: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly role: string;
+            readonly content: string;
+            readonly steps: components["schemas"]["AssistantStep"][];
+            readonly model: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        AssistantScope: {
+            model: string;
+            company: string;
+            user_name: string;
+            role: string;
+            role_label: string;
+            can_act: boolean;
+        };
+        /** @description One step of an assistant turn: text it wrote, or an action it took. */
+        AssistantStep: {
+            type: components["schemas"]["AssistantStepTypeEnum"];
+            /** @default  */
+            text: string;
+            /** @default  */
+            id: string;
+            /** @default  */
+            name: string;
+            /** @default  */
+            label: string;
+            /** @default done */
+            status: components["schemas"]["AssistantStepStatusEnum"];
+            details?: components["schemas"]["AssistantStepDetail"][];
+            /** @default  */
+            body: string;
+            result?: components["schemas"]["AssistantStepResult"] | null;
+            /** @default  */
+            error: string;
+        };
+        AssistantStepDetail: {
+            label: string;
+            value: string;
+        };
+        AssistantStepResult: {
+            summary: string;
+            /** @default  */
+            link: string;
+            /** @default  */
+            link_label: string;
+            /** @default false */
+            changed: boolean;
+        };
+        /**
+         * @description * `running` - Running
+         *     * `done` - Done
+         *     * `failed` - Failed
+         *     * `pending` - Pending
+         *     * `cancelled` - Cancelled
+         * @enum {string}
+         */
+        AssistantStepStatusEnum: "running" | "done" | "failed" | "pending" | "cancelled";
+        /**
+         * @description * `text` - Text
+         *     * `action` - Action
+         * @enum {string}
+         */
+        AssistantStepTypeEnum: "text" | "action";
+        /** @description ``GET /assistant/chat/``: who is asking, the turns so far and opening prompts. */
+        AssistantThread: {
+            scope: components["schemas"]["AssistantScope"];
+            messages: components["schemas"]["AssistantMessage"][];
+            suggestions: string[];
+        };
         AttentionCounts: {
             overdue_follow_ups: number;
             feedback_pending: number;
@@ -2066,6 +2324,8 @@ export interface components {
             access: string;
             user: components["schemas"]["User"];
         };
+        /** @enum {unknown} */
+        BlankEnum: "";
         /** @description Either a saved template or a raw subject and body still holding placeholders. */
         BulkEmailRequest: {
             /** Format: uuid */
@@ -2083,8 +2343,16 @@ export interface components {
             };
         };
         BulkPhoneCallRequest: {
-            purpose: components["schemas"]["Purpose486Enum"];
-            questions?: string[];
+            purpose: components["schemas"]["Purpose33eEnum"];
+            slots?: string[];
+            /** @default  */
+            interview_round: components["schemas"]["InterviewRoundEnum"] | components["schemas"]["BlankEnum"];
+            /** Format: uuid */
+            interviewer?: string | null;
+            /** @default 60 */
+            interview_duration_minutes: number;
+            /** @default video */
+            interview_mode: components["schemas"]["InterviewModeEnum"];
             /** @default  */
             information: string;
             /** @default  */
@@ -2469,6 +2737,7 @@ export interface components {
             items: components["schemas"]["DetailItem"][];
         };
         DashboardInsights: {
+            tat: components["schemas"]["RecruitmentStageTAT"];
             range_days: number;
             stages: components["schemas"]["InsightStage"][];
             match: components["schemas"]["MatchInsight"];
@@ -2517,6 +2786,7 @@ export interface components {
             hires: components["schemas"]["DashboardMetric"];
             offer_acceptance: components["schemas"]["DashboardMetric"];
             time_to_hire: components["schemas"]["DashboardMetric"];
+            recruitment_tat: components["schemas"]["DashboardMetric"];
         };
         DashboardTrends: {
             range_days: number;
@@ -2792,6 +3062,19 @@ export interface components {
             can_manage: boolean;
             can_submit_feedback: boolean;
         };
+        /** @description The interview an AI call booked: enough for the call card's chip. */
+        InterviewRef: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly round: components["schemas"]["InterviewRoundEnum"];
+            readonly round_label: string;
+            /** Format: date-time */
+            readonly scheduled_at: string;
+            readonly duration_minutes: number;
+            readonly mode: components["schemas"]["InterviewModeEnum"];
+            readonly status: components["schemas"]["InterviewStatusEnum"];
+            readonly interviewer: components["schemas"]["UserSummary"];
+        };
         InterviewRescheduleRequest: {
             /** Format: date-time */
             scheduled_at: string;
@@ -2928,6 +3211,7 @@ export interface components {
             /** Format: date-time */
             readonly last_activity_at: string;
             readonly completion_pct: number;
+            readonly tat: components["schemas"]["JobTAT"];
             readonly education_requirements: string;
             readonly responsibilities: string;
             readonly qualifications: string;
@@ -3062,6 +3346,45 @@ export interface components {
             readonly department: string;
             readonly location: string;
         };
+        JobTAT: {
+            /** Format: date-time */
+            as_of: string;
+            /** Format: date-time */
+            started_at: string | null;
+            /** Format: date-time */
+            finished_at: string | null;
+            state: components["schemas"]["StateEnum"];
+            elapsed_seconds: number | null;
+            first_hire_seconds: number | null;
+            average_hire_seconds: number | null;
+            filled_seconds: number | null;
+            hires: number;
+            openings: number;
+        };
+        JobUpload: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly file_name: string;
+            readonly status: components["schemas"]["JobUploadStatusEnum"];
+            readonly fields: components["schemas"]["JobExtractedFields"];
+            readonly error: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        JobUploadRequestRequest: {
+            file_name: string;
+        };
+        /**
+         * @description * `uploading` - Uploading
+         *     * `processing` - Reading job description
+         *     * `ready` - Ready for review
+         *     * `failed` - Failed
+         *     * `cancelled` - Cancelled
+         * @enum {string}
+         */
+        JobUploadStatusEnum: "uploading" | "processing" | "ready" | "failed" | "cancelled";
         Kanban: {
             columns: components["schemas"]["KanbanColumn"][];
             tray: components["schemas"]["KanbanTray"];
@@ -3764,13 +4087,18 @@ export interface components {
             /** Format: uuid */
             readonly id: string;
             readonly application: components["schemas"]["ApplicationRef"];
-            readonly purpose: components["schemas"]["Purpose486Enum"];
+            readonly purpose: components["schemas"]["Purpose33eEnum"];
             readonly purpose_label: string;
             readonly mode: string;
             readonly status: components["schemas"]["PhoneCallStatusEnum"];
             readonly status_label: string;
             readonly to_number: string;
-            readonly questions: unknown;
+            readonly slots: unknown;
+            readonly interview_round: components["schemas"]["InterviewRoundEnum"];
+            readonly interviewer: components["schemas"]["UserSummary"] | null;
+            readonly interview_duration_minutes: number;
+            readonly interview_mode: components["schemas"]["InterviewModeEnum"];
+            readonly interview: components["schemas"]["InterviewRef"] | null;
             readonly information: string;
             readonly instructions: string;
             readonly max_minutes: number;
@@ -3791,8 +4119,16 @@ export interface components {
             readonly created_at: string;
         };
         PhoneCallCreateRequest: {
-            purpose: components["schemas"]["Purpose486Enum"];
-            questions?: string[];
+            purpose: components["schemas"]["Purpose33eEnum"];
+            slots?: string[];
+            /** @default  */
+            interview_round: components["schemas"]["InterviewRoundEnum"] | components["schemas"]["BlankEnum"];
+            /** Format: uuid */
+            interviewer?: string | null;
+            /** @default 60 */
+            interview_duration_minutes: number;
+            /** @default video */
+            interview_mode: components["schemas"]["InterviewModeEnum"];
             /** @default  */
             information: string;
             /** @default  */
@@ -3828,11 +4164,11 @@ export interface components {
             note: string;
         };
         /**
-         * @description * `knowledge_test` - Knowledge test
+         * @description * `schedule_interview` - Schedule interview
          *     * `information` - Share information
          * @enum {string}
          */
-        Purpose486Enum: "knowledge_test" | "information";
+        Purpose33eEnum: "schedule_interview" | "information";
         ReadAll: {
             marked: number;
         };
@@ -3844,6 +4180,11 @@ export interface components {
          * @enum {string}
          */
         RecommendationEnum: "strong_proceed" | "proceed" | "hold" | "reject";
+        RecruitmentStageTAT: {
+            hires: number;
+            incomplete_histories: number;
+            stages: components["schemas"]["StageTAT"][];
+        };
         RefreshRequestRequest: {
             /** @description For clients without cookies; the aimious_refresh cookie wins when present. */
             refresh?: string;
@@ -3876,6 +4217,54 @@ export interface components {
         /** @description ``POST /resumes/uploads/`` multipart body: one or many ``files`` parts. */
         ResumeUploadRequestRequest: {
             files: string[];
+        };
+        /** @description ``POST /searches/{id}/chat/``: one question; the answer streams back. */
+        SearchChatAskRequest: {
+            message: string;
+        };
+        /** @description A candidate an answer is grounded in: enough to draw a chip that links to them. */
+        SearchChatCitation: {
+            id: string;
+            name: string;
+            avatar_url?: string | null;
+            /** Format: double */
+            match_pct: number;
+            status: string;
+            status_label: string;
+        };
+        SearchChatMessage: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly role: string;
+            readonly content: string;
+            readonly citations: components["schemas"]["SearchChatCitation"][];
+            readonly model: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /** @description What the conversation is about, for the panel header. */
+        SearchChatScope: {
+            run_id: string;
+            job_id: string;
+            job_title: string;
+            status: string;
+            total_found: number;
+            shortlisted: number;
+            new_candidates: number;
+            ranked: number;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at: string | null;
+            requested_by: components["schemas"]["UserSummary"] | null;
+            sources: string[];
+            model: string;
+        };
+        /** @description ``GET /searches/{id}/chat/``: the scope, the user's turns so far and opening questions. */
+        SearchChatThread: {
+            scope: components["schemas"]["SearchChatScope"];
+            messages: components["schemas"]["SearchChatMessage"][];
+            suggestions: string[];
         };
         /** @description ``POST /searches/``: ``{job_description_id, sources: ["naukri", "linkedin"] | ["all"]}``. */
         SearchRequestRequest: {
@@ -3949,6 +4338,22 @@ export interface components {
             /** @description Application statuses this stage covers */
             statuses: string[];
         };
+        StageTAT: {
+            key: string;
+            label: string;
+            hires: number;
+            /** Format: double */
+            avg_days: number;
+        };
+        /**
+         * @description * `not_started` - not_started
+         *     * `in_progress` - in_progress
+         *     * `on_hold` - on_hold
+         *     * `filled` - filled
+         *     * `closed` - closed
+         * @enum {string}
+         */
+        StateEnum: "not_started" | "in_progress" | "on_hold" | "filled" | "closed";
         /** @description ``POST .../status/``: the target status and an optional note for the timeline. */
         StatusChangeRequest: {
             status: components["schemas"]["JDStatusEnum"];
@@ -3982,6 +4387,16 @@ export interface components {
          * @enum {string}
          */
         StorageStatusEnum: "pending_upload" | "uploaded" | "failed";
+        TATStage: {
+            status: string | null;
+            label: string;
+            /** Format: date-time */
+            entered_at: string;
+            /** Format: date-time */
+            exited_at: string | null;
+            elapsed_seconds: number;
+            is_current: boolean;
+        };
         TeamMember: {
             user: components["schemas"]["UserSummary"];
             /** @description Job descriptions created or listed on */
@@ -5591,6 +6006,137 @@ export interface operations {
             };
         };
     };
+    job_description_uploads_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobUpload"][];
+                };
+            };
+        };
+    };
+    job_description_uploads_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobUploadRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["JobUploadRequestRequest"];
+                "multipart/form-data": components["schemas"]["JobUploadRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobUpload"];
+                };
+            };
+        };
+    };
+    job_description_uploads_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobUpload"];
+                };
+            };
+        };
+    };
+    job_description_uploads_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobUpload"];
+                };
+            };
+        };
+    };
+    job_description_uploads_dismiss_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    job_description_uploads_file_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["JobExtractRequestRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobUpload"];
+                };
+            };
+        };
+    };
     activities_list: {
         parameters: {
             query?: {
@@ -5665,6 +6211,122 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EmailConfig"];
                 };
+            };
+        };
+    };
+    searches_chat_retrieve: {
+        parameters: {
+            query?: {
+                format?: "event-stream" | "json";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchChatThread"];
+                    "text/event-stream": components["schemas"]["SearchChatThread"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    searches_chat_ask: {
+        parameters: {
+            query?: {
+                format?: "event-stream" | "json";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchChatAskRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["SearchChatAskRequest"];
+                "multipart/form-data": components["schemas"]["SearchChatAskRequest"];
+            };
+        };
+        responses: {
+            /** @description text/event-stream of context, token, done or error */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    searches_chat_clear: {
+        parameters: {
+            query?: {
+                format?: "event-stream" | "json";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -8375,7 +9037,7 @@ export interface operations {
                 /** @description The source, skill, band, department, channel or offer status */
                 key?: string;
                 /** @description The figure to open */
-                metric: "channel" | "department" | "experience" | "feedback_pending" | "hires" | "in_pipeline" | "interviews" | "match_band" | "new_candidates" | "offer_acceptance" | "offer_status" | "offers_expiring" | "offers_pending" | "open_roles" | "overdue_follow_ups" | "quiet_roles" | "role" | "searches" | "skill" | "source" | "stage" | "stale_candidates" | "time_to_hire";
+                metric: "channel" | "department" | "experience" | "feedback_pending" | "hires" | "in_pipeline" | "interviews" | "match_band" | "new_candidates" | "offer_acceptance" | "offer_status" | "offers_expiring" | "offers_pending" | "open_roles" | "overdue_follow_ups" | "quiet_roles" | "recruitment_tat" | "role" | "searches" | "skill" | "source" | "stage" | "stale_candidates" | "time_to_hire";
                 /** @description Window in days: 7, 30 (default) or 90; ignored when start and end are given */
                 range?: 30 | 7 | 90;
                 /** @description First day of a custom window (inclusive, the viewer's local date); needs end */
@@ -8799,6 +9461,124 @@ export interface operations {
                 content?: never;
             };
             /** @description plan.md 6.10 error envelope {error: {code, message, details}} */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    assistant_chat_retrieve: {
+        parameters: {
+            query?: {
+                format?: "event-stream" | "json";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantThread"];
+                    "text/event-stream": components["schemas"]["AssistantThread"];
+                };
+            };
+        };
+    };
+    assistant_chat_ask: {
+        parameters: {
+            query?: {
+                format?: "event-stream" | "json";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantAskRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["AssistantAskRequest"];
+                "multipart/form-data": components["schemas"]["AssistantAskRequest"];
+            };
+        };
+        responses: {
+            /** @description text/event-stream of token, step, done or error */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    assistant_chat_clear: {
+        parameters: {
+            query?: {
+                format?: "event-stream" | "json";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    assistant_action_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision: string;
+                step_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantMessage"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
             409: {
                 headers: {
                     [name: string]: unknown;

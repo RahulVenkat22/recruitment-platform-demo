@@ -1,5 +1,7 @@
 import { completionTone } from '@/features/home/home-utils'
 import { cn } from '@/lib/utils'
+import { motion } from 'motion/react'
+import { useMotionPreference } from '@/lib/hooks/useMotionPreference'
 
 export interface CompletionMeterProps {
   value: number
@@ -14,6 +16,7 @@ const FILL: Record<ReturnType<typeof completionTone>, string> = {
 
 /** The "% Completed" cell (Enhancement.md 3): a slim bar plus the number in tabular figures. */
 export function CompletionMeter({ value, className }: CompletionMeterProps) {
+  const reduced = useMotionPreference()
   const pct = Math.max(0, Math.min(100, Math.round(value)))
   return (
     <div
@@ -28,12 +31,15 @@ export function CompletionMeter({ value, className }: CompletionMeterProps) {
         aria-label={`${pct}% completed`}
         className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-pill bg-surface-3"
       >
-        <div
+        <motion.div
           className={cn(
-            'h-full rounded-pill transition-[width] duration-400 ease-brand',
+            'h-full origin-left rounded-pill transition-[width] duration-400 ease-brand',
             FILL[completionTone(pct)],
           )}
           style={{ width: `${Math.max(pct, pct > 0 ? 3 : 0)}%` }}
+          initial={reduced ? false : { scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: reduced ? 0 : 0.9, ease: [0.22, 1, 0.36, 1] }}
         />
       </div>
       <span className="w-9 shrink-0 text-right text-small font-medium text-ink tabular-nums">

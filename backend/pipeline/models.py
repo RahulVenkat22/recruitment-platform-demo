@@ -369,7 +369,7 @@ class MessageTemplate(UUIDTimestampedModel):
 
 
 class PhoneCall(UUIDTimestampedModel):
-    """An AI phone call to the candidate: a knowledge screening or a message delivered by voice."""
+    """An AI phone call to the candidate: fixing an interview time or delivering a message."""
 
     application = models.ForeignKey(
         Application, on_delete=models.CASCADE, related_name="phone_calls"
@@ -383,9 +383,28 @@ class PhoneCall(UUIDTimestampedModel):
     provider = models.CharField(max_length=20, blank=True)
     provider_call_id = models.CharField(max_length=120, blank=True)
     to_number = models.CharField(max_length=32, blank=True)
-    # What the recruiter asked for: questions for a knowledge test, the message for
-    # an information call, extra instructions for either.
-    questions = models.JSONField(default=list, blank=True)
+    # What the recruiter asked for: the interview to fix (the slots offered as ISO
+    # datetimes, who runs it, how long, how) or the message to deliver; extra
+    # instructions for either.
+    slots = models.JSONField(default=list, blank=True)
+    interview_round = models.CharField(
+        max_length=20, choices=enums.InterviewRound.choices, blank=True
+    )
+    interviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    interview_duration_minutes = models.PositiveSmallIntegerField(default=60)
+    interview_mode = models.CharField(
+        max_length=10, choices=enums.InterviewMode.choices, default=enums.InterviewMode.VIDEO
+    )
+    # The interview booked at the slot the candidate chose on the call.
+    interview = models.ForeignKey(
+        Interview, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
     information = models.TextField(blank=True)
     instructions = models.TextField(blank=True)
     max_minutes = models.PositiveSmallIntegerField(default=10)
@@ -414,3 +433,33 @@ class PhoneCall(UUIDTimestampedModel):
 
     def __str__(self) -> str:
         return f"{self.get_purpose_display()} call with {self.application.candidate.full_name}"
+
+
+CHAT_ROLES = (("user", "User"), ("assistant", "Assistant"))
+
+
+class SearchChatMessage(UUIDTimestampedModel):
+    """One turn of a user's conversation about the results of one search run.
+
+    A thread is private to the person asking. The assistant's turns record the
+    candidates they were grounded in (``citations``: ``[{id, name, avatar_url,
+    match_pct, status, status_label}]``) and the model that wrote them.
+    """
+
+    search_run = models.ForeignKey(
+        SearchRun, on_delete=models.CASCADE, related_name="chat_messages"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="search_chat_messages"
+    )
+    role = models.CharField(max_length=10, choices=CHAT_ROLES)
+    content = models.TextField()
+    citations = models.JSONField(default=list, blank=True)
+    model = models.CharField(max_length=80, blank=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        indexes = [models.Index(fields=["search_run", "user", "created_at"])]
+
+    def __str__(self) -> str:
+        return f"{self.role}: {self.content[:60]}"

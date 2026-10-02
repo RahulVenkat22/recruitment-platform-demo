@@ -210,6 +210,8 @@ export function useJob(id: string | undefined, options: { enabled?: boolean } = 
     queryKey: qk.jobs.detail(id ?? ''),
     queryFn: () => fetchJob(id as string),
     enabled: Boolean(id) && options.enabled !== false,
+    refetchInterval: (query) =>
+      ['in_progress', 'on_hold'].includes(query.state.data?.tat?.state ?? '') ? 60_000 : false,
   })
 }
 

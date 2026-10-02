@@ -22,12 +22,31 @@ function renderSettings(user: SessionUser, route = '/settings') {
 describe('SettingsPage', () => {
   beforeEach(() => {
     localStorage.clear()
-    useUiStore.setState({ sidebarCollapsed: false, pageSize: 20, breadcrumbs: [] })
+    useUiStore.setState({
+      sidebarCollapsed: false,
+      pageSize: 20,
+      motionEffects: true,
+      breadcrumbs: [],
+    })
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
     useAuthStore.setState({ user: null, accessToken: null, status: 'unknown' })
+  })
+
+  it('persists the animation preference and applies it to the workspace', async () => {
+    const ui = userEvent.setup()
+    renderSettings(makeUser(), '/settings?tab=preferences')
+    const toggle = screen.getByRole('switch', { name: 'Interface animations' })
+    expect(toggle).toBeChecked()
+    await ui.click(toggle)
+    expect(toggle).not.toBeChecked()
+    expect(document.documentElement).toHaveAttribute('data-motion', 'reduced')
+    const saved = JSON.parse(localStorage.getItem(UI_STORAGE_KEY) ?? '{}')
+    expect(saved.state.motionEffects).toBe(false)
+    await ui.click(toggle)
+    expect(document.documentElement).toHaveAttribute('data-motion', 'full')
   })
 
   it('shows the profile form with read-only designation and department', () => {
