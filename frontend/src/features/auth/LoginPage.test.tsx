@@ -216,9 +216,9 @@ describe('LoginPage', () => {
     expect(password).toHaveAttribute('type', 'password')
   })
 
-  it('opens the forgot password dialog and always shows the same confirmation', async () => {
+  it('opens the forgot password dialog and confirms accepted requests', async () => {
     const ui = userEvent.setup()
-    const post = vi.spyOn(api, 'post').mockRejectedValue(makeAxiosError(500))
+    const post = vi.spyOn(api, 'post').mockResolvedValue({ data: {} })
     renderLogin()
 
     await ui.type(screen.getByLabelText('Email or username'), 'rahul@aimious.demo')
@@ -229,8 +229,25 @@ describe('LoginPage', () => {
     await ui.click(within(dialog).getByRole('button', { name: 'Send reset link' }))
 
     expect(
-      await within(dialog).findByText('If an account exists, a reset link has been sent.'),
+      await within(dialog).findByText(
+        'If an account exists, you will receive a reset link shortly.',
+      ),
     ).toBeInTheDocument()
     expect(post).toHaveBeenCalledWith(endpoints.authForgotPassword, { email: 'rahul@aimious.demo' })
   })
+})
+
+it('keeps the reset form available when the request fails', async () => {
+  const ui = userEvent.setup()
+  vi.spyOn(api, 'post').mockRejectedValue(makeAxiosError(503))
+  renderLogin()
+  await ui.type(screen.getByLabelText('Email or username'), 'person@example.com')
+  await ui.click(screen.getByRole('button', { name: 'Forgot password?' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Reset your password' })
+  await ui.click(within(dialog).getByRole('button', { name: 'Send reset link' }))
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+    'Could not request a reset link.',
+  )
+  expect(within(dialog).getByRole('button', { name: 'Send reset link' })).toBeEnabled()
+  vi.restoreAllMocks()
 })

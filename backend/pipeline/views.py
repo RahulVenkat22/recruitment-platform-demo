@@ -34,6 +34,7 @@ from common.permissions import (
     can_work_pipeline,
     visible_job_descriptions_for,
 )
+from common.streaming import heartbeat_stream
 from pipeline.filters import (
     ApplicationFilter,
     CommunicationFilter,
@@ -292,7 +293,9 @@ class SearchChatView(APIView):
         serializer = SearchChatAskSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         stream = SearchChatService.ask(run, request.user, serializer.validated_data["message"])
-        response = StreamingHttpResponse(stream, content_type="text/event-stream; charset=utf-8")
+        response = StreamingHttpResponse(
+            heartbeat_stream(stream), content_type="text/event-stream; charset=utf-8"
+        )
         response["Cache-Control"] = "no-cache"
         # nginx would otherwise hold the whole answer back until the stream closes.
         response["X-Accel-Buffering"] = "no"
@@ -1351,10 +1354,9 @@ class VapiWebhookView(APIView):
     def post(self, request: Request) -> Response:
         if not VapiProvider.verify(request.headers):
             return Response(status=status.HTTP_403_FORBIDDEN)
-        event = VapiProvider.parse_webhook(request.data if isinstance(request.data, dict) else {})
-        if event.kind == "ignored" or not event.provider_call_id:
-            return Response({"ok": True})
-        call = PhoneCall.objects.filter(provider_call_id=event.provider_call_id).first()
-        if call is not None:
-            CallService.apply_event(call, event)
+        from pipeline.services.calls import receive_voice_webhook
+
+        if int(request.META.get("CONTENT_LENGTH") or 0) > 512 * 1024:
+            return Response(status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+        receive_voice_webhook(request.data if isinstance(request.data, dict) else {})
         return Response({"ok": True})

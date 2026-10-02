@@ -18,7 +18,7 @@
                 cancelled run leaves no trace
 
 ``start`` creates the run and, when ``SEARCH_RUN_ASYNC`` is on, executes it in
-a background thread; the run's ``phase`` / ``progress`` columns are updated
+a durable worker; the run's ``phase`` / ``progress`` columns are updated
 outside any transaction so ``GET /searches/{id}/`` shows live progress. ``run``
 keeps the old synchronous contract for scripts and tests.
 """
@@ -26,14 +26,13 @@ keeps the old synchronous contract for scripts and tests.
 from __future__ import annotations
 
 import logging
-import threading
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from django.conf import settings
-from django.db import connections, transaction
+from django.db import transaction
 from django.utils import timezone
 
 from activity.services import record_activity
@@ -61,6 +60,7 @@ from sourcing.exceptions import (
     UnknownSource,
 )
 from sourcing.registry import ALL_SOURCES, get_provider, provider_keys
+from workqueue.services import LeaseLost, enqueue, write_guard
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +182,8 @@ class RunProgress:
         self.run = run
 
     def check(self) -> None:
+        with write_guard():
+            pass
         if not SearchRun.objects.filter(pk=self.run.pk).exists():
             raise SearchCancelled(str(self.run.pk))
 
@@ -227,11 +229,13 @@ class SearchService:
 
     @staticmethod
     def start(jd: Any, sources: Sequence[str] | str | None, actor: Any) -> SearchOutcome:
-        """Create the run; execute inline or hand it to a background thread."""
-        run = SearchService.create_run(jd, sources, actor)
+        """Create the run; execute inline or hand it to a durable worker."""
+        with transaction.atomic():
+            run = SearchService.create_run(jd, sources, actor)
+            if getattr(settings, "SEARCH_RUN_ASYNC", False):
+                _spawn(run.pk)
         if not getattr(settings, "SEARCH_RUN_ASYNC", False):
             return SearchService.execute(run.pk)
-        transaction.on_commit(lambda: _spawn(run.pk))
         return SearchOutcome(run=run)
 
     @staticmethod
@@ -254,6 +258,8 @@ class SearchService:
     @staticmethod
     def execute(run_id: Any) -> SearchOutcome:
         run = SearchRun.objects.select_related("job_description", "requested_by").get(pk=run_id)
+        if run.status in TERMINAL_STATUSES:
+            return SearchOutcome(run=run)
         jd, actor, keys = run.job_description, run.requested_by, list(run.sources)
         progress = RunProgress(run)
         started = timezone.now()
@@ -269,6 +275,8 @@ class SearchService:
             SearchService._evaluate(run, jd, plan, progress, outcome)
             SearchService._summarise(jd, plan, progress, outcome)
             SearchService._finalise(run, jd, actor, keys, progress, outcome, started)
+        except LeaseLost:
+            raise
         except SearchCancelled:
             logger.info("search run %s was cancelled and removed", run.pk)
             return outcome
@@ -554,7 +562,12 @@ class SearchService:
         model = settings.LLM_SEARCH_MODEL
         shortlisted: list[Application] = []
         scores: dict[Any, float] = {}
-        with transaction.atomic():
+        with write_guard():
+            locked = SearchRun.objects.select_for_update().filter(pk=run.pk).first()
+            if locked is None:
+                raise SearchCancelled(str(run.pk))
+            if locked.status in TERMINAL_STATUSES:
+                return
             finished = timezone.now()
             for item in outcome.found:
                 application, created = Application.objects.get_or_create(
@@ -721,16 +734,4 @@ def _blend_only(item: Found, jd: Any) -> SemanticResult | None:
 
 
 def _spawn(run_id: Any) -> None:
-    thread = threading.Thread(
-        target=_thread_main, args=(run_id,), name=f"search-run-{run_id}", daemon=True
-    )
-    thread.start()
-
-
-def _thread_main(run_id: Any) -> None:
-    try:
-        SearchService.execute(run_id)
-    except Exception:  # noqa: BLE001 - already recorded on the run and logged
-        pass
-    finally:
-        connections.close_all()
+    enqueue("search", f"search:{run_id}", {"id": str(run_id)})

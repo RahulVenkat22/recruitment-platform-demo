@@ -26,6 +26,8 @@ known-first-party = [
   "support",
   "assistant",
   "seed",
+  "resumes",
+  "workqueue",
   "tests",
 ]
 
@@ -52,6 +54,8 @@ source = [
   "support",
   "assistant",
   "seed",
+  "resumes",
+  "workqueue",
 ]
 omit = ["*/migrations/*", "*/apps.py"]
 
@@ -91,6 +95,8 @@ root_packages = [
   "support",
   "assistant",
   "seed",
+  "resumes",
+  "workqueue",
 ]
 include_external_packages = false
 
@@ -112,6 +118,8 @@ containers = [
   "support",
   "assistant",
   "seed",
+  "resumes",
+  "workqueue",
 ]
 layers = [
   "(urls) : (views) : (serializers) : (filters) : (admin) : (management)",
@@ -138,5 +146,7 @@ source_modules = [
   "support",
   "assistant",
   "seed",
+  "resumes",
+  "workqueue",
 ]
 forbidden_modules = ["config"]

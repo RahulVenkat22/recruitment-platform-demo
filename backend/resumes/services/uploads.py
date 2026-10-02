@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from tempfile import NamedTemporaryFile
 
 from resumes.engines.storage import StorageError, get_storage
 from resumes.models import ResumeDocument
@@ -37,7 +39,22 @@ def upload_pending(
     for index, document in enumerate(documents, start=1):
         key = storage.object_key(str(document.pk), document.file_name)
         try:
-            storage.upload_file(document.source_path, key)
+            if document.input_file:
+                if (
+                    getattr(document.input_file.storage, "bucket_name", None)
+                    == storage.config.bucket
+                ):
+                    key = document.input_file.name
+                else:
+                    with (
+                        document.input_file.open("rb") as source,
+                        NamedTemporaryFile(suffix=".pdf") as local,
+                    ):
+                        shutil.copyfileobj(source, local)
+                        local.flush()
+                        storage.upload_file(local.name, key)
+            else:
+                storage.upload_file(document.source_path, key)
         except FileNotFoundError:
             stats.missing_files += 1
             ResumeRepository.mark_upload_pending(

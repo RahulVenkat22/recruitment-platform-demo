@@ -181,3 +181,8 @@ class ForgotPasswordSerializer(serializers.Serializer):
 
 class DetailSerializer(serializers.Serializer):
     detail = serializers.CharField()
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=256, trim_whitespace=False)
+    new_password = serializers.CharField(max_length=128, trim_whitespace=False, write_only=True)

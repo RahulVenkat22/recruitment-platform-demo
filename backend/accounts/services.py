@@ -10,13 +10,14 @@ how often it refreshes.
 from __future__ import annotations
 
 import hashlib
-import secrets
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import NamedTuple
 
 from django.conf import settings
 from django.contrib.auth.models import update_last_login
+from django.core import signing
+from django.db import transaction
 from django.utils import timezone
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.settings import api_settings
@@ -31,6 +32,7 @@ from accounts.exceptions import (
     RefreshUserInactive,
 )
 from accounts.models import PasswordResetRequest, User
+from workqueue.services import enqueue
 
 PASSWORD_RESET_TTL = timedelta(hours=1)
 
@@ -111,6 +113,7 @@ def _user_of(token: RefreshToken) -> User | None:
     return User.objects.filter(pk=token.get(api_settings.USER_ID_CLAIM)).first()
 
 
+@transaction.atomic
 def rotate_session(raw_refresh: str) -> Session:
     """Exchange a valid refresh token for a new access token.
 
@@ -120,11 +123,17 @@ def rotate_session(raw_refresh: str) -> Session:
     refreshes.
     """
     old = _parse_refresh(raw_refresh)
-    user = _user_of(old)
+    user = User.objects.select_for_update().filter(pk=old.get(api_settings.USER_ID_CLAIM)).first()
+    old = _parse_refresh(raw_refresh)  # Recheck after waiting for another rotation/reset.
     if user is None:
         raise RefreshTokenInvalid("User not found.")
     if not user.is_active:
         raise RefreshUserInactive
+    if api_settings.CHECK_REVOKE_TOKEN:
+        from rest_framework_simplejwt.utils import get_md5_hash_password
+
+        if old.get(api_settings.REVOKE_TOKEN_CLAIM) != get_md5_hash_password(user.password):
+            raise RefreshTokenInvalid("Password changed; sign in again.")
 
     remaining = datetime_from_epoch(old["exp"]) - aware_utcnow()
     if remaining <= timedelta(0):
@@ -188,21 +197,76 @@ def change_password(user: User, new_password: str, *, keep_refresh: str | None =
     revoke_sessions(user, keep_refresh=keep_refresh)
 
 
-def request_password_reset(email: str, ip_address: str | None) -> PasswordReset:
-    """Record a forgot-password submission (plan.md 6.3 PasswordResetRequest).
+def reset_token(row):
+    # Reconstructible only with the signing key; no bearer token in the queue or DB.
+    return signing.Signer(salt="password-reset").sign(str(row.pk))
 
-    Always writes a row, whether or not the email belongs to an account, so the
-    endpoint's behaviour cannot be used to enumerate users. No email is sent in
-    the MVP; the plain token is returned for a future mailer and never stored.
-    """
-    token = secrets.token_urlsafe(32)
-    row = PasswordResetRequest.objects.create(
+
+@transaction.atomic
+def request_password_reset(email: str, ip_address: str | None) -> PasswordReset:
+    row = PasswordResetRequest(
         email=email.strip().lower(),
-        token_hash=hashlib.sha256(token.encode()).hexdigest(),
         expires_at=timezone.now() + PASSWORD_RESET_TTL,
         ip_address=ip_address,
     )
+    token = reset_token(row)
+    row.token_hash = hashlib.sha256(token.encode()).hexdigest()
+    row.save()
+    enqueue("password_reset", f"password_reset:{row.pk}", {"id": str(row.pk)})
     return PasswordReset(request=row, token=token)
+
+
+def deliver_password_reset(request_id):
+    from urllib.parse import quote
+
+    from django.core.mail import send_mail
+
+    row = PasswordResetRequest.objects.filter(pk=request_id).first()
+    if (
+        row is None
+        or not row.is_usable
+        or not User.objects.filter(email=row.email, is_active=True).exists()
+    ):
+        return
+    # Fragment keeps the token out of HTTP access logs and Referer headers.
+    url = settings.PUBLIC_BASE_URL.rstrip("/") + "/reset-password#token=" + quote(reset_token(row))
+    send_mail(
+        "Reset your password",
+        f"Open this link to reset your password:\n\n{url}\n\n"
+        "The link expires in one hour. Ignore this email if you did not request it.",
+        settings.DEFAULT_FROM_EMAIL,
+        [row.email],
+        fail_silently=False,
+    )
+
+
+@transaction.atomic
+def complete_password_reset(token, password):
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError as DjangoValidationError
+    from rest_framework.exceptions import ValidationError
+
+    row = PasswordResetRequest.objects.filter(
+        token_hash=hashlib.sha256(token.encode()).hexdigest()
+    ).first()
+    if row is None or not row.is_usable:
+        raise ValidationError("The reset link is invalid or expired.")
+    user = User.objects.select_for_update().filter(email=row.email, is_active=True).first()
+    if user is None:
+        raise ValidationError("The reset link is invalid or expired.")
+    # Lock the account before any reset row: parallel reset links for one user
+    # must not each hold a row while waiting for the other's account lock.
+    row = PasswordResetRequest.objects.select_for_update().get(pk=row.pk)
+    if not row.is_usable:
+        raise ValidationError("The reset link is invalid or expired.")
+    try:
+        validate_password(password, user)
+    except DjangoValidationError as exc:
+        raise ValidationError({"new_password": exc.messages}) from exc
+    change_password(user, password)
+    PasswordResetRequest.objects.filter(email=row.email, used_at__isnull=True).update(
+        used_at=timezone.now()
+    )
 
 
 # ---------------------------------------------------------------------- admin

@@ -1,5 +1,7 @@
 # AWS production deployment guide — TalentOS recruitment platform
 
+> **Implementation update (2 October 2026):** Production hardening and AWS release tooling have now been added. Follow [AWS_RELEASE_RUNBOOK.md](AWS_RELEASE_RUNBOOK.md) for the implemented CloudFormation stack, actual commands, current behavior, and remaining cloud acceptance checks. This document retains the original architecture review and pre-hardening findings for context; its proposed files and baseline findings are historical.
+
 Reviewed on **2 October 2026**, against application commit **`0c2c7aa`**.
 
 ## 1. Recommendation and readiness

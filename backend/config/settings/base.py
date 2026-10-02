@@ -7,6 +7,7 @@ and defaults listed in plan.md section 5.2.
 
 from __future__ import annotations
 
+import os
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -24,7 +25,11 @@ env = environ.Env()
 # convenience for running manage.py directly. Variables already present in the
 # environment always win over the file.
 _ENV_FILE = REPO_ROOT / ".env"
-if _ENV_FILE.is_file():
+if _ENV_FILE.is_file() and os.environ.get("DJANGO_SETTINGS_MODULE") not in {
+    "config.settings.prod",
+    "config.settings.build",
+    "config.settings.test",
+}:
     environ.Env.read_env(str(_ENV_FILE), overwrite=False)
 
 # --------------------------------------------------------------------------- core
@@ -72,6 +77,7 @@ LOCAL_APPS = [
     "support",
     "assistant",
     "seed",
+    "workqueue",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -247,6 +253,17 @@ SPECTACULAR_SETTINGS = {
         "WorkModeEnum": "common.enums.WorkMode.choices",
         "EmploymentTypeEnum": "common.enums.EmploymentType.choices",
         "InterviewRoundEnum": "common.enums.InterviewRound.choices",
+        "CallModeEnum": [("phone", "phone"), ("simulated", "simulated")],
+        "CallPurposeEnum": "common.enums.CallPurpose.choices",
+        "ResumeStatusEnum": "resumes.models.ResumeStatus.choices",
+        "CallStatusEnum": "common.enums.CallStatus.choices",
+        "JobUploadStatusEnum": [
+            ("uploading", "Uploading"),
+            ("processing", "Reading job description"),
+            ("ready", "Ready for review"),
+            ("failed", "Failed"),
+            ("cancelled", "Cancelled"),
+        ],
         "InterviewModeEnum": "common.enums.InterviewMode.choices",
         "InterviewStatusEnum": "common.enums.InterviewStatus.choices",
         "RecommendationEnum": "common.enums.Recommendation.choices",
@@ -436,7 +453,7 @@ CANDIDATE_RESULT_LIMIT = env.int("CANDIDATE_RESULT_LIMIT", default=10)
 SEMANTIC_JD_ANALYSIS_ENABLED = env.bool("SEMANTIC_JD_ANALYSIS_ENABLED", default=True)
 SEMANTIC_RERANK_ENABLED = env.bool("SEMANTIC_RERANK_ENABLED", default=True)
 SEMANTIC_RERANK_LIMIT = env.int("SEMANTIC_RERANK_LIMIT", default=4)
-# Search runs execute in a background thread and the UI polls GET /searches/{id}/;
+# Search runs execute in durable workers and the UI polls GET /searches/{id}/;
 # false runs them inside the request (tests, scripts).
 SEARCH_RUN_ASYNC = env.bool("SEARCH_RUN_ASYNC", default=True)
 
@@ -550,3 +567,14 @@ LOGGING = {
         "botocore": {"handlers": ["console"], "level": "WARNING", "propagate": False},
     },
 }
+
+# Durable jobs: PostgreSQL outbox plus optional SQS wake-up notifications.
+WORK_QUEUE_URL = env.str("WORK_QUEUE_URL", default="")
+WORK_LEASE_SECONDS = env.int("WORK_LEASE_SECONDS", default=120)
+WORK_MAX_ATTEMPTS = env.int("WORK_MAX_ATTEMPTS", default=3)
+WORK_MAX_SECONDS = env.int("WORK_MAX_SECONDS", default=1800)
+MEDIA_LINK_MAX_AGE = env.int("MEDIA_LINK_MAX_AGE", default=300)
+ALLOW_DEMO_SEED = env.bool("ALLOW_DEMO_SEED", default=True)
+LLM_ALLOWED_PROVIDERS = env.list("LLM_ALLOWED_PROVIDERS", default=list(LLM_PROVIDERS))
+
+DEPLOYMENT_ID = env.str("DEPLOYMENT_ID", default="local")

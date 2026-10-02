@@ -34,3 +34,11 @@ boto3==1.43.95
 phonenumbers==9.0.39
 # The dashboard's Excel export (its PDF export uses PyMuPDF above)
 openpyxl==3.1.5
+
+# Private durable media and shared throttling cache.
+django-storages[s3]==1.14.6
+redis==8.1.0
+
+# Security pins for JWT verification and transitive HTTP clients.
+PyJWT==2.15.1
+urllib3==2.8.0

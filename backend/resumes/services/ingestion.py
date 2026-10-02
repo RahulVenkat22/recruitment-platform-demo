@@ -37,14 +37,18 @@ from __future__ import annotations
 
 import logging
 import re
+import shutil
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, TypedDict
 
 from django.conf import settings
-from django.db import transaction
+from django.core.files import File
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.utils import timezone
 from langgraph.graph import END, START, StateGraph
 
@@ -56,12 +60,13 @@ from resumes.engines.embeddings import EmbeddingError, get_embedding_service
 from resumes.engines.extraction import ExtractedText, ExtractionError, extract_text, sha256_of
 from resumes.engines.parsing import UNREADABLE, ValidatedResume, parse_resume
 from resumes.engines.pdf_payload import PdfPayload, load_pdf_for_model
-from resumes.engines.photo import candidate_photo, photo_path
+from resumes.engines.photo import candidate_photo
 from resumes.engines.schemas import ParsedResume
 from resumes.engines.storage import StorageError, get_storage
 from resumes.models import ResumeDocument, ResumeStatus
 from resumes.repositories import ProfileSync, ResumeRepository
 from sourcing.dtos import NormalizedCandidate
+from workqueue.services import LeaseLost, write_guard
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +161,7 @@ def _llm_provenance(model: str = "") -> str:
     return f"{settings.LLM_PROVIDER}:{model or settings.LLM_MODEL}"
 
 
+@write_guard()
 def fingerprint(state: IngestionState) -> IngestionState:
     """Skip a file already ingested; otherwise create or reuse its document row."""
     path = Path(state["path"])
@@ -178,11 +184,24 @@ def fingerprint(state: IngestionState) -> IngestionState:
             file_hash=file_hash,
             file_size=path.stat().st_size,
         )
+    if not document.input_file:
+        # Folder/management-command ingestion also preserves its original before
+        # expensive parsing, so later retries do not depend on that machine.
+        with path.open("rb") as source:
+            document.input_file.save(
+                f"{document.pk}/{document.file_name}", File(source), save=False
+            )
     # A failed or needs_review row is retried on the same document.
-    ResumeRepository.mark(document, ResumeStatus.PENDING, "", source_path=str(path.resolve()))
+    ResumeRepository.mark(
+        document,
+        ResumeStatus.PENDING,
+        "",
+        source_path=document.source_path if document.input_file else str(path.resolve()),
+    )
     return {"document_id": str(document.pk)}
 
 
+@write_guard()
 def extract(state: IngestionState) -> IngestionState:
     """Record the PDF's text layer. It decides nothing: the model reads the file itself."""
     document = _document(state)
@@ -227,9 +246,10 @@ def parse(state: IngestionState) -> IngestionState:
         document.parse_source = ""
         document.llm_model = ""
         document.warnings = warnings
-        document.save(
-            update_fields=["parsed_data", "parse_source", "llm_model", "warnings", "updated_at"]
-        )
+        with write_guard():
+            document.save(
+                update_fields=["parsed_data", "parse_source", "llm_model", "warnings", "updated_at"]
+            )
         return {
             "outcome": "needs_review",
             "reason": warnings[-1] if warnings else "the model could not read the PDF",
@@ -249,9 +269,10 @@ def parse(state: IngestionState) -> IngestionState:
     document.parse_source = source
     document.warnings = warnings
     document.llm_model = _llm_provenance(validated.model)
-    document.save(
-        update_fields=["parsed_data", "parse_source", "warnings", "llm_model", "updated_at"]
-    )
+    with write_guard():
+        document.save(
+            update_fields=["parsed_data", "parse_source", "warnings", "llm_model", "updated_at"]
+        )
     return {
         "validated": validated,
         "parse_source": source,
@@ -343,7 +364,7 @@ def sync_profile(state: IngestionState) -> IngestionState:
     document = _document(state)
     email, phone, identity_warnings = _identity(document, profile)
     warnings = [*state.get("warnings", []), *identity_warnings]
-    with transaction.atomic():
+    with write_guard():
         dto = NormalizedCandidate(
             source=CandidateSource.INTERNAL,
             external_id=f"resume:{document.file_hash[:16]}",
@@ -380,10 +401,9 @@ def attach_photo(candidate_id: str, path: str | Path) -> bool:
     data = candidate_photo(path)
     if data is None:
         return False
-    target = photo_path(f"{candidate_id}.jpg")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(data)
-    Candidate.objects.filter(pk=candidate_id).update(photo=target.name)
+    with write_guard():
+        name = default_storage.save(f"photos/{candidate_id}.jpg", ContentFile(data))
+        Candidate.objects.filter(pk=candidate_id).update(photo=name)
     return True
 
 
@@ -397,6 +417,7 @@ def photo(state: IngestionState) -> IngestionState:
     return {}
 
 
+@write_guard()
 def chunk(state: IngestionState) -> IngestionState:
     drafts = build_chunks(
         state["validated"].profile,
@@ -423,6 +444,7 @@ def embed(state: IngestionState) -> IngestionState:
     return {"vectors": vectors}
 
 
+@write_guard()
 def store(state: IngestionState) -> IngestionState:
     document = _document(state)
     candidate = Candidate.objects.get(pk=state["candidate_id"])
@@ -444,17 +466,26 @@ def upload(state: IngestionState) -> IngestionState:
     if not storage.configured:
         ResumeRepository.mark_upload_pending(document, storage.not_configured_message())
         return {"uploaded": False}
+    if (
+        document.input_file
+        and getattr(document.input_file.storage, "bucket_name", None) == storage.config.bucket
+    ):
+        with write_guard():
+            ResumeRepository.mark_uploaded(document, document.input_file.name)
+        return {"uploaded": True}
     key = storage.object_key(str(document.pk), document.file_name)
     try:
-        storage.upload_file(document.source_path, key)
+        storage.upload_file(state["path"], key)
     except StorageError as exc:
         logger.warning("upload failed for %s: %s", document.file_name, exc)
         ResumeRepository.mark_upload_pending(document, str(exc), failed=True)
         return {"uploaded": False}
-    ResumeRepository.mark_uploaded(document, key)
+    with write_guard():
+        ResumeRepository.mark_uploaded(document, key)
     return {"uploaded": True}
 
 
+@write_guard()
 def finish_review(state: IngestionState) -> IngestionState:
     """Shelve the document with the reason the stopping node wrote."""
     reason = state.get("reason") or "the PDF could not be parsed"
@@ -549,11 +580,23 @@ def list_pdfs(folder: str | Path) -> list[Path]:
 
 class ResumeIngestionService:
     @staticmethod
+    def ingest_document(document, *, force=False):
+        if not document.input_file:
+            return ResumeIngestionService.ingest_file(document.source_path, force=force)
+        with TemporaryDirectory(prefix="resume-work-") as folder:
+            path = Path(folder) / Path(document.file_name).name
+            with document.input_file.open("rb") as source, path.open("wb") as target:
+                shutil.copyfileobj(source, target)
+            return ResumeIngestionService.ingest_file(path, force=force)
+
+    @staticmethod
     def ingest_file(path: str | Path, *, force: bool = False) -> IngestionResult:
         started = time.monotonic()
         state: IngestionState = {"path": str(path), "force": force}
         try:
             final = ingestion_graph().invoke(state)
+        except LeaseLost:
+            raise
         except (ExtractionError, EmbeddingError) as exc:
             return ResumeIngestionService._failed(state, str(exc), started)
         except Exception as exc:  # noqa: BLE001 - one bad file must not stop the folder
@@ -581,6 +624,7 @@ class ResumeIngestionService:
         )
 
     @staticmethod
+    @write_guard()
     def _failed(state: IngestionState, reason: str, started: float) -> IngestionResult:
         # The graph's partial state is not returned on an exception; find the row by hash.
         path = Path(state["path"])

@@ -6,6 +6,7 @@ import { RequireRole } from '@/app/RequireRole'
 import { HIGH_LEVEL_ROLES } from '@/features/jobs/job-permissions'
 
 // Routes are code-split; the AppShell renders the Suspense boundary around the Outlet.
+const ResetPasswordPage = lazy(() => import('@/features/auth/ResetPasswordPage'))
 const LoginPage = lazy(() => import('@/features/auth/LoginPage'))
 const HomePage = lazy(() => import('@/features/home/HomePage'))
 const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'))
@@ -28,6 +29,7 @@ const NotFoundPage = lazy(() => import('@/app/NotFoundPage'))
 export function AppRoutes() {
   return (
     <Routes>
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route
         element={

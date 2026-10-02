@@ -320,6 +320,7 @@ class CallService:
     @transaction.atomic
     def finish(call: PhoneCall, *, actor: Any, reason: str = "") -> PhoneCall:
         """Close the call: read the transcript, log the contact, book the chosen slot."""
+        call = PhoneCall.objects.select_for_update().get(pk=call.pk)
         if call.status in {CallStatus.COMPLETED, CallStatus.NO_ANSWER, CallStatus.FAILED}:
             return call
         now = timezone.now()
@@ -374,8 +375,12 @@ class CallService:
         return call
 
     @staticmethod
+    @transaction.atomic
     def apply_event(call: PhoneCall, event: CallEvent) -> PhoneCall:
         """A provider webhook: status changes while the call runs, the report at the end."""
+        call = PhoneCall.objects.select_for_update().get(pk=call.pk)
+        if call.status in {CallStatus.COMPLETED, CallStatus.NO_ANSWER, CallStatus.FAILED}:
+            return call
         if event.kind == "status":
             mapping = {
                 "queued": CallStatus.QUEUED,
@@ -414,3 +419,36 @@ class CallService:
             except Exception as exc:  # noqa: BLE001 - one bad number must not stop the batch
                 skipped[str(application.pk)] = str(getattr(exc, "detail", exc))[:200]
         return placed, skipped
+
+
+@transaction.atomic
+def receive_voice_webhook(payload):
+    import hashlib
+    import json
+
+    from pipeline.models import VoiceWebhook
+    from workqueue.services import enqueue
+
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    item, _ = VoiceWebhook.objects.get_or_create(digest=digest, defaults={"payload": payload})
+    enqueue("voice_webhook", f"voice_webhook:{item.pk}", {"id": str(item.pk)})
+
+
+def process_voice_webhook(inbox_id):
+    from pipeline.models import VoiceWebhook
+    from pipeline.services.voice import VapiProvider
+    from workqueue.services import write_guard
+
+    with write_guard():
+        inbox = VoiceWebhook.objects.select_for_update().get(pk=inbox_id)
+        if inbox.processed_at:
+            return
+        event = VapiProvider.parse_webhook(inbox.payload)
+        if event.kind != "ignored" and event.provider_call_id:
+            # Retry events that race the provider's create-call response.
+            call = PhoneCall.objects.get(provider_call_id=event.provider_call_id)
+            CallService.apply_event(call, event)
+        inbox.processed_at = timezone.now()
+        inbox.save(update_fields=["processed_at", "updated_at"])

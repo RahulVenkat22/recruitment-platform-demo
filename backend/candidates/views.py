@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.core.files.storage import default_storage
 from django.db.models import Max, Prefetch, QuerySet
 from django.http import FileResponse
-from django.utils.crypto import constant_time_compare
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiParameter,
@@ -21,19 +21,20 @@ from drf_spectacular.utils import (
 )
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
 from candidates import services
 from candidates.filters import CandidateFilter
-from candidates.models import Candidate, CandidateSkill, CandidateSource, photo_signature
+from candidates.models import Candidate, CandidateSkill, CandidateSource
 from candidates.serializers import (
     CandidateDetailSerializer,
     CandidateRowSerializer,
     CandidateWriteSerializer,
 )
+from common.media import valid_media_token
 from common.permissions import IsHrStaff, is_hr_staff, visible_job_descriptions_for
 from pipeline.models import Application
 from resumes.engines.photo import photo_path
@@ -218,6 +219,8 @@ class CandidateViewSet(
     @action(detail=True, methods=["get"], url_path="resume-link")
     def resume_link(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         candidate = self.get_object()
+        if not is_hr_staff(request.user):
+            raise PermissionDenied("Original resumes contain unmasked contact details.")
         link = resume_link_for(candidate)
         return Response(ResumeLinkSerializer(link).data)
 
@@ -236,11 +239,16 @@ class CandidateViewSet(
         """No login: an <img> cannot send the access token, so the URL carries an HMAC instead."""
         candidate = Candidate.objects.filter(pk=pk).exclude(photo="").first()
         token = request.query_params.get("t", "")
-        if candidate is None or not constant_time_compare(token, photo_signature(candidate.pk)):
+        if candidate is None or not valid_media_token("candidate-photo", candidate.pk, token):
             raise NotFound("No photo for this candidate.")
-        path = photo_path(candidate.photo)
-        if not path.is_file():
-            raise NotFound("No photo for this candidate.")
-        response = FileResponse(open(path, "rb"), content_type="image/jpeg")  # noqa: SIM115
-        response["Cache-Control"] = "private, max-age=86400"
+        try:
+            source = default_storage.open(candidate.photo, "rb")
+        except FileNotFoundError:
+            # Compatibility for local libraries; migrate these before ECS cutover.
+            path = photo_path(candidate.photo)
+            if not path.is_file():
+                raise NotFound("No photo for this candidate.") from None
+            source = open(path, "rb")  # noqa: SIM115
+        response = FileResponse(source, content_type="image/jpeg")
+        response["Cache-Control"] = "private, no-store"
         return response

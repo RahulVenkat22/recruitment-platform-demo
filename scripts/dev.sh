@@ -162,6 +162,12 @@ if (( RUN_API )); then
     exec setsid "${VENV}/bin/python" manage.py runserver "${API_HOST}:${API_PORT}"
   ) &
   PIDS+=("$!")
+  info "Worker   durable background jobs"
+  (
+    cd "${BACKEND}"
+    exec setsid "${VENV}/bin/python" manage.py run_worker
+  ) &
+  PIDS+=("$!")
 fi
 
 if (( RUN_WEB )); then

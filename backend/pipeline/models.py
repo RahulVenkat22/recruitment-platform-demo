@@ -463,3 +463,11 @@ class SearchChatMessage(UUIDTimestampedModel):
 
     def __str__(self) -> str:
         return f"{self.role}: {self.content[:60]}"
+
+
+class VoiceWebhook(UUIDTimestampedModel):
+    """Durable provider inbox; duplicate deliveries share one work item."""
+
+    digest = models.CharField(max_length=64, unique=True)
+    payload = models.JSONField()
+    processed_at = models.DateTimeField(null=True)

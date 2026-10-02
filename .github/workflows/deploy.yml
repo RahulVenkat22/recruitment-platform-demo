@@ -1,0 +1,70 @@
+name: Deploy production
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: production
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      STACK_NAME: ${{ vars.AWS_STACK_NAME }}
+      RELEASE_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Require passing CI for this exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh run list --workflow ci.yml --commit "$RELEASE_SHA" --status success --json headSha --jq 'length')" -gt 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 7200
+      - name: Resolve registry
+        run: |
+          repository="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' --output text)"
+          echo "ECR_REPOSITORY=$repository" >> "$GITHUB_ENV"
+          aws ecr get-login-password | docker login --username AWS --password-stdin "${repository%%/*}"
+      - name: Build immutable API and worker image
+        run: |
+          if aws ecr describe-images --repository-name "${ECR_REPOSITORY#*/}" --image-ids "imageTag=$RELEASE_SHA" >/dev/null 2>&1; then
+            digest="$(aws ecr describe-images --repository-name "${ECR_REPOSITORY#*/}" --image-ids "imageTag=$RELEASE_SHA" --query 'imageDetails[0].imageDigest' --output text)"
+            echo "API_IMAGE=$ECR_REPOSITORY@$digest" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          docker pull python:3.12-slim
+          base_image="$(docker image inspect python:3.12-slim --format '{{index .RepoDigests 0}}')"
+          docker build --build-arg "BASE_IMAGE=$base_image" --label "org.opencontainers.image.revision=$RELEASE_SHA" -t "$ECR_REPOSITORY:$RELEASE_SHA" backend
+          docker push "$ECR_REPOSITORY:$RELEASE_SHA"
+          digest="$(aws ecr describe-images --repository-name "${ECR_REPOSITORY#*/}" --image-ids "imageTag=$RELEASE_SHA" --query 'imageDetails[0].imageDigest' --output text)"
+          echo "API_IMAGE=$ECR_REPOSITORY@$digest" >> "$GITHUB_ENV"
+      - name: Require ECR scan completion and no high or critical findings
+        run: |
+          aws ecr wait image-scan-complete --repository-name "${ECR_REPOSITORY#*/}" --image-id "imageTag=$RELEASE_SHA"
+          aws ecr describe-image-scan-findings --repository-name "${ECR_REPOSITORY#*/}" --image-id "imageTag=$RELEASE_SHA" > /tmp/scan.json
+          python -c 'import json; c=json.load(open("/tmp/scan.json"))["imageScanFindings"].get("findingSeverityCounts", {}); assert not c.get("HIGH",0) and not c.get("CRITICAL",0), "Image scan failed"'
+      - name: Build same-origin frontend
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ''
+        run: npm ci && npm run build
+      - name: Migrate, deploy services, smoke-test and publish
+        run: |
+          pip install --require-hashes -r backend/requirements.lock
+          python scripts/release/deploy.py --stack "$STACK_NAME" --image "$API_IMAGE" --frontend frontend/dist --release "$RELEASE_SHA"

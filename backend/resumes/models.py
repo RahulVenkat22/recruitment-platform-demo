@@ -71,6 +71,7 @@ class ResumeDocument(UUIDTimestampedModel):
         blank=True,
         related_name="resume_documents",
     )
+    input_file = models.FileField(upload_to="inputs/resumes/%Y/%m/", max_length=500, blank=True)
     file_name = models.CharField(max_length=255)
     # Absolute path of the file that was ingested (RESUME_STORAGE_PATH or the CLI argument).
     source_path = models.TextField()

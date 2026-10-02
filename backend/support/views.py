@@ -9,7 +9,6 @@ from typing import Any
 
 from django.db.models import Count, Q, QuerySet
 from django.http import FileResponse
-from django.utils.crypto import constant_time_compare
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiParameter,
@@ -26,9 +25,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.enums import TicketEventKind, TicketStatus
+from common.media import valid_media_token
 from common.permissions import can_view_job
 from support.filters import TicketFilter
-from support.models import Ticket, TicketAttachment, attachment_signature
+from support.models import Ticket, TicketAttachment
 from support.permissions import (
     can_assign_ticket,
     can_comment_ticket,
@@ -291,11 +291,12 @@ class TicketAttachmentView(APIView):
     def get(self, request: Request, pk: str) -> FileResponse:
         attachment = TicketAttachment.objects.filter(pk=pk).first()
         token = request.query_params.get("t", "")
-        if attachment is None or not constant_time_compare(
-            token, attachment_signature(attachment.pk)
-        ):
+        if attachment is None or not valid_media_token("support-attachment", attachment.pk, token):
             raise NotFound("No such attachment.")
-        response = FileResponse(attachment.file.open("rb"), content_type=attachment.content_type)
-        response["Content-Disposition"] = f'inline; filename="{attachment.name}"'
-        response["Cache-Control"] = "private, max-age=86400"
+        response = FileResponse(
+            attachment.file.open("rb"),
+            content_type=attachment.content_type,
+            filename=attachment.name,
+        )
+        response["Cache-Control"] = "private, no-store"
         return response

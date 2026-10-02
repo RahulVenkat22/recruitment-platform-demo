@@ -17,6 +17,7 @@ from assistant.serializers import (
     AssistantThreadSerializer,
 )
 from assistant.services import AssistantService
+from common.streaming import heartbeat_stream
 from pipeline.views import ERROR_ENVELOPE, EventStreamRenderer
 
 
@@ -58,7 +59,9 @@ class AssistantChatView(APIView):
         serializer = AssistantAskSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         stream = AssistantService.ask(request.user, serializer.validated_data["message"])
-        response = StreamingHttpResponse(stream, content_type="text/event-stream; charset=utf-8")
+        response = StreamingHttpResponse(
+            heartbeat_stream(stream), content_type="text/event-stream; charset=utf-8"
+        )
         response["Cache-Control"] = "no-cache"
         response["X-Accel-Buffering"] = "no"
         return response

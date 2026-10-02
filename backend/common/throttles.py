@@ -40,3 +40,22 @@ class PasswordResetRateThrottle(LoginRateThrottle):
     """Per-client-IP limit on ``POST /auth/forgot-password/`` (scope ``password_reset``)."""
 
     scope = "password_reset"
+
+
+class ApiRateThrottle(LoginRateThrottle):
+    scope = "api"
+
+    def get_cache_key(self, request, view):
+        ident = str(request.user.pk) if request.user.is_authenticated else self.get_ident(request)
+        return self.cache_format % {"scope": self.scope, "ident": ident}
+
+
+class MutationRateThrottle(ApiRateThrottle):
+    """Bound write/AI request frequency independently of cheap polling reads."""
+
+    scope = "mutation"
+
+    def get_cache_key(self, request, view):
+        if request.method in {"GET", "HEAD", "OPTIONS"}:
+            return None
+        return super().get_cache_key(request, view)

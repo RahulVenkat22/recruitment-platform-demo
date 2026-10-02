@@ -47,7 +47,7 @@ describe('api client', () => {
   it('attaches the bearer token from the auth store', async () => {
     const store = makeStore('abc')
     const { adapter, calls } = mockAdapter(() => ({ status: 200, data: { ok: true } }))
-    const api = createApiClient({ adapter, store, baseURL: '' })
+    const api = createApiClient({ csrf: false, adapter, store, baseURL: '' })
 
     const response = await api.get('/api/v1/jobs/')
 
@@ -59,7 +59,7 @@ describe('api client', () => {
   it('sends no Authorization header when there is no session', async () => {
     const store = makeStore(null)
     const { adapter, calls } = mockAdapter(() => ({ status: 200, data: {} }))
-    const api = createApiClient({ adapter, store, baseURL: '' })
+    const api = createApiClient({ csrf: false, adapter, store, baseURL: '' })
 
     await api.get('/api/v1/health/')
 
@@ -74,7 +74,7 @@ describe('api client', () => {
       const auth = AxiosHeaders.from(config.headers).get('Authorization')
       return auth === 'Bearer new-token' ? { status: 200, data: { id: 'j1' } } : { status: 401 }
     })
-    const api = createApiClient({ adapter, store, baseURL: '' })
+    const api = createApiClient({ csrf: false, adapter, store, baseURL: '' })
 
     const response = await api.get('/api/v1/jobs/j1/')
 
@@ -99,7 +99,7 @@ describe('api client', () => {
         ? { status: 200, data: { url: config.url } }
         : { status: 401 }
     })
-    const api = createApiClient({ adapter, store, baseURL: '' })
+    const api = createApiClient({ csrf: false, adapter, store, baseURL: '' })
 
     const [a, b, c] = await Promise.all([
       api.get('/api/v1/jobs/'),
@@ -118,7 +118,7 @@ describe('api client', () => {
   it('clears the session and rejects when the refresh itself fails', async () => {
     const store = makeStore('old-token')
     const { adapter, calls } = mockAdapter(() => ({ status: 401 }))
-    const api = createApiClient({ adapter, store, baseURL: '' })
+    const api = createApiClient({ csrf: false, adapter, store, baseURL: '' })
 
     await expect(api.get('/api/v1/jobs/')).rejects.toMatchObject({ response: { status: 401 } })
 
@@ -135,7 +135,7 @@ describe('api client', () => {
         ? { status: 200, data: { access: 'new-token' } }
         : { status: 401 },
     )
-    const api = createApiClient({ adapter, store, baseURL: '' })
+    const api = createApiClient({ csrf: false, adapter, store, baseURL: '' })
 
     await expect(api.get('/api/v1/jobs/')).rejects.toMatchObject({ response: { status: 401 } })
 
@@ -154,7 +154,7 @@ describe('api client', () => {
       status: 401,
       data: { error: { code: 'invalid_credentials' } },
     }))
-    const api = createApiClient({ adapter, store, baseURL: '' })
+    const api = createApiClient({ csrf: false, adapter, store, baseURL: '' })
 
     await expect(
       api.post(endpoints.authLogin, { email: 'x', password: 'y' }),
@@ -173,7 +173,7 @@ describe('api client', () => {
           ? { status: 200, data: {} }
           : { status: 401 },
     )
-    const api = createApiClient({ adapter, store, baseURL: '' })
+    const api = createApiClient({ csrf: false, adapter, store, baseURL: '' })
 
     await api.get('/api/v1/auth/me/')
 
@@ -193,7 +193,7 @@ describe('api client', () => {
         },
       },
     }))
-    const api = createApiClient({ adapter, store, baseURL: '' })
+    const api = createApiClient({ csrf: false, adapter, store, baseURL: '' })
 
     const error = await api.post(endpoints.authChangePassword, {}).catch((e: unknown) => e)
     const parsed = getApiError(error)
@@ -215,4 +215,17 @@ describe('api client', () => {
     expect(parsed.status).toBeUndefined()
     expect(getApiError(new Error('boom'))).toMatchObject({ isNetworkError: false, message: 'boom' })
   })
+})
+
+it('obtains and sends a CSRF token before cookie-auth mutations', async () => {
+  let receivedCsrf: unknown
+  const { adapter, calls } = mockAdapter((config) => {
+    if (config.url?.endsWith('/csrf/')) return { status: 200, data: { csrfToken: 'csrf-test' } }
+    receivedCsrf = config.headers.get('X-CSRFToken')
+    return { status: 200, data: {} }
+  })
+  const client = createApiClient({ adapter, store: makeStore(null) })
+  await client.post(endpoints.authLogin, { email: 'test@example.com', password: 'password' })
+  expect(calls.map((call) => call.url)).toEqual(['/api/v1/auth/csrf/', endpoints.authLogin])
+  expect(receivedCsrf).toBe('csrf-test')
 })

@@ -65,7 +65,9 @@ _cancellation: ContextVar[Callable[[], bool] | None] = ContextVar("llm_cancellat
 @contextmanager
 def cancellable_llm(should_cancel: Callable[[], bool]) -> Iterator[None]:
     """Give one worker a cancellation check without affecting other LLM callers."""
-    token = _cancellation.set(should_cancel)
+    previous = _cancellation.get()
+    predicate = (lambda: previous() or should_cancel()) if previous else should_cancel
+    token = _cancellation.set(predicate)
     try:
         yield
     finally:
@@ -130,7 +132,9 @@ def chat_targets(
             else settings.GEMINI_MODEL
         )
         targets.append(("gemini", gemini_model))
-    return list(dict.fromkeys(targets))
+    return [
+        target for target in dict.fromkeys(targets) if target[0] in settings.LLM_ALLOWED_PROVIDERS
+    ]
 
 
 def _import(module: str, attribute: str, package: str) -> Any:

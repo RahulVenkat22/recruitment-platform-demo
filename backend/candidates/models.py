@@ -11,7 +11,6 @@ from decimal import Decimal
 from uuid import UUID
 
 from django.conf import settings
-from django.core import signing
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models.functions import Lower
@@ -19,6 +18,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from common import enums
+from common.media import media_token
 from common.models import UUIDTimestampedModel
 
 
@@ -86,8 +86,8 @@ class Candidate(UUIDTimestampedModel):
 
 
 def photo_signature(candidate_id: UUID | str) -> str:
-    """The HMAC in a photo URL. It does not expire, so the URL can sit in stored metadata."""
-    return signing.Signer(salt="candidate-photo").signature(str(candidate_id))
+    """A short-lived capability; clients refresh expired links by reloading the candidate."""
+    return media_token("candidate-photo", candidate_id)
 
 
 class CandidateSkill(UUIDTimestampedModel):

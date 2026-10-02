@@ -927,26 +927,26 @@ class JobUploadService:
             raise InvalidJobFile("Choose the same file that started this upload.")
         if file.size > MAX_MB * 1024 * 1024:
             raise InvalidJobFile(f"The file is larger than {MAX_MB} MB.")
-        data = file.read()
-        # A cancelled or duplicate transfer must never launch another worker.
-        started = JobDescriptionUpload.objects.filter(
-            pk=upload.pk, status=JobDescriptionUpload.Status.UPLOADING
-        ).update(status=JobDescriptionUpload.Status.PROCESSING, updated_at=timezone.now())
-        if started:
-            transaction.on_commit(lambda: JobUploadService.launch(upload.pk, file.name, data))
+        from django.core.files.base import ContentFile
+
+        with transaction.atomic():
+            locked = JobDescriptionUpload.objects.select_for_update().get(pk=upload.pk)
+            if locked.status == JobDescriptionUpload.Status.UPLOADING:
+                data = file.read(MAX_MB * 1024 * 1024 + 1)
+                if len(data) > MAX_MB * 1024 * 1024:
+                    raise InvalidJobFile("The file exceeds the upload limit.")
+                locked.input_file.save(f"{locked.pk}/{file.name}", ContentFile(data), save=False)
+                locked.status = JobDescriptionUpload.Status.PROCESSING
+                locked.save()
+                JobUploadService.launch(locked.pk, file.name, data)
         upload.refresh_from_db()
         return upload
 
     @staticmethod
     def launch(upload_id, file_name, data):
-        import threading
+        from workqueue.services import enqueue
 
-        threading.Thread(
-            target=JobUploadService.process,
-            args=(upload_id, file_name, data),
-            name=f"jd-upload-{upload_id}",
-            daemon=True,
-        ).start()
+        enqueue("job_upload", f"job_upload:{upload_id}", {"id": str(upload_id)})
 
     @staticmethod
     def is_cancelled(upload_id):
@@ -997,10 +997,13 @@ class JobUploadService:
         finally:
             connections.close_all()
         # Cancellation wins even when a result arrives at the same time.
+        from workqueue.services import write_guard
+
         try:
-            JobDescriptionUpload.objects.filter(
-                pk=upload_id, status=JobDescriptionUpload.Status.PROCESSING
-            ).update(**changes, updated_at=timezone.now())
+            with write_guard():
+                JobDescriptionUpload.objects.filter(
+                    pk=upload_id, status=JobDescriptionUpload.Status.PROCESSING
+                ).update(**changes, updated_at=timezone.now())
         finally:
             connections.close_all()
 

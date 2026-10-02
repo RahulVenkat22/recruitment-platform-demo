@@ -1,33 +1,20 @@
-# Django API image: gunicorn on 8200, static files served by whitenoise, non-root.
-FROM python:3.12-slim
-
+# CI resolves this tag to a digest and supplies BASE_IMAGE for immutable releases.
+ARG BASE_IMAGE=python:3.12-slim
+FROM ${BASE_IMAGE}
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     DJANGO_SETTINGS_MODULE=config.settings.prod
-
 WORKDIR /app
-
-RUN groupadd --system app && useradd --system --gid app --home-dir /app --shell /usr/sbin/nologin app
-
-# psycopg[binary] and argon2-cffi ship wheels, so no compiler is needed.
-COPY requirements.txt ./
-RUN pip install --requirement requirements.txt
-
+RUN groupadd --gid 10001 app && useradd --uid 10001 --gid app --home-dir /app --shell /usr/sbin/nologin app
+COPY requirements.lock ./
+RUN pip install --require-hashes --requirement requirements.lock
 COPY . .
-
-# Admin and docs static files, hashed and compressed for whitenoise. No database access.
-RUN DJANGO_SECRET_KEY=build-time-only python manage.py collectstatic --noinput \
-    && chown -R app:app /app
-
-USER app
-
+RUN DJANGO_SETTINGS_MODULE=config.settings.build python manage.py collectstatic --noinput \
+    && mkdir -p /app/media && chown app:app /app/media
+RUN chown 10001:10001 /tmp && chmod 1777 /tmp
+USER 10001:10001
+VOLUME ["/tmp"]
 EXPOSE 8200
-
-CMD ["gunicorn", "config.wsgi:application", \
-     "--bind", "0.0.0.0:8200", \
-     "--workers", "3", \
-     "--timeout", "300", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-"]
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "config.wsgi:application"]

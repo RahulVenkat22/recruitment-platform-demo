@@ -56,9 +56,9 @@ class User(UUIDTimestampedModel, AbstractBaseUser, PermissionsMixin):
 class PasswordResetRequest(UUIDTimestampedModel):
     """A forgot-password submission (plan.md 6.3 accounts.PasswordResetRequest).
 
-    The endpoint stores a row and answers 202; no email is sent in the MVP, so
-    ``used_at`` only gets set once a real reset flow exists. Only the hash of the
-    token is stored, never the token itself.
+    The endpoint stores a request and queues email delivery. Completion marks
+    all outstanding requests for the account used. Only the bearer token hash
+    is stored; the token is reconstructed by the private signing service.
     """
 
     email = models.EmailField(max_length=254)

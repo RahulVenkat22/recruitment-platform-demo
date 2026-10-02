@@ -372,6 +372,13 @@ export default function UploadResumesPage() {
 
   async function submit() {
     if (files.length === 0 || upload.isPending) return
+    if (
+      files.length > 10 ||
+      files.reduce((total, file) => total + file.size, 0) > 30 * 1024 * 1024
+    ) {
+      toast.error('Upload up to 10 files and 30 MB in each batch.')
+      return
+    }
     try {
       const result = await upload.mutateAsync(files)
       setIntake(result)

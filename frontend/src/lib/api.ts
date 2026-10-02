@@ -103,6 +103,7 @@ interface RetriableRequestConfig extends InternalAxiosRequestConfig {
 export interface ApiClientOptions {
   baseURL?: string
   adapter?: AxiosAdapter
+  csrf?: boolean
   store?: AuthStore
   /** Share a refresher with the session-restore code so both paths rotate the same cookie. */
   refresher?: TokenRefresher
@@ -117,9 +118,32 @@ function buildDefaults(options: ApiClientOptions): CreateAxiosDefaults {
   return {
     baseURL: options.baseURL ?? resolveApiBaseUrl(),
     withCredentials: true,
+    timeout: 120_000,
+    xsrfCookieName: 'csrftoken',
+    xsrfHeaderName: 'X-CSRFToken',
     headers: { Accept: 'application/json' },
     ...(options.adapter ? { adapter: options.adapter } : {}),
   }
+}
+
+/** Fetch a CSRF token before cookie-auth mutations, including the first login. */
+function createHttp(options: ApiClientOptions): AxiosInstance {
+  const http = axios.create(buildDefaults(options))
+  let csrf: Promise<string> | undefined
+  http.interceptors.request.use(async (config) => {
+    if (options.csrf !== false && config.method !== 'get' && config.url?.includes('/auth/')) {
+      csrf ??= http
+        .get<{ csrfToken: string }>(`${API_PREFIX}/auth/csrf/`)
+        .then(({ data }) => data.csrfToken)
+        .catch((error: unknown) => {
+          csrf = undefined
+          throw error
+        })
+      config.headers.set('X-CSRFToken', await csrf)
+    }
+    return config
+  })
+  return http
 }
 
 /**
@@ -162,11 +186,9 @@ function isAuthEndpoint(url: string | undefined): boolean {
 
 export function createApiClient(options: ApiClientOptions = {}): AxiosInstance {
   const store = options.store ?? useAuthStore
-  const defaults = buildDefaults(options)
-
-  const client = axios.create(defaults)
+  const client = createHttp(options)
   // The refresh call goes through a bare instance so a failing refresh cannot re-enter the 401 handler.
-  const refresher = options.refresher ?? createTokenRefresher(axios.create(defaults), store)
+  const refresher = options.refresher ?? createTokenRefresher(createHttp(options), store)
 
   client.interceptors.request.use((config) => {
     const token = store.getState().accessToken
@@ -201,7 +223,7 @@ export function createApiClient(options: ApiClientOptions = {}): AxiosInstance {
 }
 
 /** The app-wide refresher: used by the 401 interceptor and by the boot-time session restore. */
-export const tokenRefresher = createTokenRefresher(axios.create(buildDefaults({})), useAuthStore)
+export const tokenRefresher = createTokenRefresher(createHttp({}), useAuthStore)
 
 export const api = createApiClient({ refresher: tokenRefresher })
 

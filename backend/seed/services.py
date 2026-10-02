@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from time import perf_counter
 
+from django.conf import settings
 from django.db import connection, transaction
 
 from accounts.models import User
@@ -64,6 +65,10 @@ class SeedSummary:
 
 
 def run_seed(reset: bool = False, log: Logger | None = None) -> SeedSummary:
+    from django.core.exceptions import PermissionDenied
+
+    if not settings.ALLOW_DEMO_SEED:
+        raise PermissionDenied("Demo seed data is disabled in production.")
     """Seed the demo dataset unless a marker says it is already there.
 
     ``reset`` first removes every candidate and job description in the database

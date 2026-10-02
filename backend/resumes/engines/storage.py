@@ -1,9 +1,7 @@
-"""Where the resume PDFs live: S3 through boto3, opened with pre-signed URLs.
+"""Private resume objects and expiring links through boto3.
 
-Until the bucket and credentials are in ``.env`` the storage is simply "not
-configured": ingestion records every document as ``pending_upload`` and the
-API explains exactly that to anyone who clicks "Open resume". Nothing else in
-the pipeline depends on the upload having happened.
+A bucket enables storage. Credentials use the standard AWS provider chain,
+including ECS task roles; explicit keys remain a local-development option.
 """
 
 from __future__ import annotations
@@ -56,8 +54,6 @@ class StorageConfig:
     def missing(self) -> list[str]:
         wanted = {
             "RESUME_S3_BUCKET": self.bucket,
-            "AWS_ACCESS_KEY_ID": self.access_key,
-            "AWS_SECRET_ACCESS_KEY": self.secret_key,
         }
         return [name for name, value in wanted.items() if not value]
 
@@ -104,8 +100,8 @@ class S3ResumeStorage:
                 "s3",
                 region_name=self.config.region or None,
                 endpoint_url=self.config.endpoint_url or None,
-                aws_access_key_id=self.config.access_key,
-                aws_secret_access_key=self.config.secret_key,
+                aws_access_key_id=self.config.access_key or None,
+                aws_secret_access_key=self.config.secret_key or None,
                 config=Config(signature_version="s3v4", retries={"max_attempts": 3}),
             )
         return self._client

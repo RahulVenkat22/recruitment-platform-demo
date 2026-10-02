@@ -191,3 +191,9 @@ docs/       screenshots used above
 ## What is deliberately mocked
 
 Naukri, LinkedIn and referral email are providers that read a seeded pool from PostgreSQL. No email is sent (forgot-password records a request and returns 202). Seeded candidates carry resume text with a placeholder link; ingested PDFs are real, parsed and embedded by the configured `LLM_PROVIDER`, and open from S3 once the credentials are configured. See ARCHITECTURE.md section 4 for how each of these becomes real.
+
+## Production deployment
+
+Use the [AWS release and operations runbook](docs/AWS_RELEASE_RUNBOOK.md) with the [CloudFormation template](infra/aws/stack.json) and the manual production deployment workflow. The runbook covers bootstrap, private storage migration, secrets, database roles, release ordering, acceptance tests, monitoring and recovery. Local Compose uses `config.settings.demo`; AWS must use the fail-closed `config.settings.prod` configuration.
+
+Background work now requires a separate worker process (`python manage.py run_worker`). `scripts/dev.sh` and Docker Compose start it automatically. Run database migrations before starting either service.

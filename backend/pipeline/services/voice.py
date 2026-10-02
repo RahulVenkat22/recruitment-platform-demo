@@ -148,7 +148,11 @@ class VapiProvider:
     @staticmethod
     def verify(request_headers: Any) -> bool:
         secret = settings.VAPI_WEBHOOK_SECRET
-        return not secret or request_headers.get("x-vapi-secret") == secret
+        from django.utils.crypto import constant_time_compare
+
+        return bool(secret) and constant_time_compare(
+            request_headers.get("x-vapi-secret", ""), secret
+        )
 
     @staticmethod
     def parse_webhook(payload: dict[str, Any]) -> CallEvent:

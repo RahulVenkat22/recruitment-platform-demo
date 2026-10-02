@@ -43,6 +43,7 @@ from accounts.serializers import (
     LoginSerializer,
     ProfileUpdateSerializer,
     RefreshRequestSerializer,
+    ResetPasswordSerializer,
     UserAdminUpdateSerializer,
     UserSerializer,
     UserSummarySerializer,
@@ -117,7 +118,35 @@ def auth_response(session: services.Session) -> Response:
 # ------------------------------------------------------------------- auth views
 
 
-class LoginView(APIView):
+class CookieAuthView(APIView):
+    """DRF's bearer views are exempt from Django CSRF; cookie auth must opt in."""
+
+    def initial(self, request, *args, **kwargs):
+        from rest_framework.authentication import CSRFCheck
+        from rest_framework.exceptions import PermissionDenied
+
+        check = CSRFCheck(lambda _: None)
+        check.process_request(request)
+        reason = check.process_view(request, None, (), {})
+        if reason:
+            raise PermissionDenied("CSRF verification failed. Reload the page and try again.")
+        return super().initial(request, *args, **kwargs)
+
+
+class CsrfView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @extend_schema(responses={200: dict}, tags=["auth"])
+    def get(self, request):
+        from django.middleware.csrf import get_token
+
+        response = Response({"csrfToken": get_token(request)})
+        response["Cache-Control"] = "no-store"
+        return response
+
+
+class LoginView(CookieAuthView):
     """``POST /api/v1/auth/login/``: credentials -> access token + profile + refresh cookie."""
 
     permission_classes = [AllowAny]
@@ -160,7 +189,7 @@ class LoginView(APIView):
         return auth_response(session)
 
 
-class RefreshView(APIView):
+class RefreshView(CookieAuthView):
     """``POST /api/v1/auth/refresh/``: rotate the refresh cookie, return a new access token."""
 
     permission_classes = [AllowAny]
@@ -202,7 +231,7 @@ class RefreshView(APIView):
         return response
 
 
-class LogoutView(APIView):
+class LogoutView(CookieAuthView):
     """``POST /api/v1/auth/logout/``: blacklist the refresh token and clear the cookie.
 
     Needs no bearer token: logging out must work with an expired access token.
@@ -284,7 +313,7 @@ class ChangePasswordView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class ForgotPasswordView(APIView):
+class ForgotPasswordView(CookieAuthView):
     """``POST /api/v1/auth/forgot-password/``: always 202, records the request."""
 
     permission_classes = [AllowAny]
@@ -402,3 +431,22 @@ class UserViewSet(
             is_active=serializer.validated_data.get("is_active"),
         )
         return Response(UserSerializer(user).data)
+
+
+class ResetPasswordView(CookieAuthView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [PasswordResetRateThrottle]
+
+    @extend_schema(
+        request=ResetPasswordSerializer, responses={200: DetailSerializer}, tags=["auth"]
+    )
+    def post(self, request):
+        serializer = ResetPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.complete_password_reset(
+            serializer.validated_data["token"], serializer.validated_data["new_password"]
+        )
+        response = Response({"detail": "Password updated. Sign in with your new password."})
+        clear_refresh_cookie(response)
+        return response

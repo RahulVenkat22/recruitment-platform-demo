@@ -9,12 +9,12 @@ import uuid
 from pathlib import Path
 
 from django.conf import settings
-from django.core import signing
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 
 from common import enums
+from common.media import media_token
 from common.models import UUIDTimestampedModel
 
 
@@ -152,4 +152,4 @@ class TicketAttachment(UUIDTimestampedModel):
 
 
 def attachment_signature(attachment_id: uuid.UUID | str) -> str:
-    return signing.Signer(salt="support-attachment").signature(str(attachment_id))
+    return media_token("support-attachment", attachment_id)

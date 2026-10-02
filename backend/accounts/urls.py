@@ -5,11 +5,13 @@ from rest_framework.routers import SimpleRouter
 
 from accounts.views import (
     ChangePasswordView,
+    CsrfView,
     ForgotPasswordView,
     LoginView,
     LogoutView,
     MeView,
     RefreshView,
+    ResetPasswordView,
     UserViewSet,
 )
 
@@ -17,6 +19,8 @@ router = SimpleRouter()
 router.register("users", UserViewSet, basename="user")
 
 urlpatterns = [
+    path("auth/reset-password/", ResetPasswordView.as_view(), name="auth-reset-password"),
+    path("auth/csrf/", CsrfView.as_view(), name="auth-csrf"),
     path("auth/login/", LoginView.as_view(), name="auth-login"),
     path("auth/refresh/", RefreshView.as_view(), name="auth-refresh"),
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),

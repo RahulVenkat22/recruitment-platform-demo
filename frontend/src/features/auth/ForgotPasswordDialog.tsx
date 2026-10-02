@@ -21,7 +21,7 @@ const schema = z.object({
 })
 type Values = z.infer<typeof schema>
 
-export const RESET_SENT_MESSAGE = 'If an account exists, a reset link has been sent.'
+export const RESET_SENT_MESSAGE = 'If an account exists, you will receive a reset link shortly.'
 
 interface ForgotPasswordDialogProps {
   open: boolean
@@ -31,7 +31,7 @@ interface ForgotPasswordDialogProps {
 }
 
 /**
- * Posts to /auth/forgot-password/ and shows the same sentence whatever the server says.
+ * Posts to /auth/forgot-password/; successful requests use a non-enumerating confirmation.
  * The parent remounts it (via `key`) each time it opens, so the form starts clean.
  */
 export function ForgotPasswordDialog({
@@ -48,10 +48,14 @@ export function ForgotPasswordDialog({
   const { errors, isSubmitting } = form.formState
 
   async function onSubmit(values: Values) {
+    form.clearErrors('root')
     try {
       await forgotPassword(values.email)
     } catch {
-      // Deliberately silent: the response never reveals whether the account exists.
+      form.setError('root', {
+        message: 'Could not request a reset link. Please try again shortly.',
+      })
+      return
     }
     setSent(true)
   }
@@ -68,6 +72,11 @@ export function ForgotPasswordDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {errors.root?.message && (
+          <p role="alert" className="text-small text-destructive">
+            {errors.root.message}
+          </p>
+        )}
         {sent ? (
           <>
             <div

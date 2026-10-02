@@ -1,26 +1,22 @@
-"""Resume PDFs uploaded through the API (``POST /resumes/uploads/``).
+"""Validate PDF uploads, persist their bytes, and enqueue durable per-document work.
 
-Files are written under ``RESUME_STORAGE_PATH/uploads/<batch>/`` (so the folder
-command and the upload API share one library), validated (extension, size,
-``%PDF`` header), de-duplicated by SHA-256 against what is already ingested,
-and recorded as ``pending`` documents that share a batch id. A single
-in-process worker thread then runs each file through the ingestion graph in
-order; ``batch_status`` is what the upload page polls.
+PostgreSQL transactions coordinate batch metadata and work records. The storage
+backend is private S3 in production and a shared media directory in local Compose.
 """
 
 from __future__ import annotations
 
 import logging
-import queue
 import re
-import threading
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 from uuid import UUID, uuid4
 
 from django.conf import settings
-from django.db import connections
+from django.core.files import File
+from django.db import connection, transaction
 from django.db.models import Count, Max, Min, Q
 from django.utils import timezone
 
@@ -28,6 +24,8 @@ from resumes.engines.extraction import sha256_of
 from resumes.models import DocumentOrigin, ResumeDocument, ResumeStatus
 from resumes.repositories import ResumeRepository
 from resumes.services.ingestion import ResumeIngestionService
+from workqueue.models import WorkItem
+from workqueue.services import enqueue
 
 logger = logging.getLogger(__name__)
 
@@ -75,12 +73,17 @@ def _unique_path(folder: Path, name: str) -> Path:
 
 
 def store_uploads(files: list[Any], user: Any) -> IntakeResult:
+    # Temporary files exist only while validating; acknowledged inputs are durable.
+    with TemporaryDirectory(prefix="resume-intake-") as folder:
+        return _store_uploads(files, user, Path(folder))
+
+
+@transaction.atomic
+def _store_uploads(files: list[Any], user: Any, folder: Path) -> IntakeResult:
     """Persist the uploaded files, create their documents, and queue the batch."""
     batch_id = uuid4()
     result = IntakeResult(batch_id=str(batch_id))
     max_bytes = int(settings.RESUME_UPLOAD_MAX_MB) * 1024 * 1024
-    folder = Path(settings.RESUME_STORAGE_PATH).expanduser() / "uploads" / str(batch_id)
-    folder.mkdir(parents=True, exist_ok=True)
 
     for upload in files[: int(settings.RESUME_UPLOAD_MAX_FILES)]:
         original = Path(str(getattr(upload, "name", "") or "resume.pdf")).name
@@ -103,10 +106,24 @@ def store_uploads(files: list[Any], user: Any) -> IntakeResult:
                 result.rejected.append(IntakeFile(name, "rejected", "the file is not a PDF"))
                 continue
         file_hash = sha256_of(path)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_xact_lock(%s)", [int(file_hash[:15], 16)])
         existing = ResumeRepository.by_hash(file_hash)
-        if existing is not None and existing.status in (
-            ResumeStatus.PARSED,
-            ResumeStatus.SUPERSEDED,
+        active_work = (
+            existing is not None
+            and WorkItem.objects.filter(
+                key=f"resume:{existing.pk}",
+                status__in=[WorkItem.Status.PENDING, WorkItem.Status.RUNNING],
+            ).exists()
+        )
+        if existing is not None and (
+            active_work
+            or existing.status
+            in (
+                ResumeStatus.PARSED,
+                ResumeStatus.SUPERSEDED,
+                ResumeStatus.PENDING,
+            )
         ):
             path.unlink(missing_ok=True)
             candidate = existing.candidate
@@ -139,15 +156,21 @@ def store_uploads(files: list[Any], user: Any) -> IntakeResult:
         document.uploaded_by = user if getattr(user, "pk", None) else None
         document.status = ResumeStatus.PENDING
         document.status_reason = ""
-        document.save()
+        with transaction.atomic():
+            # S3 writes precede the commit. A DB rollback may leave an orphan;
+            # retention maintenance removes orphans, never acknowledged inputs.
+            with path.open("rb") as source:
+                document.input_file.save(f"{document.pk}/{name}", File(source), save=False)
+            document.source_path = document.input_file.name
+            document.save()
+            if getattr(settings, "RESUME_INGEST_ASYNC", True):
+                enqueue(
+                    "resume", f"resume:{document.pk}", {"id": str(document.pk)}, reschedule=True
+                )
         result.accepted.append(IntakeFile(path.name, "accepted", document_id=str(document.pk)))
 
-    if not folder.exists() or not any(folder.iterdir()):
-        folder.rmdir()
     if result.accepted:
-        if getattr(settings, "RESUME_INGEST_ASYNC", True):
-            ingestion_queue().enqueue(batch_id)
-        else:
+        if not getattr(settings, "RESUME_INGEST_ASYNC", True):
             process_batch(batch_id)
     return result
 
@@ -158,81 +181,33 @@ def process_batch(batch_id: UUID) -> None:
         upload_batch=batch_id, status=ResumeStatus.PENDING
     ).order_by("created_at")
     for document in documents:
-        result = ResumeIngestionService.ingest_file(document.source_path)
+        result = ResumeIngestionService.ingest_document(document)
         logger.info("upload %s: %s -> %s", batch_id, document.file_name, result.outcome)
 
 
 class IngestionQueue:
-    """One worker thread per process; batches are processed one after another so
-    the per-document model and embedding calls never compete for the provider's
-    rate limit."""
+    """Database-backed batch status, shared by every API and worker replica."""
 
-    def __init__(self) -> None:
-        self._queue: queue.Queue[UUID] = queue.Queue()
-        self._lock = threading.Lock()
-        self._thread: threading.Thread | None = None
-        self._active: UUID | None = None
-        self._queued: set[UUID] = set()
+    def _jobs(self, batch_id):
+        ids = ResumeDocument.objects.filter(upload_batch=batch_id).values_list("pk", flat=True)
+        return WorkItem.objects.filter(kind="resume", payload__id__in=[str(pk) for pk in ids])
 
-    def enqueue(self, batch_id: UUID) -> None:
-        with self._lock:
-            self._queued.add(batch_id)
-            self._queue.put(batch_id)
-            if self._thread is None or not self._thread.is_alive():
-                self._thread = threading.Thread(
-                    target=self._run, name="resume-ingestion-worker", daemon=True
-                )
-                self._thread.start()
+    def enqueue(self, batch_id):
+        for pk in ResumeDocument.objects.filter(upload_batch=batch_id).values_list("pk", flat=True):
+            enqueue("resume", f"resume:{pk}", {"id": str(pk)}, reschedule=True)
 
-    def is_active(self, batch_id: UUID) -> bool:
-        with self._lock:
-            return self._active == batch_id
+    def is_active(self, batch_id):
+        return self._jobs(batch_id).filter(status=WorkItem.Status.RUNNING).exists()
 
-    def is_queued(self, batch_id: UUID) -> bool:
-        with self._lock:
-            return batch_id in self._queued
+    def is_queued(self, batch_id):
+        return self._jobs(batch_id).filter(status=WorkItem.Status.PENDING).exists()
 
-    def position(self, batch_id: UUID) -> int:
-        """0 when running, otherwise how many batches are ahead in the queue."""
-        with self._lock:
-            if self._active == batch_id:
-                return 0
-            return len(self._queued) if batch_id in self._queued else 0
-
-    def _run(self) -> None:
-        while True:
-            try:
-                batch_id = self._queue.get(timeout=30)
-            except queue.Empty:
-                with self._lock:
-                    if self._queue.empty():
-                        self._thread = None
-                        return
-                continue
-            with self._lock:
-                self._queued.discard(batch_id)
-                self._active = batch_id
-            try:
-                process_batch(batch_id)
-            except Exception:  # noqa: BLE001 - the worker must survive a broken batch
-                logger.exception("resume upload batch %s crashed", batch_id)
-            finally:
-                with self._lock:
-                    self._active = None
-                connections.close_all()
-                self._queue.task_done()
+    def position(self, batch_id):
+        return 0  # Concurrent workers do not provide a stable FIFO position.
 
 
-_QUEUE: IngestionQueue | None = None
-_QUEUE_LOCK = threading.Lock()
-
-
-def ingestion_queue() -> IngestionQueue:
-    global _QUEUE
-    with _QUEUE_LOCK:
-        if _QUEUE is None:
-            _QUEUE = IngestionQueue()
-        return _QUEUE
+def ingestion_queue():
+    return IngestionQueue()
 
 
 # ------------------------------------------------------------------ status
@@ -264,8 +239,7 @@ def batch_status(batch_id: UUID) -> dict[str, Any] | None:
         "done": len(documents) - pending,
         "counts": counts,
         "running": running,
-        # Pending files with no worker on them (e.g. the server restarted):
-        # `manage.py ingest_resumes` finishes them because uploads live in the library folder.
+        # No active/recoverable work record: operations must inspect this document.
         "stalled": pending > 0 and not running,
         "queue_position": q.position(batch_id),
         "documents": documents,

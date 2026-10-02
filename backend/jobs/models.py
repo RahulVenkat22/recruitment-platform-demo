@@ -24,6 +24,7 @@ class JobDescriptionUpload(UUIDTimestampedModel):
         CANCELLED = "cancelled", "Cancelled"
 
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    input_file = models.FileField(upload_to="inputs/jobs/%Y/%m/", max_length=500, blank=True)
     file_name = models.CharField(max_length=255)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.UPLOADING)
     fields = models.JSONField(default=dict, blank=True)
