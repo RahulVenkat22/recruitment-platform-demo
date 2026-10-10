@@ -26,7 +26,6 @@ describe('SettingsPage', () => {
       sidebarCollapsed: false,
       pageSize: 20,
       motionEffects: true,
-      breadcrumbs: [],
     })
   })
 

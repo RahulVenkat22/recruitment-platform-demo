@@ -6,21 +6,12 @@ import {
   SettingsIcon,
   SparklesIcon,
 } from 'lucide-react'
-import { Fragment, useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router'
-import { deriveBreadcrumbs } from '@/app/layout/breadcrumbs'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { Avatar } from '@/components/shared/Avatar'
 import { MobileNav } from '@/app/layout/Sidebar'
 import { CommandPalette } from '@/components/shared/CommandPalette'
 import { NotificationBell } from '@/components/shared/NotificationBell'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -35,38 +26,6 @@ import { useAuthStore } from '@/lib/auth-store'
 import { isAssistantShortcut, isPaletteShortcut } from '@/lib/keyboard'
 import { useUiStore } from '@/lib/ui-store'
 import { cn } from '@/lib/utils'
-
-/** Crumbs published by the page's PageHeader win; the route supplies a fallback. */
-function TopBarBreadcrumbs() {
-  const published = useUiStore((state) => state.breadcrumbs)
-  const { pathname } = useLocation()
-  const crumbs = published.length > 0 ? published : deriveBreadcrumbs(pathname)
-  if (crumbs.length === 0) return <div aria-hidden="true" />
-
-  return (
-    <Breadcrumb>
-      <BreadcrumbList className="text-[13px]">
-        {crumbs.map((crumb, index) => {
-          const isLast = index === crumbs.length - 1
-          return (
-            <Fragment key={`${crumb.label}-${index}`}>
-              <BreadcrumbItem>
-                {isLast || !crumb.to ? (
-                  <BreadcrumbPage className="font-medium">{crumb.label}</BreadcrumbPage>
-                ) : (
-                  <BreadcrumbLink asChild>
-                    <Link to={crumb.to}>{crumb.label}</Link>
-                  </BreadcrumbLink>
-                )}
-              </BreadcrumbItem>
-              {!isLast && <BreadcrumbSeparator />}
-            </Fragment>
-          )
-        })}
-      </BreadcrumbList>
-    </Breadcrumb>
-  )
-}
 
 /** The signed-in person's avatar opens the account menu: who they are, settings and sign out. */
 function AccountMenu() {
@@ -135,17 +94,9 @@ export function TopBar() {
   }, [toggleAssistant])
 
   return (
-    <header className="relative z-30 flex h-[72px] shrink-0 items-center justify-between gap-4 border-b border-line bg-surface/90 px-6 backdrop-blur-xl max-md:gap-2 max-md:px-3">
-      <div className="flex min-w-0 items-center gap-2">
-        <MobileNav />
-        <div className="min-w-0 truncate">
-          <div className="mb-0.5 text-[10px] font-medium tracking-[0.1em] text-ink-subtle uppercase max-md:hidden">
-            TalentOS workspace
-          </div>
-          <TopBarBreadcrumbs />
-        </div>
-      </div>
-      <div className="flex items-center gap-3">
+    <header className="relative z-30 flex h-14 shrink-0 items-center gap-4 border-b border-line bg-surface/90 px-6 backdrop-blur-xl max-md:gap-2 max-md:px-3">
+      <MobileNav />
+      <div className="ml-auto flex items-center gap-3">
         <span className="mr-2 hidden items-center gap-2 text-caption text-ink-subtle xl:inline-flex">
           <CalendarDaysIcon aria-hidden="true" className="size-3.5" />
           {new Intl.DateTimeFormat('en-GB', {

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 're
 import { Link, useLocation } from 'react-router'
 import { pageIdentity } from '@/app/layout/page-identity'
 import { useBackNavigation } from '@/lib/hooks/useBackNavigation'
-import { useUiStore, type Crumb } from '@/lib/ui-store'
+import type { Crumb } from '@/lib/ui-store'
 import { cn } from '@/lib/utils'
 
 export interface PageHeaderProps {
@@ -14,8 +14,8 @@ export interface PageHeaderProps {
   /** Third line for provenance ("Created by Rahul on 11 Sep 2026 • v3") and similar. */
   meta?: ReactNode
   /**
-   * Published to the TopBar for as long as this header is mounted. The last crumb
-   * with a `to` also renders as a back link above the title.
+   * The last parent crumb with a `to` supplies the back link above the title.
+   * The final label also supplies the document title when `title` is not text.
    */
   breadcrumbs?: Crumb[]
   /** Right-hand slot for primary and secondary actions. */
@@ -75,7 +75,6 @@ export function PageHeader({
   tabs,
   className,
 }: PageHeaderProps) {
-  const setBreadcrumbs = useUiStore((state) => state.setBreadcrumbs)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [stuck, setStuck] = useState(false)
   const titleText = typeof title === 'string' ? title : undefined
@@ -86,13 +85,6 @@ export function PageHeader({
   useEffect(() => {
     document.title = `${titleText ?? breadcrumbs?.at(-1)?.label ?? 'Workspace'} · TalentOS`
   }, [titleText, breadcrumbs])
-
-  useEffect(() => {
-    setBreadcrumbs(breadcrumbs ?? [{ label: titleText ?? '' }])
-    return () => setBreadcrumbs([])
-    // A new array literal per render would re-run this effect on every render; key on content instead.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setBreadcrumbs, titleText, JSON.stringify(breadcrumbs)])
 
   useEffect(() => {
     const sentinel = sentinelRef.current
@@ -109,7 +101,7 @@ export function PageHeader({
         data-slot="page-header"
         data-stuck={stuck || undefined}
         className={cn(
-          'sticky top-0 z-10 -mx-6 bg-bg/90 px-6 pt-7 pb-6 backdrop-blur-xl max-md:static max-md:-mx-4 max-md:px-4 max-md:pt-5',
+          'sticky top-0 z-10 -mx-6 bg-bg/90 px-6 pt-5 pb-4 backdrop-blur-xl max-md:static max-md:-mx-4 max-md:px-4 max-md:pt-4',
           'border-b border-transparent transition-colors duration-150 ease-brand',
           stuck && 'border-line',
           className,

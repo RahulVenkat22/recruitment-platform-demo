@@ -9,7 +9,7 @@
   min-height: 100dvh;
   flex-direction: column;
   overflow: clip;
-  padding: 28px clamp(24px, 4.5vw, 80px) 22px;
+  padding: 20px clamp(24px, 4.5vw, 80px) 16px;
   color: var(--login-text);
   background-color: var(--login-bg);
   transition:
@@ -125,7 +125,8 @@
   align-items: center;
   gap: clamp(28px, 5vw, 84px);
   align-self: center;
-  padding-block: clamp(12px, 3dvh, 32px);
+  /* Keep the full-size carousel, header and footer within one viewport. */
+  padding-block: clamp(12px, 1.5dvh, 20px);
 }
 
 .talent-login__form-panel {
@@ -749,7 +750,7 @@
 @media (max-height: 600px) {
   .talent-login,
   .talent-login__layout {
-    padding-block: 12px;
+    padding-block: 8px;
   }
   .talent-login__content {
     padding-block: 16px;
@@ -763,6 +764,14 @@
   }
   .talent-login__access-note {
     display: none;
+  }
+  .talent-login__footer {
+    padding-top: 8px;
+  }
+  .talent-carousel__steps button {
+    min-height: 44px;
+    flex-direction: row;
+    padding-block: 8px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

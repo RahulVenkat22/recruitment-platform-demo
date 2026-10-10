@@ -13,8 +13,8 @@
 .home-page .home-page-header {
   position: relative;
   z-index: 1;
-  padding-top: 30px;
-  padding-bottom: 30px;
+  padding-top: 20px;
+  padding-bottom: 16px;
   border-bottom-color: transparent;
   background: transparent;
   backdrop-filter: none;
@@ -742,8 +742,8 @@
 }
 @media (max-width: 767px) {
   .home-page .home-page-header {
-    padding-top: 22px;
-    padding-bottom: 24px;
+    padding-top: 16px;
+    padding-bottom: 16px;
   }
   .home-page-header h1 {
     letter-spacing: -0.7px;

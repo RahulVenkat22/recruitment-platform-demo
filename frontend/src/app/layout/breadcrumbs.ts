@@ -24,10 +24,7 @@ const DETAIL_LABELS: Record<string, string> = {
   support: 'Ticket',
 }
 
-/**
- * Breadcrumbs from the URL alone, used by the TopBar until a page publishes
- * richer ones (a JD title, a candidate name) through `PageHeader`.
- */
+/** Default navigation labels and parent links derived from a URL. */
 export function deriveBreadcrumbs(pathname: string): Crumb[] {
   const segments = pathname.split('?')[0].split('/').filter(Boolean)
   return segments.map((segment, index) => {

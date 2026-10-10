@@ -10,7 +10,7 @@ import { renderApp } from '@/test/render'
 describe('app shell routing', () => {
   beforeEach(() => {
     localStorage.clear()
-    useUiStore.setState({ sidebarCollapsed: false, breadcrumbs: [] })
+    useUiStore.setState({ sidebarCollapsed: false })
     useAuthStore.setState({ user: makeUser(), accessToken: 'tok', status: 'authed' })
     vi.spyOn(api, 'get').mockRejectedValue(new Error('offline in tests'))
   })
@@ -123,14 +123,21 @@ describe('app shell routing', () => {
     expect(within(menu).getByRole('menuitem', { name: 'Profile and settings' })).toBeInTheDocument()
   })
 
-  it('derives breadcrumbs from the route before a page publishes its own', async () => {
+  it('keeps nested page navigation beside the title without repeating it in the toolbar', async () => {
     renderApp('/jobs/abc/edit')
     await screen.findByRole('heading', { level: 1, name: 'Edit Job Description' })
-    const nav = screen.getByRole('navigation', { name: 'breadcrumb' })
-    expect(within(nav).getByRole('link', { name: 'Job Descriptions' })).toHaveAttribute(
+    const main = screen.getByRole('main')
+    expect(within(main).getByRole('link', { name: 'Back to Job Descriptions' })).toHaveAttribute(
       'href',
       '/jobs',
     )
+    const [toolbar] = screen.getAllByRole('banner')
+    expect(toolbar).not.toHaveTextContent('TalentOS workspace')
+    expect(toolbar).not.toHaveTextContent('Edit Job Description')
+    expect(within(toolbar).getByRole('button', { name: 'Search (Ctrl or ⌘ K)' })).toBeVisible()
+    expect(
+      within(toolbar).getByRole('button', { name: 'Ask TalentOS AI (Ctrl or ⌘ /)' }),
+    ).toBeVisible()
   })
 
   it('signs out through the API, clears the session and lands on the login page', async () => {
