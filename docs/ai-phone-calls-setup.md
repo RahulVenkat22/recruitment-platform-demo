@@ -1,5 +1,10 @@
 # AI phone calls: what you need to provide
 
+For a client demo without a telephone provider, use the
+[Vapi browser voice demo](vapi-browser-demo.md). It supports a real microphone
+conversation without calling a candidate or booking a real interview. The setup
+below is for telephone calls.
+
 TalentOS can phone a candidate with an AI recruiter that either fixes an
 interview time (it offers your slots, the candidate picks one, the interview is
 booked) or delivers a message such as an interview time, and answers questions
@@ -28,7 +33,7 @@ at <https://vapi.ai>.
 
 - **Free Vapi US number**: inbound only and US only, so it cannot place the
   outbound calls this feature makes. Skip it.
-- **A Twilio number imported into Vapi**: the only route for outbound calls to
+- **A Twilio number imported into Vapi**: one option for outbound calls to
   India. Create a Twilio account, add credit and upgrade it (a trial account
   can only dial numbers you have verified), buy a US voice number (Twilio does
   not sell Indian numbers to most accounts), enable India under Voice Geo

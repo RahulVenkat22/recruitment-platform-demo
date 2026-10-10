@@ -1,6 +1,11 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "TalentOS production AWS foundation. Bootstrap at zero tasks, configure secrets and DB roles, then release.",
+  "Metadata": {
+    "AWSToolsMetrics": {
+      "AWSAgentToolkit": "aws-cloudformation@3"
+    }
+  },
   "Parameters": {
     "DomainName": {
       "Type": "String",
@@ -1214,6 +1219,16 @@
     },
     "SecurityHeaders": {
       "Type": "AWS::CloudFront::ResponseHeadersPolicy",
+      "Metadata": {
+        "com.aws.cloudformation.Context": {
+          "why": "Keep browser protections while permitting Vapi demo audio through Daily, including fallback domains and noise-cancellation workers.",
+          "must": [
+            "Vapi Web SDK must use Daily avoidEval=true; do not add unsafe-eval or unrestricted connection schemes.",
+            "Retain Daily fallback HTTPS/WebSocket domains and blob workers so voice calls can connect and process microphone audio."
+          ],
+          "mutable": "change-with-constraints"
+        }
+      },
       "Properties": {
         "ResponseHeadersPolicyConfig": {
           "Name": {
@@ -1238,7 +1253,7 @@
               "Override": true
             },
             "ContentSecurityPolicy": {
-              "ContentSecurityPolicy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+              "ContentSecurityPolicy": "default-src 'self'; script-src 'self' blob: https://*.daily.co https://*.dailywebrtc.com https://*.dailywebrtc.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://api.vapi.ai https://*.daily.co https://*.dailywebrtc.com https://*.dailywebrtc.net https://prod-ks.pluot.blue wss://*.daily.co wss://*.dailywebrtc.com wss://*.dailywebrtc.net; worker-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
               "Override": true
             }
           }

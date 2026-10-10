@@ -24,6 +24,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/reset-password/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description DRF's bearer views are exempt from Django CSRF; cookie auth must opt in. */
+        post: operations["auth_reset_password_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/csrf/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["auth_csrf_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login/": {
         parameters: {
             query?: never;
@@ -882,6 +915,23 @@ export interface paths {
         head?: never;
         /** Change the owner, star or notes */
         patch: operations["applications_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/browser-call/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a browser voice demo without contacting or changing the candidate */
+        post: operations["applications_browser_call"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/applications/{id}/calls/": {
@@ -2326,6 +2376,31 @@ export interface components {
         };
         /** @enum {unknown} */
         BlankEnum: "";
+        /** @description Same conversation inputs, with no option to place a telephone call. */
+        BrowserCallCreateRequest: {
+            purpose: components["schemas"]["CallPurposeEnum"];
+            slots?: string[];
+            /** @default  */
+            interview_round: components["schemas"]["InterviewRoundEnum"] | components["schemas"]["BlankEnum"];
+            /** Format: uuid */
+            interviewer?: string | null;
+            /** @default 60 */
+            interview_duration_minutes: number;
+            /** @default video */
+            interview_mode: components["schemas"]["InterviewModeEnum"];
+            /** @default  */
+            information: string;
+            /** @default  */
+            instructions: string;
+            /** @default 10 */
+            max_minutes: number;
+        };
+        BrowserCallSession: {
+            id: string;
+            /** Format: uri */
+            web_call_url: string;
+            max_duration_seconds: number;
+        };
         /** @description Either a saved template or a raw subject and body still holding placeholders. */
         BulkEmailRequest: {
             /** Format: uuid */
@@ -2343,7 +2418,7 @@ export interface components {
             };
         };
         BulkPhoneCallRequest: {
-            purpose: components["schemas"]["Purpose33eEnum"];
+            purpose: components["schemas"]["CallPurposeEnum"];
             slots?: string[];
             /** @default  */
             interview_round: components["schemas"]["InterviewRoundEnum"] | components["schemas"]["BlankEnum"];
@@ -2360,7 +2435,7 @@ export interface components {
             /** @default 10 */
             max_minutes: number;
             /** @default simulated */
-            mode: components["schemas"]["ModeA9fEnum"];
+            mode: components["schemas"]["CallModeEnum"];
             ids: string[];
         };
         BulkPhoneCallResult: {
@@ -2382,9 +2457,31 @@ export interface components {
             };
             activities: components["schemas"]["Activity"][];
         };
+        /**
+         * @description * `phone` - phone
+         *     * `simulated` - simulated
+         * @enum {string}
+         */
+        CallModeEnum: "phone" | "simulated";
+        /**
+         * @description * `schedule_interview` - Schedule interview
+         *     * `information` - Share information
+         * @enum {string}
+         */
+        CallPurposeEnum: "schedule_interview" | "information";
         CallReplyRequest: {
             answer: string;
         };
+        /**
+         * @description * `queued` - Queued
+         *     * `ringing` - Ringing
+         *     * `in_progress` - In progress
+         *     * `completed` - Completed
+         *     * `no_answer` - No answer
+         *     * `failed` - Failed
+         * @enum {string}
+         */
+        CallStatusEnum: "queued" | "ringing" | "in_progress" | "completed" | "no_answer" | "failed";
         /** @description One JD the candidate is attached to, with the headline numbers. */
         CandidateApplication: {
             /** Format: uuid */
@@ -3528,12 +3625,6 @@ export interface components {
             offers_pending: number;
             onboarded: number;
         };
-        /**
-         * @description * `phone` - phone
-         *     * `simulated` - simulated
-         * @enum {string}
-         */
-        ModeA9fEnum: "phone" | "simulated";
         Move: {
             status: string;
             label: string;
@@ -4087,10 +4178,10 @@ export interface components {
             /** Format: uuid */
             readonly id: string;
             readonly application: components["schemas"]["ApplicationRef"];
-            readonly purpose: components["schemas"]["Purpose33eEnum"];
+            readonly purpose: components["schemas"]["CallPurposeEnum"];
             readonly purpose_label: string;
             readonly mode: string;
-            readonly status: components["schemas"]["PhoneCallStatusEnum"];
+            readonly status: components["schemas"]["CallStatusEnum"];
             readonly status_label: string;
             readonly to_number: string;
             readonly slots: unknown;
@@ -4119,7 +4210,7 @@ export interface components {
             readonly created_at: string;
         };
         PhoneCallCreateRequest: {
-            purpose: components["schemas"]["Purpose33eEnum"];
+            purpose: components["schemas"]["CallPurposeEnum"];
             slots?: string[];
             /** @default  */
             interview_round: components["schemas"]["InterviewRoundEnum"] | components["schemas"]["BlankEnum"];
@@ -4136,18 +4227,8 @@ export interface components {
             /** @default 10 */
             max_minutes: number;
             /** @default simulated */
-            mode: components["schemas"]["ModeA9fEnum"];
+            mode: components["schemas"]["CallModeEnum"];
         };
-        /**
-         * @description * `queued` - Queued
-         *     * `ringing` - Ringing
-         *     * `in_progress` - In progress
-         *     * `completed` - Completed
-         *     * `no_answer` - No answer
-         *     * `failed` - Failed
-         * @enum {string}
-         */
-        PhoneCallStatusEnum: "queued" | "ringing" | "in_progress" | "completed" | "no_answer" | "failed";
         /** @description The five numbers in the list's Pipeline column (plan.md 9.4). */
         PipelineCounts: {
             candidates: number;
@@ -4163,12 +4244,6 @@ export interface components {
             profile_count: number;
             note: string;
         };
-        /**
-         * @description * `schedule_interview` - Schedule interview
-         *     * `information` - Share information
-         * @enum {string}
-         */
-        Purpose33eEnum: "schedule_interview" | "information";
         ReadAll: {
             marked: number;
         };
@@ -4189,13 +4264,17 @@ export interface components {
             /** @description For clients without cookies; the aimious_refresh cookie wins when present. */
             refresh?: string;
         };
+        ResetPasswordRequest: {
+            token: string;
+            new_password: string;
+        };
         /** @description What a candidate profile shows about the PDF behind it. */
         ResumeDocumentSummary: {
             /** Format: uuid */
             readonly id: string;
             readonly file_name: string;
             readonly page_count: number;
-            readonly status: components["schemas"]["StatusDeeEnum"];
+            readonly status: components["schemas"]["ResumeStatusEnum"];
             readonly status_label: string;
             readonly storage_status: components["schemas"]["StorageStatusEnum"];
             readonly storage_status_label: string;
@@ -4214,6 +4293,15 @@ export interface components {
             /** Format: uuid */
             document_id: string;
         };
+        /**
+         * @description * `pending` - Pending
+         *     * `parsed` - Parsed
+         *     * `needs_review` - Needs review
+         *     * `failed` - Failed
+         *     * `superseded` - Superseded
+         * @enum {string}
+         */
+        ResumeStatusEnum: "pending" | "parsed" | "needs_review" | "failed" | "superseded";
         /** @description ``POST /resumes/uploads/`` multipart body: one or many ``files`` parts. */
         ResumeUploadRequestRequest: {
             files: string[];
@@ -4360,15 +4448,6 @@ export interface components {
             /** @default  */
             note: string;
         };
-        /**
-         * @description * `pending` - Pending
-         *     * `parsed` - Parsed
-         *     * `needs_review` - Needs review
-         *     * `failed` - Failed
-         *     * `superseded` - Superseded
-         * @enum {string}
-         */
-        StatusDeeEnum: "pending" | "parsed" | "needs_review" | "failed" | "superseded";
         StatusGroups: {
             active: string[];
             tray: string[];
@@ -4675,7 +4754,7 @@ export interface components {
             readonly file_name: string;
             readonly file_size: number;
             readonly page_count: number;
-            readonly status: components["schemas"]["StatusDeeEnum"];
+            readonly status: components["schemas"]["ResumeStatusEnum"];
             readonly status_label: string;
             readonly status_reason: string;
             readonly warnings: string[];
@@ -4761,6 +4840,7 @@ export interface components {
         VoiceConfig: {
             provider: string;
             configured: boolean;
+            browser_configured: boolean;
             safe_number: string;
             default_region: string;
         };
@@ -4803,6 +4883,52 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    auth_reset_password_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ResetPasswordRequest"];
+                "multipart/form-data": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Detail"];
+                };
+            };
+        };
+    };
+    auth_csrf_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
         };
     };
@@ -6734,6 +6860,69 @@ export interface operations {
             };
             /** @description plan.md 6.10 error envelope */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    applications_browser_call: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this application. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrowserCallCreateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["BrowserCallCreateRequest"];
+                "multipart/form-data": components["schemas"]["BrowserCallCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrowserCallSession"];
+                };
+            };
+            /** @description plan.md 6.10 error envelope */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description plan.md 6.10 error envelope */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

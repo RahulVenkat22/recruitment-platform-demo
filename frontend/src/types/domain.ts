@@ -329,6 +329,8 @@ export type BulkPhoneCallRequest = Schemas['BulkPhoneCallRequest']
 export type BulkPhoneCallResult = Schemas['BulkPhoneCallResult']
 export type CallReplyRequest = Schemas['CallReplyRequest']
 export type VoiceConfig = Schemas['VoiceConfig']
+export type BrowserCallCreateRequest = Schemas['BrowserCallCreateRequest']
+export type BrowserCallSession = Schemas['BrowserCallSession']
 
 export type Offer = Schemas['Offer']
 export type OfferCreateRequest = Schemas['OfferCreateRequest']

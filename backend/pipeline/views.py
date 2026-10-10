@@ -20,6 +20,7 @@ from rest_framework.permissions import SAFE_METHODS, AllowAny, IsAuthenticated
 from rest_framework.renderers import JSONRenderer
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
 from common.enums import ApplicationStatus, CommunicationChannel
@@ -58,6 +59,8 @@ from pipeline.serializers import (
     ApplicationDetailSerializer,
     ApplicationRowSerializer,
     ApplicationUpdateSerializer,
+    BrowserCallCreateSerializer,
+    BrowserCallSessionSerializer,
     BulkEmailResultSerializer,
     BulkEmailSerializer,
     BulkPhoneCallResultSerializer,
@@ -119,12 +122,18 @@ from pipeline.services import (
     render_text,
     set_default_template,
 )
+from pipeline.services.browser_calls import browser_call_configured, start_browser_call
 from pipeline.services.queries import application_queryset
 from pipeline.services.voice import VapiProvider, voice_config
 from sourcing.registry import available_providers
 from sourcing.services import TERMINAL_STATUSES, SearchService
 
 ERROR_ENVELOPE = OpenApiResponse(description="plan.md 6.10 error envelope")
+
+
+class BrowserCallRateThrottle(UserRateThrottle):
+    scope = "browser_call"
+    rate = "6/min"
 
 
 class SourcesView(APIView):
@@ -630,6 +639,39 @@ class ApplicationViewSet(
         return Response(
             PhoneCallSerializer(call, context=self.get_serializer_context()).data,
             status=status.HTTP_201_CREATED,
+        )
+
+    @extend_schema(
+        operation_id="applications_browser_call",
+        summary="Start a browser voice demo without contacting or changing the candidate",
+        request=BrowserCallCreateSerializer,
+        responses={
+            201: BrowserCallSessionSerializer,
+            400: ERROR_ENVELOPE,
+            403: ERROR_ENVELOPE,
+            429: ERROR_ENVELOPE,
+            502: ERROR_ENVELOPE,
+            503: ERROR_ENVELOPE,
+        },
+        tags=["calls"],
+    )
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="browser-call",
+        throttle_classes=[BrowserCallRateThrottle],
+    )
+    def browser_call(self, request: Request, pk: str | None = None) -> Response:
+        application = self.get_object()
+        if not can_log_contact(request.user, application.job_description):
+            raise PermissionDenied("You cannot run voice demos for this job description.")
+        serializer = BrowserCallCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        session = start_browser_call(application, **serializer.validated_data)
+        return Response(
+            BrowserCallSessionSerializer(session).data,
+            status=status.HTTP_201_CREATED,
+            headers={"Cache-Control": "no-store"},
         )
 
     @extend_schema(
@@ -1310,6 +1352,7 @@ class PhoneCallViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
         payload = {
             "provider": config.provider,
             "configured": config.configured,
+            "browser_configured": browser_call_configured(),
             "safe_number": config.safe_number,
             "default_region": config.default_region,
         }

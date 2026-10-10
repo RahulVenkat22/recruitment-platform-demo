@@ -1,6 +1,7 @@
 import {
   Loader2Icon,
   MessageSquareTextIcon,
+  MicIcon,
   PhoneOutgoingIcon,
   ShieldAlertIcon,
   TriangleAlertIcon,
@@ -31,6 +32,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import type { PipelineTarget } from '@/features/applications/pipeline-target'
 import { useBulkCall, useStartCall, useVoiceConfig } from '@/features/calls/api'
+import { BrowserCallDialog } from '@/features/calls/BrowserCallDialog'
 import { DURATION_OPTIONS, MODE_OPTIONS } from '@/features/interviews/interview-utils'
 import { useJob } from '@/features/jobs/api'
 import { useAuthStore } from '@/lib/auth-store'
@@ -38,7 +40,13 @@ import { fromDateTimeLocal, nextWorkingSlot, toDateTimeLocal } from '@/lib/datet
 import { useEnumOptions } from '@/lib/enums'
 import { describeError } from '@/lib/errors'
 import { useUsersDirectory } from '@/lib/users'
-import type { PhoneCall, PhoneCallCreateRequest, UserRow, VoiceConfig } from '@/types/domain'
+import type {
+  BrowserCallCreateRequest,
+  PhoneCall,
+  PhoneCallCreateRequest,
+  UserRow,
+  VoiceConfig,
+} from '@/types/domain'
 
 type Purpose = 'schedule_interview' | 'information'
 
@@ -63,8 +71,9 @@ function VoiceNotice({ config }: { config: VoiceConfig | undefined }) {
       <Alert>
         <TriangleAlertIcon aria-hidden="true" />
         <AlertDescription>
-          No voice provider is connected, so real phone calls are off. A simulated call runs the
-          same AI conversation as a chat here, so you can test the script and the outcome.
+          {config.browser_configured
+            ? 'Browser voice is ready. Try the AI conversation using your microphone. Telephone calling is not connected yet.'
+            : 'Voice calling is not connected yet. Ask your administrator to enable the browser voice demo, or run a text simulation.'}
         </AlertDescription>
       </Alert>
     )
@@ -106,66 +115,85 @@ export function PlanCallDialog({
   const start = useStartCall()
   const bulk = useBulkCall()
   const busy = start.isPending || bulk.isPending
+  const [browserTarget, setBrowserTarget] = useState<{
+    applicationId: string
+    candidateName: string
+    body: BrowserCallCreateRequest
+  } | null>(null)
   return (
-    <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
-        {targets && targets.length > 0 && (
-          <PlanForm
-            key={targets.map((target) => target.id).join(',')}
-            targets={targets}
-            busy={busy}
-            onCancel={() => onOpenChange(false)}
-            onSimulate={async (body) => {
-              try {
-                const call = await start.mutateAsync({
-                  id: targets[0].id,
-                  ...body,
-                  mode: 'simulated',
+    <>
+      <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
+          {targets && targets.length > 0 && (
+            <PlanForm
+              key={targets.map((target) => target.id).join(',')}
+              targets={targets}
+              busy={busy}
+              onCancel={() => onOpenChange(false)}
+              onBrowser={(body) => {
+                setBrowserTarget({
+                  applicationId: targets[0].id,
+                  candidateName: targets[0].candidate.full_name,
+                  body,
                 })
                 onOpenChange(false)
-                onSimulated?.(call)
-              } catch (error) {
-                toast.error(describeError(error))
-              }
-            }}
-            onPhone={async (body) => {
-              try {
-                if (targets.length === 1) {
+              }}
+              onSimulate={async (body) => {
+                try {
                   const call = await start.mutateAsync({
                     id: targets[0].id,
                     ...body,
-                    mode: 'phone',
+                    mode: 'simulated',
                   })
-                  toast.success(
-                    call.status === 'failed'
-                      ? `Call to ${targets[0].candidate.full_name} could not be placed`
-                      : `Calling ${targets[0].candidate.full_name}…`,
-                  )
-                } else {
-                  const result = await bulk.mutateAsync({
-                    ids: targets.map((target) => target.id),
-                    ...body,
-                    mode: 'phone',
-                  })
-                  const skipped = Object.keys(result.skipped).length
-                  toast.success(
-                    `Placed ${result.placed.length} ${result.placed.length === 1 ? 'call' : 'calls'}` +
-                      (skipped ? `, ${skipped} skipped` : ''),
-                    skipped
-                      ? { description: Object.values(result.skipped).slice(0, 3).join(' · ') }
-                      : undefined,
-                  )
+                  onOpenChange(false)
+                  onSimulated?.(call)
+                } catch (error) {
+                  toast.error(describeError(error))
                 }
-                onDone?.()
-                onOpenChange(false)
-              } catch (error) {
-                toast.error(describeError(error))
-              }
-            }}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
+              }}
+              onPhone={async (body) => {
+                try {
+                  if (targets.length === 1) {
+                    const call = await start.mutateAsync({
+                      id: targets[0].id,
+                      ...body,
+                      mode: 'phone',
+                    })
+                    toast.success(
+                      call.status === 'failed'
+                        ? `Call to ${targets[0].candidate.full_name} could not be placed`
+                        : `Calling ${targets[0].candidate.full_name}…`,
+                    )
+                  } else {
+                    const result = await bulk.mutateAsync({
+                      ids: targets.map((target) => target.id),
+                      ...body,
+                      mode: 'phone',
+                    })
+                    const skipped = Object.keys(result.skipped).length
+                    toast.success(
+                      `Placed ${result.placed.length} ${result.placed.length === 1 ? 'call' : 'calls'}` +
+                        (skipped ? `, ${skipped} skipped` : ''),
+                      skipped
+                        ? { description: Object.values(result.skipped).slice(0, 3).join(' · ') }
+                        : undefined,
+                    )
+                  }
+                  onDone?.()
+                  onOpenChange(false)
+                } catch (error) {
+                  toast.error(describeError(error))
+                }
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+      <BrowserCallDialog
+        target={browserTarget}
+        onOpenChange={(next) => !next && setBrowserTarget(null)}
+      />
+    </>
   )
 }
 
@@ -176,12 +204,14 @@ function PlanForm({
   busy,
   onCancel,
   onSimulate,
+  onBrowser,
   onPhone,
 }: {
   targets: PipelineTarget[]
   busy: boolean
   onCancel: () => void
   onSimulate: (body: PlanBody) => Promise<void>
+  onBrowser: (body: PlanBody) => void
   onPhone: (body: PlanBody) => Promise<void>
 }) {
   const ids = {
@@ -249,7 +279,7 @@ function PlanForm({
         <DialogDescription>
           {single
             ? 'The AI speaks with the candidate, answers their questions about the company and the role, and logs a summary.'
-            : `${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''} each get the same call, one at a time.`}
+            : `${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''} each get the same call.`}
         </DialogDescription>
       </DialogHeader>
       <div className="grid gap-4">
@@ -388,6 +418,22 @@ function PlanForm({
         <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
+        {single && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy || !valid || !config.data?.browser_configured}
+            title={
+              config.data?.browser_configured
+                ? 'Speak as the candidate using your microphone'
+                : 'Connect Vapi to enable browser voice demos'
+            }
+            onClick={() => onBrowser(body)}
+          >
+            <MicIcon data-icon="inline-start" aria-hidden="true" />
+            Browser voice demo
+          </Button>
+        )}
         {single && (
           <Button
             type="button"

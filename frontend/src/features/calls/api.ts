@@ -3,6 +3,8 @@ import { toQuery, useInvalidatePipeline } from '@/features/applications/api'
 import { api, endpoints } from '@/lib/api'
 import { qk } from '@/lib/query-keys'
 import type {
+  BrowserCallCreateRequest,
+  BrowserCallSession,
   BulkPhoneCallRequest,
   BulkPhoneCallResult,
   Paginated,
@@ -71,6 +73,18 @@ export async function startCall(
 ): Promise<PhoneCall> {
   const { data } = await api.post<PhoneCall>(
     endpoints.applicationAction(applicationId, 'calls'),
+    body,
+  )
+  return data
+}
+
+/** Creates a voice demo session without dialing or changing the candidate's records. */
+export async function startBrowserCall(
+  applicationId: string,
+  body: BrowserCallCreateRequest,
+): Promise<BrowserCallSession> {
+  const { data } = await api.post<BrowserCallSession>(
+    endpoints.applicationAction(applicationId, 'browser-call'),
     body,
   )
   return data

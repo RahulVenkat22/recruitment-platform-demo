@@ -1067,6 +1067,18 @@ class PhoneCallCreateSerializer(serializers.Serializer):
         return attrs
 
 
+class BrowserCallCreateSerializer(PhoneCallCreateSerializer):
+    """Same conversation inputs, with no option to place a telephone call."""
+
+    mode = None
+
+
+class BrowserCallSessionSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    web_call_url = serializers.URLField()
+    max_duration_seconds = serializers.IntegerField()
+
+
 class BulkPhoneCallSerializer(PhoneCallCreateSerializer):
     ids = serializers.ListField(child=serializers.UUIDField(), min_length=1, max_length=25)
 
@@ -1083,5 +1095,6 @@ class CallReplySerializer(serializers.Serializer):
 class VoiceConfigSerializer(serializers.Serializer):
     provider = serializers.CharField(allow_blank=True)
     configured = serializers.BooleanField()
+    browser_configured = serializers.BooleanField()
     safe_number = serializers.CharField(allow_blank=True)
     default_region = serializers.CharField()

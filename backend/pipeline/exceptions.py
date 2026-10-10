@@ -72,6 +72,12 @@ class CallPlacementFailed(APIException):
     default_code = "call_placement_failed"
 
 
+class BrowserCallNotConfigured(APIException):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_detail = "Browser voice demos are not configured. Ask an administrator to enable Vapi."
+    default_code = "browser_call_not_configured"
+
+
 class SearchInProgress(APIException):
     status_code = status.HTTP_409_CONFLICT
     default_detail = "Wait for the search to finish before asking about its results."
